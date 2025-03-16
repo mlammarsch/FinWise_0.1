@@ -1,0 +1,11 @@
+<template>
+  <div
+    class="min-h-screen flex flex-col items-center justify-center bg-gray-100 text-gray-900"
+  >
+    <h1 class="text-4xl font-bold">Tailwind Test</h1>
+    <p class="mt-2 text-lg">Überprüfe, ob Tailwind funktioniert.</p>
+    <button class="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg">
+      Test Button
+    </button>
+  </div>
+</template>

@@ -1,0 +1,75 @@
+# Systemprompt
+## Allgemein
+- Wichtig ist, dass keine bestehenden Funktionen verändert, gelöscht und eliminiert werden, die nicht unmittelbar mit der Anfrage zu tun haben. Übernimm immer die bestehenden Methoden und Funktionen, wie vorhanden und ändere nur den Bereich, der von der Aufgabenstellung betroffen ist.
+- Lösche keine Dateien, wenn nicht explizit angefordert.
+- Wenn eine Datei verschoben oder umbenannt werden soll bei der Aufgabenstellung, so müssen alle darauf referenzierenden Dateien daraufhin angepasst werden. Betrifft hauptsächlich die Imports und Benennungen.
+
+## Code-Regeln bei der Entwicklung:
+- Setze den Scriptblock bei vue Dateien immer oben, in der Mitte das html-Template und falls vorhanden, den Style nach unten.
+- Achte auf eine lesbare Struktur. Das betrifft zusätzliche Umbrüche und passende Einrückungen.
+- Setze Kommentare auf die Hauptfunktionen, -methoden oder im HTML auf die Haupt-Anzeigeelemente jeweils in deutsch. Vermeide zu viel Kommentare in Einzelzeilen oder Änderungskommentare gegenüber der letzten Version und beschränge sie auf die einzelnen Methoden und Anzeigeelemente im Template
+- Bei Komponenten, die Props und Emits besitzen, erzeuge einen Beschreibungskommentar wie das folgende Beispiel hier:
+```
+  /**
+ * Pfad zur Komponente: "relativer Pfad ausgehend vom Projektverzeichnis"
+ * Komponenten-Beschreibung: Kurze Beschreibung der Komponente.
+ *
+ * Komponenten-Props:
+ * - amount: number - Die anzuzeigende Zahl (Betrag)
+ * - showSign?: boolean - Optional: Vorzeichen anzeigen (+ für positive Werte)
+ * - showZero?: boolean - Optional: 0-Werte anzeigen oder nicht
+ * - asInteger?: boolean - Optional: Betrag als Ganzzahl ausgeben
+ *
+ * Emits:
+ * - Keine Emits vorhanden
+ */
+```
+
+## Verwendung von Komponenten
+- Ist eine Datei sehr groß, überlege, ob Teile davon sinnvoll zur Wiederverwendung als UI-Komponente erstellt werden. Mach dafür Vorschläge.
+-
+
+## Nutze schon bestehende Komponenten
+### Liste bestehender Komponenten im Ordner (anzunehmende root: ./src/components/) und deren Props und Emits, Du verwenden kannst.
+/**
+ * Farbliche Anzeige der Währung mit verschiedenen Optionen.
+ * Pfad: src/components/ui/CurrencyDisplay.vue
+ *
+ * Komponenten-Props:
+ * - amount: number - Die anzuzeigende Zahl (Betrag)
+ * - showSign?: boolean - Währungszeichen (€) anzeigen oder nicht (Default: true)
+ * - showZero?: boolean - 0-Werte anzeigen oder nicht (Default: true)
+ * - asInteger?: boolean - Betrag als Ganzzahl ausgeben (Default: false)
+ */
+
+ /**
+ * Pfad zur Komponente: src/components/ui/SearchableSelect.vue
+ *
+ * Suchbare und auswählbare Dropdown-Komponente.
+ *
+ * Komponenten-Props:
+ * - modelValue: string | string[] - Der aktuell ausgewählte Wert oder Werte.
+ * - options: Array<{ id: string, name: string }> - Verfügbare Auswahloptionen.
+ * - label?: string - Optional: Beschriftung des Dropdowns.
+ * - placeholder?: string - Optional: Platzhaltertext, wenn keine Auswahl getroffen wurde.
+ * - multiple?: boolean - Optional: Ermöglicht Mehrfachauswahl.
+ * - allowCreate?: boolean - Optional: Erlaubt das Erstellen neuer Optionen.
+ * - required?: boolean - Optional: Markiert das Feld als erforderlich.
+ * - disabled?: boolean - Optional: Deaktiviert die Auswahl.
+ *
+ * Emits:
+ * - update:modelValue - Wird ausgelöst, wenn eine Auswahl geändert wird.
+ * - create - Wird ausgelöst, wenn eine neue Option erstellt wird.
+ */
+
+
+## Textausgabe nach Dateianpassungen
+Ich möchte, dass Du mir eine detaillierte Auflistung Deiner Änderungen in deutsch aufgibst.
+Format:
+```
+### Vorgenommene Änderungen
+#### Datei (mit relativem Pfad)
+- Änderung 1
+- Änderung 2
+- ...
+```
