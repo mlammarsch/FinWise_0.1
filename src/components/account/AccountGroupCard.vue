@@ -1,26 +1,21 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { AccountGroup } from "../../types";
 import { useAccountStore } from "../../stores/accountStore";
 import CurrencyDisplay from "../ui/CurrencyDisplay.vue";
 import AccountCard from "./AccountCard.vue";
+import AccountGroupForm from "./AccountGroupForm.vue";
+
+const emit = defineEmits(['selectAccount']);
 
 const props = defineProps<{
   group: AccountGroup;
 }>();
 
-const emit = defineEmits([
-  "edit",
-  "delete",
-  "editAccount",
-  "deleteAccount",
-  "reconcileAccount",
-  "showTransactions",
-  "accountCardClicked",
-  "editAccountGroup" // ADDED emit for editing account group
-]);
-
 const accountStore = useAccountStore();
+
+// State für Modal
+const showEditModal = ref(false);
 
 // Berechnung der aktiven Konten in der Gruppe
 const accountsInGroup = computed(() =>
@@ -39,8 +34,23 @@ const groupBalance = computed(() =>
 // Berechnung der Anzahl der Konten in der Gruppe
 const accountCount = computed(() => accountsInGroup.value.length);
 
-const deleteAccountGroup = () => emit("delete");
-const triggerEditAccountGroup = () => emit('editAccountGroup', props.group); // Emit event with group data
+// Gruppe löschen
+const deleteAccountGroup = async () => {
+  if (confirm(`Möchten Sie die Gruppe "${props.group.name}" wirklich löschen?`)) {
+    await accountStore.deleteAccountGroup(props.group.id);
+  }
+};
+
+// Modal Handler
+const onGroupSaved = async () => {
+  showEditModal.value = false;
+  await accountStore.loadAccounts();
+};
+
+// Account Selection Handler
+const onAccountSelect = (account) => {
+  emit('selectAccount', account);
+};
 </script>
 
 <template>
@@ -56,7 +66,7 @@ const triggerEditAccountGroup = () => emit('editAccountGroup', props.group); // 
         tabindex="0"
         class="dropdown-content z-[99] menu p-2 shadow bg-base-100 border border-base-300 rounded-box w-52"
       >
-        <li><a @click="triggerEditAccountGroup">Bearbeiten</a></li>  <!-- Changed to emit event -->
+        <li><a @click="showEditModal = true">Bearbeiten</a></li>
         <li><a @click="deleteAccountGroup" class="text-error">Löschen</a></li>
       </ul>
     </div>
@@ -105,11 +115,7 @@ const triggerEditAccountGroup = () => emit('editAccountGroup', props.group); // 
           v-for="account in accountsInGroup"
           :key="account.id"
           :account="account"
-          @editAccount="$emit('editAccount', account)"
-          @deleteAccount="$emit('deleteAccount', account)"
-          @reconcileAccount="$emit('reconcileAccount', account)"
-          @showTransactions="$emit('showTransactions', account)"
-          @accountCardClicked="$emit('accountCardClicked', account)"
+          @select="onAccountSelect"
         />
       </div>
     </div>
@@ -117,5 +123,21 @@ const triggerEditAccountGroup = () => emit('editAccountGroup', props.group); // 
     <div class="card-actions">
       <div class="grid grid-cols-1 gap-1 py-3"></div>
     </div>
+
+    <!-- Modal -->
+    <Teleport to="body">
+      <div v-if="showEditModal" class="modal modal-open">
+        <div class="modal-box max-w-2xl">
+          <h3 class="font-bold text-lg mb-4">Kontogruppe bearbeiten</h3>
+          <AccountGroupForm
+            :group="group"
+            :is-edit="true"
+            @save="onGroupSaved"
+            @cancel="showEditModal = false"
+          />
+        </div>
+        <div class="modal-backdrop" @click="showEditModal = false"></div>
+      </div>
+    </Teleport>
   </div>
 </template>

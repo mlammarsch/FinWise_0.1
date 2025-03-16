@@ -88,6 +88,19 @@ const routes: RouteRecordRaw[] = [
     name: 'admin-recipients',
     component: AdminRecipientsView,
     meta: { title: 'Empfänger verwalten', breadcrumb: 'Empfänger verwalten' }
+  },
+  {
+    path: '/accounts/:id/edit', // Route für Konto bearbeiten
+    name: 'edit-account',
+    component: AccountsView, // Oder eine dedizierte AccountEditView, falls benötigt
+    meta: { title: 'Konto bearbeiten', breadcrumb: 'Konto bearbeiten' },
+    props: true // Ermöglicht das Übergeben von route params als props
+  },
+  {
+    path: '/account-group/:id/edit',
+    name: 'edit-account-group',
+    component: AccountsView,
+    meta: { title: 'Konto Gruppe bearbeiten', breadcrumb: 'Konto Gruppe bearbeiten' }
   }
 ]
 

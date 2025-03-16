@@ -1,31 +1,24 @@
 <script setup lang="ts">
-import { defineProps, computed } from "vue";
+import { defineProps, computed, ref } from "vue";
 import { Account } from "../../types";
 import CurrencyDisplay from "../ui/CurrencyDisplay.vue";
 import { useRouter } from 'vue-router';
-// import { Icon } from "@iconify/vue";
+import AccountReconcileModal from "./AccountReconcileModal.vue";
+import AccountForm from "./AccountForm.vue";
+import { useAccountStore } from "../../stores/accountStore";
 
-/**
- * Pfad zur Komponente: src\components\account\AccountCard.vue
- *
- * Diese Komponente stellt eine einzelne Konto-Karte dar.
- *
- * Komponenten-Props:
- * - account: Account - Das Konto, das angezeigt wird.
- *
- * Emits:
- * - edit: Wird ausgelöst, wenn das Konto bearbeitet werden soll.
- * - delete: Wird ausgelöst, wenn das Konto gelöscht werden soll.
- * - reconcile: Wird ausgelöst, wenn ein Kontoabgleich erfolgen soll.
- * - showTransactions: Wird ausgelöst, um die Transaktionen des Kontos anzuzeigen.
- */
+const emit = defineEmits(['select']);
 
 const props = defineProps<{
   account: Account;
 }>();
 
-const emit = defineEmits(["edit", "delete", "reconcile", "showTransactions", "editAccount"]);
 const router = useRouter();
+const accountStore = useAccountStore();
+
+// State für Modals
+const showReconcileModal = ref(false);
+const showEditModal = ref(false);
 
 const formattedIban = computed(() => {
   if (!props.account.iban) return "";
@@ -36,15 +29,43 @@ const formattedIban = computed(() => {
 const accountImage = computed(() => {
   return props.account.image || "https://placehold.co/400x400?text=Logo";
 });
+
+// Aktionen
+const showTransactions = () => {
+  router.push({ name: "transactions", query: { accountId: props.account.id } });
+};
+
+const deleteAccount = async () => {
+  if (confirm(`Möchten Sie das Konto "${props.account.name}" wirklich löschen?`)) {
+    await accountStore.deleteAccount(props.account.id);
+  }
+};
+
+// Modal Handlers
+const onReconciled = async () => {
+  showReconcileModal.value = false;
+  await accountStore.loadAccounts();
+};
+
+const onAccountSaved = async () => {
+  showEditModal.value = false;
+  await accountStore.loadAccounts();
+};
+
+// Konto auswählen
+const selectAccount = () => {
+  emit('select', props.account);
+};
 </script>
 
 <template>
   <div
-    class="card rounded-md border-base-200 bg-base-200 shadow-none relative z-10"
+    class="card rounded-md border-base-200 bg-base-200 shadow-none relative z-10 cursor-pointer hover:bg-base-300"
     style="width: 100%"
+    @click="selectAccount"
   >
     <!-- Dropdown-Menü für Aktionen -->
-    <div class="absolute top-1 right-1 dropdown dropdown-end">
+    <div class="absolute top-1 right-1 dropdown dropdown-end" @click.stop>
       <label tabindex="0" class="btn btn-ghost btn-sm btn-circle">
         <Icon icon="mdi:dots-vertical" />
       </label>
@@ -53,19 +74,18 @@ const accountImage = computed(() => {
         class="dropdown-content z-[100] menu p-2 shadow bg-base-100 border border-base-300 rounded-box w-52"
       >
         <li>
-          <a @click="$emit('showTransactions', account)"
-            >Transaktionen anzeigen</a
-          >
+          <a @click="showTransactions">Transaktionen anzeigen</a>
         </li>
-        <li><a @click="$emit('reconcile', account)">Kontoabgleich</a></li>
+        <li><a @click="showReconcileModal = true">Kontoabgleich</a></li>
         <li>
-          <a @click="$emit('editAccount', account)">Bearbeiten</a>
+          <a @click="showEditModal = true">Bearbeiten</a>
         </li>
         <li>
-          <a @click="$emit('delete', account)" class="text-error">Löschen</a>
+          <a @click="deleteAccount" class="text-error">Löschen</a>
         </li>
       </ul>
     </div>
+
     <div class="card-body min-h-22 flex flex-row items-center p-0">
       <!-- Konto-Logo -->
       <div class="w-16 flex-shrink-0 mr-1 ml-2">
@@ -99,5 +119,29 @@ const accountImage = computed(() => {
         />
       </div>
     </div>
+
+    <!-- Modals -->
+    <Teleport to="body">
+      <AccountReconcileModal
+        v-if="showReconcileModal"
+        :account="account"
+        :is-open="showReconcileModal"
+        @close="showReconcileModal = false"
+        @reconciled="onReconciled"
+      />
+
+      <div v-if="showEditModal" class="modal modal-open">
+        <div class="modal-box max-w-2xl">
+          <h3 class="font-bold text-lg mb-4">Konto bearbeiten</h3>
+          <AccountForm
+            :account="account"
+            :is-edit="true"
+            @save="onAccountSaved"
+            @cancel="showEditModal = false"
+          />
+        </div>
+        <div class="modal-backdrop" @click="showEditModal = false"></div>
+      </div>
+    </Teleport>
   </div>
 </template>

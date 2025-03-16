@@ -58,7 +58,7 @@ const formatAccountType = (type: AccountType): string => {
   }
 };
 
-// Konto bearbeiten - wird von AccountCard und Tabelle aufgerufen
+// Konto bearbeiten
 const editAccount = (account: Account) => {
   selectedAccount.value = account;
   isEditMode.value = true;
@@ -94,7 +94,7 @@ const updateAccountGroup = (account: Account, newGroupId: string) => {
   accountStore.updateAccount(account.id, { accountGroupId: newGroupId });
 };
 
-// Gruppe bearbeiten - wird von AccountGroupCard und Tabelle aufgerufen
+// Gruppe bearbeiten
 const editAccountGroup = (group: AccountGroup) => {
   selectedGroup.value = group;
   isGroupEditMode.value = true;
