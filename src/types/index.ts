@@ -12,14 +12,14 @@ export interface Account {
   balance: number
   creditLimit?: number
   offset: number
-  image?: string // Neu: Bild-URL für Konten
+  image?: string
 }
 
 export interface AccountGroup {
   id: string
   name: string
   sortOrder: number
-  image?: string // Neu: Bild-URL für Kontogruppen
+  image?: string
 }
 
 export enum AccountType {
@@ -61,7 +61,6 @@ export interface PlanningTransaction {
   counterPlanningTransactionId?: string | null
 }
 
-
 export interface Transaction {
   id: string
   accountId: string
@@ -77,7 +76,7 @@ export interface Category {
   id: string
   name: string
   icon?: string
-   budgeted: number
+  budgeted: number
   activity: number
   available: number
   isIncomeCategory: boolean
@@ -103,4 +102,10 @@ export interface StatisticItem {
   month: number
   categoryId: string
   amount: number
+}
+
+// Erweiterung für die Empfänger-Funktionalität:
+export interface Recipient {
+  id: string
+  name: string
 }

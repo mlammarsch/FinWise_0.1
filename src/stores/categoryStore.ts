@@ -1,128 +1,106 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { Category, CategoryGroup } from '../types'
 import { v4 as uuidv4 } from 'uuid'
+import { Category } from '../types'
 
 export const useCategoryStore = defineStore('category', () => {
-  const categories = ref<Category[]>([
-    {
-      id: uuidv4(),
-      name: 'Lebensmittel',
-      categoryGroupId: '1',
-      icon: 'mdi-food-apple',
-      budget: 300,
-      isIncome: false
-    },
-    {
-      id: uuidv4(),
-      name: 'Gehalt',
-      categoryGroupId: '2',
-      icon: 'mdi-cash',
-      isIncome: true
-    }
-  ])
+  // State
+  const categories = ref<Category[]>([])
 
-  const categoryGroups = ref<CategoryGroup[]>([
-    {
-      id: '1',
-      name: 'Fixkosten'
-    },
-    {
-      id: '2',
-      name: 'Einkommen'
-    },
-    {
-      id: '3',
-      name: 'Sparen'
-    }
-  ])
-
-  const savingsGoals = ref([
-    {
-      id: uuidv4(),
-      name: 'Notgroschen',
-      targetAmount: 5000,
-      balance: 1000,
-      targetDate: '2024-12-31'
-    }
-  ])
-
-  const getCategoryById = (id: string) => {
-    return categories.value.find(category => category.id === id)
+  const initialState = { // Define initial state
+    categories: []
   }
 
-  const addCategory = (category: Category) => {
-    categories.value.push(category)
-  }
-
-  const updateCategory = (category: Category) => {
-    const index = categories.value.findIndex(c => c.id === category.id)
-    if (index !== -1) {
-      categories.value[index] = category
-    }
-  }
-
-  const deleteCategory = (id: string) => {
-    categories.value = categories.value.filter(category => category.id !== id)
-  }
-
-  const addCategoryGroup = (categoryGroup: CategoryGroup) => {
-    categoryGroups.value.push(categoryGroup)
-  }
-
-  const updateCategoryGroup = (categoryGroup: CategoryGroup) => {
-    const index = categoryGroups.value.findIndex(cg => cg.id === categoryGroup.id)
-    if (index !== -1) {
-      categoryGroups.value[index] = categoryGroup
-    }
-  }
-
-  const deleteCategoryGroup = (id: string) => {
-    categoryGroups.value = categoryGroups.value.filter(categoryGroup => categoryGroup.id !== id)
-  }
-
-  const updateCategoryBalance = (categoryId: string, amount: number) => {
-    const category = categories.value.find(c => c.id === categoryId)
-    if (category) {
-      // Initialize balance if not available
-      if (typeof (category as any).balance !== 'number') {
-        ;(category as any).balance = 0
-      }
-      ;(category as any).balance += amount
-    }
-  }
-
-  // Computed property to group categories by categoryGroupId
-  const categoriesByGroup = computed(() => {
-    const groupedCategories: { [key: string]: Category[] } = {}
-    categories.value.forEach(category => {
-      if (!groupedCategories[category.categoryGroupId]) {
-        groupedCategories[category.categoryGroupId] = []
-      }
-      groupedCategories[category.categoryGroupId].push(category)
-    })
-    return groupedCategories
+  // Getters
+  const getCategoryById = computed(() => {
+    return (id: string) => categories.value.find(category => category.id === id)
   })
 
-  // Method to get child categories
-  function getChildCategories(parentId: string) {
-    return categories.value.filter(category => category.parentCategoryId === parentId)
+  const getCategoriesByParentId = computed(() => {
+    return (parentId: string | null) => categories.value
+      .filter(category => category.parentCategoryId === parentId)
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+  })
+
+  const rootCategories = computed(() => {
+    return categories.value
+      .filter(category => category.parentCategoryId === null)
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+  })
+
+  // Actions
+  function addCategory(category: Omit<Category, 'id' | 'balance' | 'transactionCount' | 'averageTransactionValue'>) {
+    const newCategory: Category = {
+      ...category,
+      id: uuidv4(),
+      balance: 0,
+      transactionCount: 0,
+      averageTransactionValue: 0
+    }
+    categories.value.push(newCategory)
+    saveCategories()
+    return newCategory
   }
 
+  function updateCategory(id: string, updates: Partial<Category>) {
+    const index = categories.value.findIndex(category => category.id === id)
+    if (index !== -1) {
+      categories.value[index] = { ...categories.value[index], ...updates }
+      saveCategories()
+      return true
+    }
+    return false
+  }
+
+  function deleteCategory(id: string) {
+    categories.value = categories.value.filter(category => category.id !== id)
+    saveCategories()
+  }
+
+  function updateCategoryBalance(id: string, amount: number) {
+    const category = categories.value.find(category => category.id === id)
+    if (category) {
+      category.balance += amount
+      category.transactionCount = (category.transactionCount || 0) + 1 // Inkrement Transaktionszähler
+      category.averageTransactionValue = category.balance / category.transactionCount || 0 // Berechne Durchschnittswert
+      saveCategories()
+      return true
+    }
+    return false
+  }
+
+
+  // Persistenz
+  function loadCategories() {
+    const savedCategories = localStorage.getItem('finwise_categories')
+    if (savedCategories) {
+      categories.value = JSON.parse(savedCategories)
+    }
+  }
+
+  function saveCategories() {
+    localStorage.setItem('finwise_categories', JSON.stringify(categories.value))
+  }
+
+  function reset() { // Implement reset function
+    categories.value = initialState.categories;
+    loadCategories(); // Optionally reload initial data from localStorage
+  }
+
+
+  // Initialisiere beim ersten Laden
+  loadCategories()
 
   return {
     categories,
-    categoryGroups,
-    savingsGoals,
     getCategoryById,
+    getCategoriesByParentId,
+    rootCategories,
     addCategory,
     updateCategory,
     deleteCategory,
-    addCategoryGroup,
-    updateCategoryGroup,
-    deleteCategoryGroup,
     updateCategoryBalance,
-    categoriesByGroup, // Expose the computed property
-    getChildCategories
+    loadCategories,
+    reset // Expose reset function
   }
 })

@@ -1,8 +1,8 @@
-<!-- AccountCard.vue -->
 <script setup lang="ts">
 import { defineProps, computed } from "vue";
 import { Account } from "../../types";
 import CurrencyDisplay from "../ui/CurrencyDisplay.vue";
+import { useRouter } from 'vue-router';
 // import { Icon } from "@iconify/vue";
 
 /**
@@ -24,7 +24,8 @@ const props = defineProps<{
   account: Account;
 }>();
 
-const emit = defineEmits(["edit", "delete", "reconcile", "showTransactions"]);
+const emit = defineEmits(["edit", "delete", "reconcile", "showTransactions", "editAccount"]);
+const router = useRouter();
 
 const formattedIban = computed(() => {
   if (!props.account.iban) return "";
@@ -57,7 +58,9 @@ const accountImage = computed(() => {
           >
         </li>
         <li><a @click="$emit('reconcile', account)">Kontoabgleich</a></li>
-        <li><a @click="$emit('edit', account)">Bearbeiten</a></li>
+        <li>
+          <a @click="$emit('editAccount', account)">Bearbeiten</a>
+        </li>
         <li>
           <a @click="$emit('delete', account)" class="text-error">Löschen</a>
         </li>
@@ -65,7 +68,7 @@ const accountImage = computed(() => {
     </div>
     <div class="card-body min-h-22 flex flex-row items-center p-0">
       <!-- Konto-Logo -->
-      <div class="w-16 flex-shrink-0 mr-2">
+      <div class="w-16 flex-shrink-0 mr-1 ml-2">
         <img
           :src="accountImage"
           alt="Account Logo"

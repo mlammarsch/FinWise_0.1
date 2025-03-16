@@ -1,20 +1,3 @@
-/**
- * Pfad zur Komponente: ./AccountGroupCard.vue
- * Diese Komponente stellt eine Gruppe von Konten dar und zeigt deren Details an.
- *
- * Komponenten-Props:
- * - group: AccountGroup - Die Kontogruppe, die dargestellt wird.
- *
- * Emits:
- * - edit: Wird ausgelöst, wenn die Gruppe bearbeitet werden soll.
- * - delete: Wird ausgelöst, wenn die Gruppe gelöscht werden soll.
- * - editAccount: Wird ausgelöst, wenn ein Konto bearbeitet wird.
- * - deleteAccount: Wird ausgelöst, wenn ein Konto gelöscht wird.
- * - reconcileAccount: Wird ausgelöst, wenn ein Konto abgeglichen wird.
- * - showTransactions: Wird ausgelöst, um Transaktionen eines Kontos anzuzeigen.
- * - accountCardClicked: Wird ausgelöst, wenn eine Kontokarte angeklickt wird.
- */
-
 <script setup lang="ts">
 import { computed } from "vue";
 import { AccountGroup } from "../../types";
@@ -34,6 +17,7 @@ const emit = defineEmits([
   "reconcileAccount",
   "showTransactions",
   "accountCardClicked",
+  "editAccountGroup" // ADDED emit for editing account group
 ]);
 
 const accountStore = useAccountStore();
@@ -55,8 +39,8 @@ const groupBalance = computed(() =>
 // Berechnung der Anzahl der Konten in der Gruppe
 const accountCount = computed(() => accountsInGroup.value.length);
 
-const editAccountGroup = () => emit("edit");
 const deleteAccountGroup = () => emit("delete");
+const triggerEditAccountGroup = () => emit('editAccountGroup', props.group); // Emit event with group data
 </script>
 
 <template>
@@ -72,7 +56,7 @@ const deleteAccountGroup = () => emit("delete");
         tabindex="0"
         class="dropdown-content z-[99] menu p-2 shadow bg-base-100 border border-base-300 rounded-box w-52"
       >
-        <li><a @click="editAccountGroup">Bearbeiten</a></li>
+        <li><a @click="triggerEditAccountGroup">Bearbeiten</a></li>  <!-- Changed to emit event -->
         <li><a @click="deleteAccountGroup" class="text-error">Löschen</a></li>
       </ul>
     </div>
@@ -121,11 +105,11 @@ const deleteAccountGroup = () => emit("delete");
           v-for="account in accountsInGroup"
           :key="account.id"
           :account="account"
-          @edit="$emit('editAccount', account)"
-          @delete="$emit('deleteAccount', account)"
-          @reconcile="$emit('reconcileAccount', account)"
+          @editAccount="$emit('editAccount', account)"
+          @deleteAccount="$emit('deleteAccount', account)"
+          @reconcileAccount="$emit('reconcileAccount', account)"
           @showTransactions="$emit('showTransactions', account)"
-          @click="$emit('accountCardClicked', account)"
+          @accountCardClicked="$emit('accountCardClicked', account)"
         />
       </div>
     </div>

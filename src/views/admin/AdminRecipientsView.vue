@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
-import { useTagStore } from "../../stores/tagStore";
+import { useRecipientStore } from "../../stores/recipientStore";
 import { useTransactionStore } from "../../stores/transactionStore";
-import type { Tag } from "../../types";
+import type { Recipient } from "../../stores/recipientStore";
 
 /**
- * Pfad zur Komponente: src/views/admin/AdminTagsView.vue
- * Verwaltung der Tags.
+ * Pfad zur Komponente: src/views/admin/AdminRecipientsView.vue
+ * Verwaltung der Empfänger/Auftraggeber.
  * Komponenten-Props:
  * - Keine Props vorhanden
  *
@@ -14,52 +14,44 @@ import type { Tag } from "../../types";
  * - Keine Emits vorhanden
  */
 
-const tagStore = useTagStore();
+const recipientStore = useRecipientStore();
 const transactionStore = useTransactionStore();
 
-const showTagModal = ref(false);
+const showRecipientModal = ref(false);
 const isEditMode = ref(false);
-const selectedTag = ref<Tag | null>(null);
+const selectedRecipient = ref<Recipient | null>(null);
 const searchQuery = ref("");
 
 const currentPage = ref(1);
 const itemsPerPage = 25;
 
-const filteredTags = computed(() => {
+const filteredRecipients = computed(() => {
   if (searchQuery.value.trim() === "") {
-    return tagStore.tags;
+    return recipientStore.recipients;
   }
-  return tagStore.tags.filter((tag) =>
-    tag.name.toLowerCase().includes(searchQuery.value.toLowerCase())
-  );
+  return recipientStore.searchRecipients(searchQuery.value);
 });
 
 const totalPages = computed(() =>
-  Math.ceil(filteredTags.value.length / itemsPerPage)
+  Math.ceil(filteredRecipients.value.length / itemsPerPage)
 );
 
-const paginatedTags = computed(() => {
+const paginatedRecipients = computed(() => {
   const start = (currentPage.value - 1) * itemsPerPage;
   const end = start + itemsPerPage;
-  return filteredTags.value.slice(start, end);
+  return filteredRecipients.value.slice(start, end);
 });
 
-const tagUsage = computed(() => {
-  return (tagId: string) =>
-    transactionStore.transactions.filter((tx) => tx.tagIds.includes(tagId))
+const recipientUsage = computed(() => {
+  return (recipientId: string) =>
+    transactionStore.transactions.filter((tx) => tx.recipientId === recipientId)
       .length;
 });
 
-const getParentTagName = (parentId: string | null): string => {
-  if (!parentId) return "-";
-  const parent = tagStore.tags.find((t) => t.id === parentId);
-  return parent ? parent.name : "Unbekannt";
-};
-
-const createTag = () => {
-  selectedTag.value = null;
+const createRecipient = () => {
+  selectedRecipient.value = null;
   isEditMode.value = false;
-  showTagModal.value = true;
+  showRecipientModal.value = true;
 };
 
 const nextPage = () => {
@@ -98,13 +90,15 @@ const getPageNumbers = computed(() => {
     <div
       class="flex w-full justify-between items-center mb-6 flex-wrap md:flex-nowrap"
     >
-      <h2 class="text-xl font-bold flex-shrink-0">Tags verwalten</h2>
+      <h2 class="text-xl font-bold flex-shrink-0">
+        Empfänger/Auftraggeber verwalten
+      </h2>
       <div class="flex justify-end w-full md:w-auto mt-2 md:mt-0">
         <div class="join flex items-center">
           <input
             v-model="searchQuery"
             type="text"
-            placeholder="Suche Tags"
+            placeholder="Suche Auftraggeber"
             class="input join-item rounded-l-full input-sm input-bordered text-center"
           />
           <button
@@ -114,7 +108,7 @@ const getPageNumbers = computed(() => {
           </button>
           <button
             class="btn join-item rounded-r-full btn-sm btn-soft border border-base-300 flex items-center justify-center"
-            @click="createTag"
+            @click="createRecipient"
           >
             <Icon icon="mdi:plus" class="mr-2" /> Neu
           </button>
@@ -143,16 +137,12 @@ const getPageNumbers = computed(() => {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="tag in paginatedTags" :key="tag.id">
-                <td>{{ tag.name }}</td>
+              <tr v-for="recipient in paginatedRecipients" :key="recipient.id">
+                <td>{{ recipient.name }}</td>
+                <td class="text-center hidden md:table-cell">-</td>
+                <td class="text-center hidden md:table-cell">0</td>
                 <td class="text-center hidden md:table-cell">
-                  {{ getParentTagName(tag.parentTagId) }}
-                </td>
-                <td class="text-center hidden md:table-cell">
-                  {{ tagStore.getChildTags(tag.id).length }}
-                </td>
-                <td class="text-center hidden md:table-cell">
-                  {{ tagUsage(tag.id) }}
+                  {{ recipientUsage(recipient.id) }}
                 </td>
                 <td class="text-right">
                   <div class="flex justify-end space-x-1">

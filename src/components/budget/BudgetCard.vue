@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { Category } from '../../types'
 import { formatCurrency } from '../../utils/formatters'
+import CurrencyDisplay from '../ui/CurrencyDisplay.vue'
 
 const props = defineProps<{
   category: Category
@@ -73,17 +74,23 @@ const remaining = computed(() => {
         
         <div class="flex justify-between items-center mt-4">
           <span class="text-sm font-medium">Aktuell:</span>
-          <span>{{ formatCurrency(current) }}</span>
+          <span>
+            <CurrencyDisplay :amount="current" :show-zero="true" :asInteger="true" />
+          </span>
         </div>
         
         <div v-if="target > 0" class="flex justify-between items-center mt-1">
           <span class="text-sm font-medium">Ziel:</span>
-          <span>{{ formatCurrency(target) }}</span>
+          <span>
+            <CurrencyDisplay :amount="target" :show-zero="true" :asInteger="true" />
+          </span>
         </div>
         
         <div v-if="target > 0" class="flex justify-between items-center mt-1">
           <span class="text-sm font-medium">Verbleibend:</span>
-          <span>{{ formatCurrency(remaining) }}</span>
+          <span>
+            <CurrencyDisplay :amount="remaining" :show-zero="true" :asInteger="true" />
+          </span>
         </div>
         
         <div v-if="target > 0" class="mt-3">

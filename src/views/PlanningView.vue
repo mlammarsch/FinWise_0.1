@@ -3,6 +3,7 @@ import { ref, computed } from "vue";
 import { usePlanningStore } from "../stores/planningStore";
 import PlanningTransactionForm from "../components/planning/PlanningTransactionForm.vue";
 import { PlanningTransaction } from "../types";
+import CurrencyDisplay from "../components/ui/CurrencyDisplay.vue";
 
 // Stores
 const planningStore = usePlanningStore();
@@ -75,7 +76,8 @@ const executePlanning = (planningId: string, date: string) => {
       <h3>Anstehende Transaktionen</h3>
       <ul>
         <li v-for="transaction in upcomingTransactions" :key="transaction.id">
-          {{ transaction.description }} - {{ transaction.amount }}
+          {{ transaction.description }} -
+          <CurrencyDisplay :amount="transaction.amount" :show-zero="true" :asInteger="false" />
           <button @click="executePlanning(transaction.id, transaction.date)">
             Ausführen
           </button>

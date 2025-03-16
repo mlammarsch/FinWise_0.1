@@ -1,168 +1,222 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useAccountStore } from '../../stores/accountStore'
-import AccountForm from '../../components/account/AccountForm.vue'
-import { Account, AccountType } from '../../types'
+import { ref, computed } from "vue";
+import { useAccountStore } from "../../stores/accountStore";
+import AccountForm from "../../components/account/AccountForm.vue";
+import CurrencyDisplay from "../../components/ui/CurrencyDisplay.vue";
+import { Account, AccountType, AccountGroup } from "../../types";
+import AccountGroupForm from "../../components/account/AccountGroupForm.vue"; // Import AccountGroupForm
+import { useRouter } from 'vue-router';
 
 // Stores
-const accountStore = useAccountStore()
+const accountStore = useAccountStore();
+const router = useRouter();
 
 // State für Modals
-const showAccountModal = ref(false)
+const showAccountModal = ref(false);
+const showGroupModal = ref(false); // Modal für AccountGroup
 
-// Ausgewähltes Konto
-const selectedAccount = ref<Account | null>(null)
+// Ausgewähltes Konto / Gruppe
+const selectedAccount = ref<Account | null>(null);
+const selectedGroup = ref<AccountGroup | null>(null); // Ausgewählte Gruppe
 
 // Bearbeitungsmodus
-const isEditMode = ref(false)
+const isEditMode = ref(false);
+const isGroupEditMode = ref(false); // Bearbeitungsmodus für Gruppen
 
 // Alle Konten
-const accounts = computed(() => {
-  return accountStore.accounts
-})
+const accounts = computed(() => accountStore.accounts);
 
 // Kontogruppen
-const accountGroups = computed(() => {
-  return accountStore.accountGroups
-})
+const accountGroups = computed(() => accountStore.accountGroups);
 
-// Konto bearbeiten
+// Gibt den Namen der Kontogruppe zurück
+const getGroupName = (groupId: string) => {
+  const group = accountGroups.value.find((g) => g.id === groupId);
+  return group ? group.name : "Unbekannt";
+};
+
+// Berechnet den Gesamtbetrag der Konten innerhalb einer Gruppe
+const getGroupBalance = (groupId: string) => {
+  return accounts.value
+    .filter((account) => account.accountGroupId === groupId)
+    .reduce((sum, account) => sum + account.balance, 0);
+};
+
+// Formatiert den Kontotyp für die Anzeige
+const formatAccountType = (type: AccountType): string => {
+  switch (type) {
+    case AccountType.CHECKING:
+      return "Girokonto";
+    case AccountType.SAVINGS:
+      return "Sparkonto";
+    case AccountType.CREDIT:
+      return "Kreditkarte";
+    case AccountType.CASH:
+      return "Bargeld";
+    default:
+      return "Unbekannt";
+  }
+};
+
+// Konto bearbeiten - wird von AccountCard und Tabelle aufgerufen
 const editAccount = (account: Account) => {
-  selectedAccount.value = account
-  isEditMode.value = true
-  showAccountModal.value = true
-}
+  selectedAccount.value = account;
+  isEditMode.value = true;
+  showAccountModal.value = true;
+};
 
 // Neues Konto erstellen
 const createAccount = () => {
-  selectedAccount.value = null
-  isEditMode.value = false
-  showAccountModal.value = true
-}
+  selectedAccount.value = null;
+  isEditMode.value = false;
+  showAccountModal.value = true;
+};
 
 // Konto speichern
-const saveAccount = (accountData: Omit<Account, 'id'>) => {
+const saveAccount = (accountData: Omit<Account, "id">) => {
   if (isEditMode.value && selectedAccount.value) {
-    accountStore.updateAccount(selectedAccount.value.id, accountData)
+    accountStore.updateAccount(selectedAccount.value.id, accountData);
   } else {
-    accountStore.addAccount(accountData)
+    accountStore.addAccount(accountData);
   }
-  
-  showAccountModal.value = false
-}
+  showAccountModal.value = false;
+};
 
 // Konto löschen
 const deleteAccount = (account: Account) => {
   if (confirm(`Möchten Sie das Konto "${account.name}" wirklich löschen?`)) {
-    accountStore.deleteAccount(account.id)
+    accountStore.deleteAccount(account.id);
   }
-}
+};
 
-// Kontogruppe erstellen
+// Konto einer anderen Gruppe zuweisen
+const updateAccountGroup = (account: Account, newGroupId: string) => {
+  accountStore.updateAccount(account.id, { accountGroupId: newGroupId });
+};
+
+// Gruppe bearbeiten - wird von AccountGroupCard und Tabelle aufgerufen
+const editAccountGroup = (group: AccountGroup) => {
+  selectedGroup.value = group;
+  isGroupEditMode.value = true;
+  showGroupModal.value = true;
+};
+
+// Neue Gruppe erstellen
 const createAccountGroup = () => {
-  const name = prompt('Name der neuen Kontogruppe:')
-  if (name) {
-    accountStore.addAccountGroup({
-      name,
-      sortOrder: accountGroups.value.length
-    })
-  }
-}
+  selectedGroup.value = null;
+  isGroupEditMode.value = false;
+  showGroupModal.value = true;
+};
 
-// Kontogruppe löschen
+// Gruppe speichern
+const saveAccountGroup = (groupData: Omit<AccountGroup, "id">) => {
+  if (isGroupEditMode.value && selectedGroup.value) {
+    accountStore.updateAccountGroup(selectedGroup.value.id, groupData);
+  } else {
+    accountStore.addAccountGroup(groupData);
+  }
+  showGroupModal.value = false;
+};
+
+// Gruppe löschen
 const deleteAccountGroup = (groupId: string) => {
-  const group = accountGroups.value.find(g => g.id === groupId)
-  if (!group) return
-  
-  if (confirm(`Möchten Sie die Kontogruppe "${group.name}" wirklich löschen?`)) {
-    const result = accountStore.deleteAccountGroup(groupId)
-    if (!result) {
-      alert('Die Kontogruppe kann nicht gelöscht werden, da sie noch Konten enthält.')
-    }
+  if (confirm(`Möchten Sie die Kontogruppe wirklich löschen?`)) {
+    accountStore.deleteAccountGroup(groupId);
   }
-}
-
-// Formatiere den Kontotyp für die Anzeige
-const formatAccountType = (type: AccountType): string => {
-  switch (type) {
-    case AccountType.CHECKING: return 'Girokonto'
-    case AccountType.SAVINGS: return 'Sparkonto'
-    case AccountType.CREDIT: return 'Kreditkarte'
-    case AccountType.CASH: return 'Bargeld'
-    default: return 'Unbekannt'
-  }
-}
-
-// Hole den Namen einer Kontogruppe
-const getGroupName = (groupId: string): string => {
-  const group = accountGroups.value.find(g => g.id === groupId)
-  return group ? group.name : 'Unbekannt'
-}
+};
 </script>
 
 <template>
   <div>
     <!-- Header mit Aktionen -->
-    <div class="flex justify-between items-center mb-6">
-      <h2 class="text-xl font-bold">Konten verwalten</h2>
-      
-      <div class="flex gap-2">
-        <button class="btn btn-primary" @click="createAccount">
-          <span class="iconify mr-2" data-icon="mdi:plus"></span>
-          Neues Konto
-        </button>
-        <button class="btn btn-outline" @click="createAccountGroup">
-          <span class="iconify mr-2" data-icon="mdi:folder-plus"></span>
-          Neue Gruppe
-        </button>
+    <div
+      class="flex w-full justify-between items-center mb-6 flex-wrap md:flex-nowrap"
+    >
+      <h2 class="text-xl font-bold flex-shrink-0">Konten verwalten</h2>
+      <div class="flex justify-end w-full md:w-auto mt-2 md:mt-0">
+        <div class="join">
+          <button
+            class="btn join-item rounded-l-full btn-sm btn-soft border border-base-300"
+            @click="createAccountGroup"
+          >
+            <Icon icon="mdi:folder-plus" class="mr-2 text-base" />
+            Neue Gruppe
+          </button>
+          <button
+            class="btn join-item rounded-r-full btn-sm btn-soft border border-base-300"
+            @click="createAccount"
+          >
+            <Icon icon="mdi:plus" class="mr-2 text-base" />
+            Neues Konto
+          </button>
+        </div>
       </div>
     </div>
-    
+
     <!-- Konten -->
-    <div class="card bg-base-100 shadow-md mb-6">
+    <div class="card bg-base-100 shadow-md border border-base-300 mb-6">
       <div class="card-body">
         <h3 class="card-title text-lg mb-4">Konten</h3>
-        
         <div class="overflow-x-auto">
           <table class="table table-zebra w-full">
             <thead>
               <tr>
                 <th>Name</th>
-                <th>Gruppe</th>
+                <th class="text-center">Gruppe</th>
                 <th>Typ</th>
-                <th>Kontostand</th>
-                <th>Status</th>
+                <th class="text-right">Kontostand</th>
+                <th class="text-center">Status</th>
                 <th class="text-right">Aktionen</th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="account in accounts" :key="account.id">
                 <td>{{ account.name }}</td>
-                <td>{{ getGroupName(account.accountGroupId) }}</td>
-                <td>{{ formatAccountType(account.accountType) }}</td>
-                <td :class="account.balance >= 0 ? 'text-success' : 'text-error'">
-                  {{ new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(account.balance) }}
-                </td>
                 <td>
-                  <div class="badge" :class="account.isActive ? 'badge-success' : 'badge-error'">
-                    {{ account.isActive ? 'Aktiv' : 'Inaktiv' }}
+                  <select
+                    class="select select-sm w-full rounded-full border border-base-300"
+                    :value="account.accountGroupId"
+                    @change="updateAccountGroup(account, ($event.target as HTMLSelectElement).value)"
+                  >
+                    <option
+                      v-for="group in accountGroups"
+                      :key="group.id"
+                      :value="group.id"
+                    >
+                      {{ group.name }}
+                    </option>
+                  </select>
+                </td>
+                <td>{{ formatAccountType(account.accountType) }}</td>
+                <td class="text-right">
+                  <CurrencyDisplay
+                    class="text-right text-base whitespace-nowrap"
+                    :amount="account.balance"
+                    :show-zero="true"
+                    :asInteger="false"
+                  />
+                </td>
+                <td class="text-center">
+                  <div
+                    class="badge"
+                    :class="account.isActive ? 'badge-success' : 'badge-error'"
+                  >
+                    {{ account.isActive ? "Aktiv" : "Inaktiv" }}
                   </div>
                 </td>
                 <td class="text-right">
-                  <div class="flex justify-end space-x-1">
-                    <button class="btn btn-ghost btn-xs" @click="editAccount(account)">
-                      <span class="iconify" data-icon="mdi:pencil"></span>
-                    </button>
-                    <button class="btn btn-ghost btn-xs text-error" @click="deleteAccount(account)">
-                      <span class="iconify" data-icon="mdi:trash-can"></span>
-                    </button>
-                  </div>
-                </td>
-              </tr>
-              
-              <tr v-if="accounts.length === 0">
-                <td colspan="6" class="text-center py-4">
-                  Keine Konten vorhanden
+                  <button
+                    class="btn btn-ghost btn-xs"
+                    @click="editAccount(account)"
+                  >
+                    <Icon icon="mdi:pencil" class="text-base" />
+                  </button>
+                  <button
+                    class="btn btn-ghost btn-xs text-error"
+                    @click="deleteAccount(account)"
+                  >
+                    <Icon icon="mdi:trash-can" class="text-base" />
+                  </button>
                 </td>
               </tr>
             </tbody>
@@ -170,37 +224,52 @@ const getGroupName = (groupId: string): string => {
         </div>
       </div>
     </div>
-    
+
     <!-- Kontogruppen -->
-    <div class="card bg-base-100 shadow-md">
+    <div class="card bg-base-100 shadow-md border border-base-300 mb-6">
       <div class="card-body">
         <h3 class="card-title text-lg mb-4">Kontogruppen</h3>
-        
         <div class="overflow-x-auto">
           <table class="table table-zebra w-full">
             <thead>
               <tr>
                 <th>Name</th>
-                <th>Sortierung</th>
-                <th>Anzahl Konten</th>
+                <th class="text-center">Sortierung</th>
+                <th class="text-center">Anzahl Konten</th>
+                <th class="text-right">Gesamtsaldo</th>
                 <th class="text-right">Aktionen</th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="group in accountGroups" :key="group.id">
                 <td>{{ group.name }}</td>
-                <td>{{ group.sortOrder }}</td>
-                <td>{{ accounts.filter(a => a.accountGroupId === group.id).length }}</td>
-                <td class="text-right">
-                  <button class="btn btn-ghost btn-xs text-error" @click="deleteAccountGroup(group.id)">
-                    <span class="iconify" data-icon="mdi:trash-can"></span>
-                  </button>
+                <td class="text-center">{{ group.sortOrder }}</td>
+                <td class="text-center">
+                  {{
+                    accounts.filter((a) => a.accountGroupId === group.id).length
+                  }}
                 </td>
-              </tr>
-              
-              <tr v-if="accountGroups.length === 0">
-                <td colspan="4" class="text-center py-4">
-                  Keine Kontogruppen vorhanden
+                <td class="text-right">
+                  <CurrencyDisplay
+                    class="text-right text-base whitespace-nowrap"
+                    :amount="getGroupBalance(group.id)"
+                    :show-zero="true"
+                    :asInteger="false"
+                  />
+                </td>
+                <td class="text-right">
+                  <button
+                    class="btn btn-ghost btn-xs"
+                    @click="editAccountGroup(group)"
+                  >
+                    <Icon icon="mdi:pencil" class="text-base" />
+                  </button>
+                  <button
+                    class="btn btn-ghost btn-xs text-error"
+                    @click="deleteAccountGroup(group.id)"
+                  >
+                    <Icon icon="mdi:trash-can" class="text-base" />
+                  </button>
                 </td>
               </tr>
             </tbody>
@@ -208,22 +277,38 @@ const getGroupName = (groupId: string): string => {
         </div>
       </div>
     </div>
-    
+
     <!-- Konto-Modal -->
     <div v-if="showAccountModal" class="modal modal-open">
       <div class="modal-box max-w-2xl">
         <h3 class="font-bold text-lg mb-4">
-          {{ isEditMode ? 'Konto bearbeiten' : 'Neues Konto' }}
+          {{ isEditMode ? "Konto bearbeiten" : "Neues Konto" }}
         </h3>
-        
-        <AccountForm 
-          :account="selectedAccount || undefined" 
+
+        <AccountForm
+          :account="selectedAccount || undefined"
           :is-edit="isEditMode"
-          @save="saveAccount" 
+          @save="saveAccount"
           @cancel="showAccountModal = false"
         />
       </div>
       <div class="modal-backdrop" @click="showAccountModal = false"></div>
+    </div>
+
+    <!-- AccountGroup-Modal -->
+    <div v-if="showGroupModal" class="modal modal-open">
+      <div class="modal-box max-w-2xl">
+        <h3 class="font-bold text-lg mb-4">
+          {{ isGroupEditMode ? "Kontogruppe bearbeiten" : "Neue Kontogruppe" }}
+        </h3>
+        <AccountGroupForm
+          :group="selectedGroup || undefined"
+          :is-edit="isGroupEditMode"
+          @save="saveAccountGroup"
+          @cancel="showGroupModal = false"
+        />
+      </div>
+      <div class="modal-backdrop" @click="showGroupModal = false"></div>
     </div>
   </div>
 </template>

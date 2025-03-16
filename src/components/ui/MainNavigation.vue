@@ -1,7 +1,16 @@
-<!-- MainNavigation.vue -->
 <script setup lang="ts">
 import { useRouter } from "vue-router";
 import { Icon } from "@iconify/vue";
+import { seedData, clearData } from "../../mock/seed";
+
+import { useAccountStore } from "../../stores/accountStore";
+import { useCategoryStore } from "../../stores/categoryStore";
+import { useRecipientStore } from "../../stores/recipientStore";
+import { useTagStore } from "../../stores/tagStore";
+import { useTransactionStore } from "../../stores/transactionStore";
+import { usePlanningStore } from "../../stores/planningStore";
+import { useStatisticsStore } from "../../stores/statisticsStore";
+import { useThemeStore } from "../../stores/themeStore";
 
 defineEmits(["closeMenu"]);
 
@@ -34,6 +43,7 @@ const adminRoutes = [
     icon: "mdi:tag-multiple",
   },
   { path: "/admin/tags", name: "Tags verwalten", icon: "mdi:label" },
+  { path: "/admin/recipients", name: "Empfänger", icon: "mdi:person-edit" },
   {
     path: "/admin/planning",
     name: "Planungen verwalten",
@@ -45,12 +55,27 @@ const adminRoutes = [
 const isActive = (path: string) => {
   return router.currentRoute.value.path === path;
 };
+
+const clearAndReseedData = () => {
+  if (confirm("Möchten Sie wirklich alle Daten löschen und neu laden?")) {
+    clearData();
+    seedData(); // Removed pinia instance here
+    router.push("/"); // Navigate to dashboard after reseeding
+  }
+};
 </script>
 
 <template>
   <template v-for="route in routes" :key="route.path">
     <li @click="$emit('closeMenu')">
-      <router-link :to="route.path" :class="{ active: isActive(route.path) }">
+      <router-link
+        :to="route.path"
+        :class="{
+          active: isActive(route.path),
+          'text-primary bg-primary/20': isActive(route.path),
+        }"
+        class="rounded-box"
+      >
         <span class="flex items-center">
           <Icon class="mr-2" :icon="route.icon" />
           {{ route.name }}
@@ -59,9 +84,9 @@ const isActive = (path: string) => {
     </li>
   </template>
 
-  <li>
+  <li class="dropdown dropdown-hover">
     <details>
-      <summary>
+      <summary class="rounded-box">
         <span class="flex items-center">
           <Icon class="mr-2" icon="mdi:tools" />
           Administration
@@ -72,16 +97,27 @@ const isActive = (path: string) => {
           <li @click="$emit('closeMenu')">
             <router-link
               :to="route.path"
-              :class="{ active: isActive(route.path) }"
+              :class="{
+                active: isActive(route.path),
+                'text-primary bg-primary/20': isActive(route.path),
+              }"
+              class="rounded-box"
             >
               <span class="flex items-center">
-                <!-- <span class="iconify mr-2" :data-icon="route.icon"></span> -->
                 <Icon class="mr-2" :icon="route.icon" />
                 {{ route.name }}
               </span>
             </router-link>
           </li>
         </template>
+        <li>
+          <button class="rounded-box" @click="clearAndReseedData">
+            <span class="flex items-center">
+              <Icon class="mr-2" icon="mdi:database-refresh" />
+              Clear Data & Re-seed
+            </span>
+          </button>
+        </li>
       </ul>
     </details>
   </li>

@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { Category } from '../../types'
 import { useCategoryStore } from '../../stores/categoryStore'
 import { formatCurrency } from '../../utils/formatters'
+import CurrencyDisplay from '../ui/CurrencyDisplay.vue'
 
 const props = defineProps<{
   category?: Category
@@ -93,7 +94,7 @@ const transferBetweenCategories = () => {
             <select v-model="fromCategoryId" class="select select-bordered w-full" required>
               <option value="" disabled>Kategorie auswählen</option>
               <option v-for="category in fromCategories" :key="category.id" :value="category.id">
-                {{ category.name }} ({{ formatCurrency(categoryStore.getCategoryById.value(category.id)?.balance || 0) }})
+                {{ category.name }} (<CurrencyDisplay :amount="categoryStore.getCategoryById.value(category.id)?.balance || 0" :show-zero="true" :asInteger="true" />)
               </option>
             </select>
           </div>
@@ -129,7 +130,7 @@ const transferBetweenCategories = () => {
               <span>€</span>
             </div>
             <label class="label">
-              <span class="label-text-alt">Verfügbar: {{ formatCurrency(fromCategoryBalance) }}</span>
+              <span class="label-text-alt">Verfügbar: <CurrencyDisplay :amount="fromCategoryBalance" :show-zero="true" :asInteger="true" /></span>
             </label>
           </div>
           

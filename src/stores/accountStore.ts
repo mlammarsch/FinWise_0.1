@@ -9,6 +9,11 @@ export const useAccountStore = defineStore('account', () => {
   const accounts = ref<Account[]>([])
   const accountGroups = ref<AccountGroup[]>([])
 
+  const initialState = { // Define initial state
+    accounts: [],
+    accountGroups: []
+  }
+
   // Getters
   const activeAccounts = computed(() => {
     return accounts.value.filter(account => account.isActive)
@@ -144,6 +149,13 @@ export const useAccountStore = defineStore('account', () => {
         return transactionStore.transactions.filter(transaction => transaction.accountId === accountId);
     }
 
+  function reset() { // Implement reset function
+    accounts.value = initialState.accounts;
+    accountGroups.value = initialState.accountGroups;
+    loadAccounts(); // Reload initial data from localStorage or default groups
+  }
+
+
   // Initialisiere beim ersten Laden
   loadAccounts()
 
@@ -163,6 +175,7 @@ export const useAccountStore = defineStore('account', () => {
     deleteAccountGroup,
     updateAccountBalance,
     loadAccounts,
-        getTransactionByAccountId
+    getTransactionByAccountId,
+    reset // Expose reset function
   }
 })

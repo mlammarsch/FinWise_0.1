@@ -4,7 +4,9 @@ import { PlanningTransaction, RecurrencePattern } from '../../types'
 import { useAccountStore } from '../../stores/accountStore'
 import { useCategoryStore } from '../../stores/categoryStore'
 import { useTagStore } from '../../stores/tagStore'
+import { useRecipientStore } from '../../stores/recipientStore'
 import dayjs from 'dayjs'
+import CurrencyDisplay from '../ui/CurrencyDisplay.vue'
 
 const props = defineProps<{
   transaction?: PlanningTransaction
@@ -17,6 +19,7 @@ const emit = defineEmits(['save', 'cancel'])
 const accountStore = useAccountStore()
 const categoryStore = useCategoryStore()
 const tagStore = useTagStore()
+const recipientStore = useRecipientStore()
 
 // Formularfelder
 const payee = ref('')
@@ -30,6 +33,7 @@ const recurrencePattern = ref<RecurrencePattern>(RecurrencePattern.MONTHLY)
 const endDate = ref<string | null>(null)
 const isTransfer = ref(false)
 const toAccountId = ref('')
+const recipientId = ref('')
 
 // Lade die Daten, wenn eine Transaktion zum Bearbeiten übergeben wurde
 onMounted(() => {
@@ -43,9 +47,12 @@ onMounted(() => {
     tagIds.value = props.transaction.tagIds
     recurrencePattern.value = props.transaction.recurrencePattern
     endDate.value = props.transaction.endDate
-    
+    // Bei Edit kann auch ein Empfänger zugewiesen sein, falls vorhanden
+    if ((props.transaction as any).recipientId) {
+      recipientId.value = (props.transaction as any).recipientId
+    }
     // Prüfe, ob es sich um eine Überweisung handelt
-    if (props.transaction.counterPlanningTransactionId) {
+    if ((props.transaction as any).counterPlanningTransactionId) {
       isTransfer.value = true
       // Hier müsste die Gegentransaktion geladen werden, um das Zielkonto zu setzen
     }
@@ -59,7 +66,6 @@ onMounted(() => {
 
 // Konvertiere einen String in eine Zahl
 const parseNumber = (value: string): number => {
-  // Ersetze Komma durch Punkt für die Konvertierung
   const normalized = value.replace(/\./g, '').replace(',', '.')
   return parseFloat(normalized) || 0
 }
@@ -69,9 +75,9 @@ const formatNumber = (value: number): string => {
   return value.toString().replace('.', ',')
 }
 
-// Speichere die Transaktion
+// Speichere die Transaktion inklusive Empfänger
 const saveTransaction = () => {
-  const transactionData: Omit<PlanningTransaction, 'id' | 'counterPlanningTransactionId'> = {
+  const transactionData: Omit<PlanningTransaction, 'id' | 'counterPlanningTransactionId'> & { recipientId?: string } = {
     payee: payee.value,
     note: note.value,
     amount: amount.value,
@@ -80,28 +86,22 @@ const saveTransaction = () => {
     categoryId: categoryId.value,
     tagIds: tagIds.value,
     recurrencePattern: recurrencePattern.value,
-    endDate: endDate.value
+    endDate: endDate.value,
+    recipientId: recipientId.value || undefined
   }
   
   emit('save', transactionData)
 }
 
 // Konten für das Dropdown
-const accounts = computed(() => {
-  return accountStore.activeAccounts
-})
-
+const accounts = computed(() => accountStore.activeAccounts)
 // Kategorien für das Dropdown
-const categories = computed(() => {
-  return categoryStore.activeCategories
-})
-
+const categories = computed(() => categoryStore.activeCategories)
 // Tags für die Auswahl
-const tags = computed(() => {
-  return tagStore.tags
-})
+const tags = computed(() => tagStore.tags)
+// Empfänger für das Dropdown
+const recipients = computed(() => recipientStore.recipients)
 
-// Wiederholungsmuster für das Dropdown
 const recurrencePatterns = [
   { value: RecurrencePattern.ONCE, label: 'Einmalig' },
   { value: RecurrencePattern.DAILY, label: 'Täglich' },
@@ -112,15 +112,11 @@ const recurrencePatterns = [
   { value: RecurrencePattern.YEARLY, label: 'Jährlich' }
 ]
 
-// Umschalten zwischen Ausgabe und Einnahme
 const toggleAmountType = () => {
   amount.value = -amount.value
 }
 
-// Prüfe, ob es sich um eine Einnahme handelt
-const isIncome = computed(() => {
-  return amount.value > 0
-})
+const isIncome = computed(() => amount.value > 0)
 </script>
 
 <template>
@@ -191,6 +187,19 @@ const isIncome = computed(() => {
           </option>
         </select>
       </div>
+    </div>
+    
+    <!-- New Recipient Field -->
+    <div class="form-control">
+      <label class="label">
+        <span class="label-text">Empfänger</span>
+      </label>
+      <select v-model="recipientId" class="select select-bordered w-full">
+        <option value="">Kein Empfänger</option>
+        <option v-for="recipient in recipients" :key="recipient.id" :value="recipient.id">
+          {{ recipient.name }}
+        </option>
+      </select>
     </div>
     
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">

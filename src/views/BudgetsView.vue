@@ -6,6 +6,7 @@ import BudgetCard from '../components/budget/BudgetCard.vue'
 import CategoryForm from '../components/budget/CategoryForm.vue'
 import CategoryTransferModal from '../components/budget/CategoryTransferModal.vue'
 import { Category } from '../types'
+import CurrencyDisplay from '../components/ui/CurrencyDisplay.vue'
 
 // Stores
 const categoryStore = useCategoryStore()
@@ -138,7 +139,10 @@ const transferBetweenCategories = (data: any) => {
               <div class="flex justify-between items-center">
                 <div>
                   <h4 class="font-medium">{{ childCategory.name }}</h4>
-                  <p class="text-sm">Saldo: {{ new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(childCategory.balance) }}</p>
+                  <p class="text-sm">
+                    Saldo:
+                    <CurrencyDisplay :amount="childCategory.balance" :show-zero="true" :asInteger="false" />
+                  </p>
                 </div>
                 <div class="dropdown dropdown-end">
                   <label tabindex="0" class="btn btn-ghost btn-xs btn-circle">

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { ref } from "vue";
 import { useRouter } from "vue-router";
 import { useThemeStore } from "../stores/themeStore";
 import MainNavigation from "../components/ui/MainNavigation.vue";
@@ -23,17 +23,14 @@ const isMobileMenuOpen = ref(false);
  * - Keine Emits vorhanden.
  */
 
-const currentRouteName = computed(() => {
-  return router.currentRoute.value.meta.title || "FinWise";
-});
-
 const toggleMobileMenu = () => {
   isMobileMenuOpen.value = !isMobileMenuOpen.value;
 };
 </script>
 
 <template>
-  <div class="min-h-screen bg-gradient relative">
+  <!-- <div class="min-h-screen bg-gradient relative"> -->
+  <div class="min-h-screen bg-base-100 relative">
     <!-- Blur-Effekt für Hintergrund -->
     <div class="absolute bg-base-100/95 inset-0 backdrop-blur-md"></div>
 
@@ -86,7 +83,6 @@ const toggleMobileMenu = () => {
 
     <!-- Hauptinhalt -->
     <main class="container mx-auto px-4 py-6 relative z-10">
-      <h1 class="text-2xl font-bold mb-6">{{ currentRouteName }}</h1>
       <slot></slot>
     </main>
 
