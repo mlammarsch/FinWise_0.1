@@ -115,16 +115,9 @@ watch(isOpen, (newValue) => {
 <template>
   <div class="form-control w-full custom-select">
     <!-- Label für das Dropdown -->
-    <label
-      v-if="label"
-      class="label"
-    >
+    <label v-if="label" class="label">
       <span class="label-text">{{ label }}</span>
-      <span
-        v-if="required"
-        class="text-error"
-        >*</span
-      >
+      <span v-if="required" class="text-error">*</span>
     </label>
 
     <div class="relative">
@@ -134,26 +127,19 @@ watch(isOpen, (newValue) => {
         :class="{ 'opacity-70': disabled }"
         @click="isOpen = !disabled && !isOpen"
       >
-        <span
-          v-if="selectedDisplay"
-          class="truncate"
-          >{{ selectedDisplay }}</span
-        >
-        <span
-          v-else
-          class="text-base-content/50"
-          >{{ placeholder || "Auswählen..." }}</span
-        >
-        <span
-          class="iconify"
-          data-icon="mdi:chevron-down"
-        ></span>
+        <span v-if="selectedDisplay" class="truncate">{{
+          selectedDisplay
+        }}</span>
+        <span v-else class="text-base-content/50">{{
+          placeholder || "Auswählen..."
+        }}</span>
+        <span class="iconify" data-icon="mdi:chevron-down"></span>
       </div>
 
       <!-- Dropdown mit Optionen -->
       <div
         v-if="isOpen"
-        class="absolute mt-1 w-full bg-base-100 rounded-box shadow-lg border border-base-300"
+        class="absolute z-30 mt-1 w-full bg-base-100 rounded-box shadow-lg border border-base-300"
       >
         <!-- Suchfeld -->
         <div class="p-2">
@@ -168,11 +154,7 @@ watch(isOpen, (newValue) => {
 
         <!-- Liste der Optionen -->
         <ul class="max-h-60 overflow-y-auto p-2">
-          <li
-            v-for="option in filteredOptions"
-            :key="option.id"
-            class="py-1"
-          >
+          <li v-for="option in filteredOptions" :key="option.id" class="py-1">
             <label
               class="flex items-center space-x-2 cursor-pointer p-2 hover:bg-base-200 rounded-lg"
             >
@@ -188,27 +170,18 @@ watch(isOpen, (newValue) => {
           </li>
 
           <!-- Keine Ergebnisse oder Option erstellen -->
-          <li
-            v-if="filteredOptions.length === 0 && searchTerm"
-            class="py-1"
-          >
+          <li v-if="filteredOptions.length === 0 && searchTerm" class="py-1">
             <div
               v-if="allowCreate"
               class="p-2 hover:bg-base-200 rounded-lg cursor-pointer"
               @click="createOption"
             >
               <span class="flex items-center">
-                <span
-                  class="iconify mr-2"
-                  data-icon="mdi:plus-circle"
-                ></span>
+                <span class="iconify mr-2" data-icon="mdi:plus-circle"></span>
                 "{{ searchTerm }}" erstellen
               </span>
             </div>
-            <div
-              v-else
-              class="p-2 text-base-content/50"
-            >
+            <div v-else class="p-2 text-base-content/50">
               Keine Ergebnisse gefunden
             </div>
           </li>

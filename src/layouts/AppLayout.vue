@@ -35,19 +35,13 @@ const toggleMobileMenu = () => {
     <div class="absolute bg-base-100/95 inset-0 backdrop-blur-md"></div>
 
     <!-- Header -->
-    <header class="glass-effect sticky top-0 border-b border-base-300">
+    <header class="glass-effect sticky top-0 border-b border-base-300 z-10">
       <div class="navbar container mx-auto">
         <div class="navbar-start">
           <!-- Mobile Menü Button -->
           <div class="dropdown">
-            <button
-              class="btn btn-ghost lg:hidden"
-              @click="toggleMobileMenu"
-            >
-              <Icon
-                icon="mdi:menu"
-                class="h-5 w-5"
-              />
+            <button class="btn btn-ghost lg:hidden" @click="toggleMobileMenu">
+              <Icon icon="mdi:menu" class="h-5 w-5" />
             </button>
             <ul
               v-if="isMobileMenuOpen"

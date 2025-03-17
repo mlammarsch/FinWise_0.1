@@ -67,33 +67,22 @@ const selectAccount = () => {
     @click="selectAccount"
   >
     <!-- Dropdown-Menü für Aktionen -->
-    <div
-      class="absolute top-1 right-1 dropdown dropdown-end"
-      @click.stop
-    >
-      <label
-        tabindex="0"
-        class="btn btn-ghost btn-sm btn-circle"
-      >
+    <div class="dropdown dropdown-end absolute top-1 right-1" @click.stop>
+      <label tabindex="0" class="btn btn-ghost btn-sm btn-circle">
         <Icon icon="mdi:dots-vertical" />
       </label>
       <ul
         tabindex="0"
-        class="dropdown-content menu p-2 shadow bg-base-100 z-1 border border-base-300 rounded-box w-52"
+        class="dropdown-content menu p-2 shadow bg-base-100 border border-base-300 rounded-box w-52"
       >
         <li>
-          <a @click="showTransactions">Transaktionen anzeigen</a>
+          <a @click="showReconcileModal = true">Kontoabgleich</a>
         </li>
-        <li><a @click="showReconcileModal = true">Kontoabgleich</a></li>
         <li>
           <a @click="showEditModal = true">Bearbeiten</a>
         </li>
         <li>
-          <a
-            @click="deleteAccount"
-            class="text-error"
-            >Löschen</a
-          >
+          <a @click="deleteAccount" class="text-error">Löschen</a>
         </li>
       </ul>
     </div>
@@ -142,10 +131,7 @@ const selectAccount = () => {
         @reconciled="onReconciled"
       />
 
-      <div
-        v-if="showEditModal"
-        class="modal modal-open"
-      >
+      <div v-if="showEditModal" class="modal modal-open">
         <div class="modal-box max-w-2xl">
           <h3 class="font-bold text-lg mb-4">Konto bearbeiten</h3>
           <AccountForm
@@ -155,10 +141,7 @@ const selectAccount = () => {
             @cancel="showEditModal = false"
           />
         </div>
-        <div
-          class="modal-backdrop"
-          @click="showEditModal = false"
-        ></div>
+        <div class="modal-backdrop" @click="showEditModal = false"></div>
       </div>
     </Teleport>
   </div>

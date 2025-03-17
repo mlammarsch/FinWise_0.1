@@ -73,3 +73,5 @@ Format:
 - Änderung 2
 - ...
 ```
+
+Achte darauf, IMMER die ganzen Code-Files zurückzugeben, in denen Du Änderungen vorgenommen hast. Teilrückgaben machen die Applikation kaputt. Ich muss immer ganzheitlich den Code kopieren können in das Originalfile.

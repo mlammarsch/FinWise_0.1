@@ -10,10 +10,32 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 } */
-@layer base {
-html {
-  font-family: 'lobster-two', 'Segoe UI', 'Inter', 'Roboto', 'sans-serif';
+
+
+:root {
+  --z-navbar: 10;
+  --z-dropdown: 30;
+  --z-dropdown-content: 60;
+  --z-modal: 50;
 }
+
+.header {
+  @apply z-[var(--z-navbar)];
+}
+.navbar-center {
+  @apply z-[var(--z-navbar)];
+}
+
+.dropdown {
+  @apply z-[var(--z-dropdown)];
+}
+
+.dropdown-content {
+  @apply z-[var(--z-dropdown-content)];
+}
+
+.modal {
+  @apply z-[var(--z-modal)];
 }
 
 :root {
@@ -29,8 +51,7 @@ html {
   @apply bg-base-100/60 backdrop-blur-md;
 }
 
-/* Formatierung für Währungsbeträge */
-.amount-positive {
+/* .amount-positive {
   @apply text-success font-medium;
 }
 
@@ -40,4 +61,4 @@ html {
 
 .amount-zero {
   @apply text-neutral font-medium;
-}
+} */
