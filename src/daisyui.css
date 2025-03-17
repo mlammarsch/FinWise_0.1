@@ -1,6 +1,5 @@
 @import "tailwindcss";
 
-
 /* .btn, .input, .select, .textarea {
   font-family: var(--font-sans); /* Falls Sie CSS-Variablen verwenden
 } */
@@ -9,7 +8,6 @@
   themes: light --default, dark --prefersdark;
   root: ":root";
 }
-
 
 
 /* Dark Theme */

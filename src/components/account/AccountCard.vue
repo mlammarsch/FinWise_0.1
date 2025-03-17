@@ -2,12 +2,12 @@
 import { defineProps, computed, ref } from "vue";
 import { Account } from "../../types";
 import CurrencyDisplay from "../ui/CurrencyDisplay.vue";
-import { useRouter } from 'vue-router';
+import { useRouter } from "vue-router";
 import AccountReconcileModal from "./AccountReconcileModal.vue";
 import AccountForm from "./AccountForm.vue";
 import { useAccountStore } from "../../stores/accountStore";
 
-const emit = defineEmits(['select']);
+const emit = defineEmits(["select"]);
 
 const props = defineProps<{
   account: Account;
@@ -36,7 +36,9 @@ const showTransactions = () => {
 };
 
 const deleteAccount = async () => {
-  if (confirm(`Möchten Sie das Konto "${props.account.name}" wirklich löschen?`)) {
+  if (
+    confirm(`Möchten Sie das Konto "${props.account.name}" wirklich löschen?`)
+  ) {
     await accountStore.deleteAccount(props.account.id);
   }
 };
@@ -54,24 +56,30 @@ const onAccountSaved = async () => {
 
 // Konto auswählen
 const selectAccount = () => {
-  emit('select', props.account);
+  emit("select", props.account);
 };
 </script>
 
 <template>
   <div
-    class="card rounded-md border-base-200 bg-base-200 shadow-none relative z-10 cursor-pointer hover:bg-base-300"
+    class="card rounded-md border-base-200 bg-base-200 shadow-none relative cursor-pointer hover:bg-base-300"
     style="width: 100%"
     @click="selectAccount"
   >
     <!-- Dropdown-Menü für Aktionen -->
-    <div class="absolute top-1 right-1 dropdown dropdown-end" @click.stop>
-      <label tabindex="0" class="btn btn-ghost btn-sm btn-circle">
+    <div
+      class="absolute top-1 right-1 dropdown dropdown-end"
+      @click.stop
+    >
+      <label
+        tabindex="0"
+        class="btn btn-ghost btn-sm btn-circle"
+      >
         <Icon icon="mdi:dots-vertical" />
       </label>
       <ul
         tabindex="0"
-        class="dropdown-content z-[100] menu p-2 shadow bg-base-100 border border-base-300 rounded-box w-52"
+        class="dropdown-content menu p-2 shadow bg-base-100 z-1 border border-base-300 rounded-box w-52"
       >
         <li>
           <a @click="showTransactions">Transaktionen anzeigen</a>
@@ -81,7 +89,11 @@ const selectAccount = () => {
           <a @click="showEditModal = true">Bearbeiten</a>
         </li>
         <li>
-          <a @click="deleteAccount" class="text-error">Löschen</a>
+          <a
+            @click="deleteAccount"
+            class="text-error"
+            >Löschen</a
+          >
         </li>
       </ul>
     </div>
@@ -130,7 +142,10 @@ const selectAccount = () => {
         @reconciled="onReconciled"
       />
 
-      <div v-if="showEditModal" class="modal modal-open">
+      <div
+        v-if="showEditModal"
+        class="modal modal-open"
+      >
         <div class="modal-box max-w-2xl">
           <h3 class="font-bold text-lg mb-4">Konto bearbeiten</h3>
           <AccountForm
@@ -140,7 +155,10 @@ const selectAccount = () => {
             @cancel="showEditModal = false"
           />
         </div>
-        <div class="modal-backdrop" @click="showEditModal = false"></div>
+        <div
+          class="modal-backdrop"
+          @click="showEditModal = false"
+        ></div>
       </div>
     </Teleport>
   </div>

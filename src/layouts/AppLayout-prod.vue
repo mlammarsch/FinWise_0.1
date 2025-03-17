@@ -37,17 +37,20 @@ const toggleMobileMenu = () => {
     <div class="absolute bg-base-100/95 inset-0 backdrop-blur-md"></div>
 
     <!-- Header -->
-    <header class="glass-effect sticky top-0 z-50 border-b border-base-300">
+    <header class="glass-effect sticky top-0 border-b border-base-300">
       <div class="navbar container mx-auto">
         <div class="navbar-start">
           <!-- Mobile Menü Button -->
           <div class="dropdown">
-            <button class="btn btn-ghost lg:hidden" @click="toggleMobileMenu">
+            <button
+              class="btn btn-ghost lg:hidden"
+              @click="toggleMobileMenu"
+            >
               <span class="iconify mdi--menu h-5 w-5"></span>
             </button>
             <ul
               v-if="isMobileMenuOpen"
-              class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-52"
+              class="menu menu-sm dropdown-content mt-3 p-2 shadow bg-base-100 rounded-box w-52"
             >
               <MainNavigation @close-menu="isMobileMenuOpen = false" />
             </ul>
@@ -74,14 +77,14 @@ const toggleMobileMenu = () => {
     </header>
 
     <!-- Hauptinhalt -->
-    <main class="container mx-auto px-4 py-6 relative z-10">
+    <main class="container mx-auto px-4 py-6 relative">
       <h1 class="text-2xl font-bold mb-6">{{ currentRouteName }}</h1>
       <slot></slot>
     </main>
 
     <!-- Footer -->
     <footer
-      class="footer footer-center p-4 glass-effect text-base-content border-t border-base-300 relative z-10"
+      class="footer footer-center p-4 glass-effect text-base-content border-t border-base-300 relative"
     >
       <div>
         <p>
@@ -93,5 +96,4 @@ const toggleMobileMenu = () => {
   </div>
 </template>
 
-<style scoped>
-</style>
+<style scoped></style>

@@ -16,6 +16,10 @@ html {
 }
 }
 
+:root {
+  font-family: lobster-two, 'Segoe UI', Inter, Roboto, sans-serif;
+}
+
 .bg-gradient {
   @apply relative;
   background: linear-gradient(-18deg, var(--color-secondary) 5%, var(--color-base-100) 68%, var(--color-primary) 95%);

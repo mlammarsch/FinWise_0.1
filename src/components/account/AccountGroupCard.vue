@@ -6,7 +6,7 @@ import CurrencyDisplay from "../ui/CurrencyDisplay.vue";
 import AccountCard from "./AccountCard.vue";
 import AccountGroupForm from "./AccountGroupForm.vue";
 
-const emit = defineEmits(['selectAccount']);
+const emit = defineEmits(["selectAccount"]);
 
 const props = defineProps<{
   group: AccountGroup;
@@ -36,7 +36,9 @@ const accountCount = computed(() => accountsInGroup.value.length);
 
 // Gruppe löschen
 const deleteAccountGroup = async () => {
-  if (confirm(`Möchten Sie die Gruppe "${props.group.name}" wirklich löschen?`)) {
+  if (
+    confirm(`Möchten Sie die Gruppe "${props.group.name}" wirklich löschen?`)
+  ) {
     await accountStore.deleteAccountGroup(props.group.id);
   }
 };
@@ -49,25 +51,34 @@ const onGroupSaved = async () => {
 
 // Account Selection Handler
 const onAccountSelect = (account) => {
-  emit('selectAccount', account);
+  emit("selectAccount", account);
 };
 </script>
 
 <template>
   <div
-    class="card glass-effect bg-none border border-base-300 shadow-md relative z-0"
+    class="card glass-effect bg-none border border-base-300 shadow-md relative"
   >
     <!-- Dropdown-Menü für Aktionen -->
     <div class="dropdown dropdown-end absolute top-1 right-1">
-      <label tabindex="0" class="btn btn-ghost btn-sm btn-circle">
+      <label
+        tabindex="0"
+        class="btn btn-ghost btn-sm btn-circle"
+      >
         <Icon icon="mdi:dots-vertical" />
       </label>
       <ul
         tabindex="0"
-        class="dropdown-content z-[99] menu p-2 shadow bg-base-100 border border-base-300 rounded-box w-52"
+        class="dropdown-content menu p-2 shadow bg-base-100 border border-base-300 rounded-box w-52"
       >
         <li><a @click="showEditModal = true">Bearbeiten</a></li>
-        <li><a @click="deleteAccountGroup" class="text-error">Löschen</a></li>
+        <li>
+          <a
+            @click="deleteAccountGroup"
+            class="text-error"
+            >Löschen</a
+          >
+        </li>
       </ul>
     </div>
 
@@ -81,7 +92,10 @@ const onAccountSelect = (account) => {
             alt="Gruppenbild"
             class="w-full h-full object-cover"
           />
-          <div v-else class="w-full h-full bg-base-200"></div>
+          <div
+            v-else
+            class="w-full h-full bg-base-200"
+          ></div>
         </div>
       </div>
       <!-- Bezeichnung Konto und Betrag -->
@@ -126,7 +140,10 @@ const onAccountSelect = (account) => {
 
     <!-- Modal -->
     <Teleport to="body">
-      <div v-if="showEditModal" class="modal modal-open">
+      <div
+        v-if="showEditModal"
+        class="modal modal-open"
+      >
         <div class="modal-box max-w-2xl">
           <h3 class="font-bold text-lg mb-4">Kontogruppe bearbeiten</h3>
           <AccountGroupForm
@@ -136,7 +153,10 @@ const onAccountSelect = (account) => {
             @cancel="showEditModal = false"
           />
         </div>
-        <div class="modal-backdrop" @click="showEditModal = false"></div>
+        <div
+          class="modal-backdrop"
+          @click="showEditModal = false"
+        ></div>
       </div>
     </Teleport>
   </div>

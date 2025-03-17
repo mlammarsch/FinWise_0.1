@@ -80,14 +80,20 @@ const accountTransactions = computed(() => {
               class="btn join-item rounded-l-full btn-sm btn-soft border border-base-300"
               @click="createAccountGroup"
             >
-              <Icon icon="mdi:folder-plus" class="mr-2" />
+              <Icon
+                icon="mdi:folder-plus"
+                class="mr-2"
+              />
               Neue Gruppe
             </button>
             <button
               class="btn join-item rounded-r-full btn-sm btn-soft border border-base-300"
               @click="createAccount"
             >
-              <Icon icon="mdi:plus" class="mr-2" />
+              <Icon
+                icon="mdi:plus"
+                class="mr-2"
+              />
               Neues Konto
             </button>
           </div>
@@ -107,10 +113,14 @@ const accountTransactions = computed(() => {
         </div>
       </div>
 
-      <div v-for="group in accountGroups" :key="group.id" class="mb-8 z-[1]">
+      <div
+        v-for="group in accountGroups"
+        :key="group.id"
+        class="mb-8"
+      >
         <div class="mb-4">
-          <AccountGroupCard 
-            :group="group" 
+          <AccountGroupCard
+            :group="group"
             @selectAccount="onSelectAccount"
           />
         </div>
@@ -118,7 +128,10 @@ const accountTransactions = computed(() => {
     </div>
 
     <div class="w-full md:w-1/2 max-w-xl">
-      <h2 v-if="selectedAccount" class="text-xl font-bold mb-4">
+      <h2
+        v-if="selectedAccount"
+        class="text-xl font-bold mb-4"
+      >
         Transaktionen für Konto: {{ selectedAccount.name }}
       </h2>
       <p v-else>Wähle ein Konto, um die Transaktionen anzuzeigen.</p>
@@ -133,7 +146,10 @@ const accountTransactions = computed(() => {
 
     <!-- Neues Konto Modal -->
     <Teleport to="body">
-      <div v-if="showNewAccountModal" class="modal modal-open">
+      <div
+        v-if="showNewAccountModal"
+        class="modal modal-open"
+      >
         <div class="modal-box max-w-2xl">
           <h3 class="font-bold text-lg mb-4">Neues Konto erstellen</h3>
           <AccountForm
@@ -141,13 +157,19 @@ const accountTransactions = computed(() => {
             @cancel="showNewAccountModal = false"
           />
         </div>
-        <div class="modal-backdrop" @click="showNewAccountModal = false"></div>
+        <div
+          class="modal-backdrop"
+          @click="showNewAccountModal = false"
+        ></div>
       </div>
     </Teleport>
 
     <!-- Neue Gruppe Modal -->
     <Teleport to="body">
-      <div v-if="showNewGroupModal" class="modal modal-open">
+      <div
+        v-if="showNewGroupModal"
+        class="modal modal-open"
+      >
         <div class="modal-box max-w-2xl">
           <h3 class="font-bold text-lg mb-4">Neue Kontogruppe erstellen</h3>
           <AccountGroupForm
@@ -155,7 +177,10 @@ const accountTransactions = computed(() => {
             @cancel="showNewGroupModal = false"
           />
         </div>
-        <div class="modal-backdrop" @click="showNewGroupModal = false"></div>
+        <div
+          class="modal-backdrop"
+          @click="showNewGroupModal = false"
+        ></div>
       </div>
     </Teleport>
   </div>

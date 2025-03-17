@@ -7,7 +7,7 @@ export default defineConfig({
   base: '/',
   plugins: [
     vue(),
-    // tailwindcss(),
+    tailwindcss(),
   ],
   resolve: {
     alias: {

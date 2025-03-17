@@ -127,12 +127,24 @@ const accountTransactions = computed(() => {
       <!-- Row für Gesamtsaldo und Buttons -->
       <div class="flex justify-between items-center mb-6">
         <div>
-          <button class="btn btn-sm btn-soft" @click="createAccount">
-            <Icon icon="mdi:plus" class="mr-2" />
+          <button
+            class="btn btn-sm btn-soft"
+            @click="createAccount"
+          >
+            <Icon
+              icon="mdi:plus"
+              class="mr-2"
+            />
             Neues Konto
           </button>
-          <button class="btn btn-sm btn-soft" @click="createAccountGroup">
-            <Icon icon="mdi:folder-plus" class="mr-2" />
+          <button
+            class="btn btn-sm btn-soft"
+            @click="createAccountGroup"
+          >
+            <Icon
+              icon="mdi:folder-plus"
+              class="mr-2"
+            />
             Neue Gruppe
           </button>
         </div>
@@ -146,7 +158,11 @@ const accountTransactions = computed(() => {
         </h2>
       </div>
 
-      <div v-for="group in accountGroups" :key="group.id" class="mb-8 z-[1]">
+      <div
+        v-for="group in accountGroups"
+        :key="group.id"
+        class="mb-8"
+      >
         <div class="mb-4">
           <AccountGroupCard
             :group="group"
@@ -163,7 +179,10 @@ const accountTransactions = computed(() => {
     </div>
 
     <div class="w-full md:w-1/2 max-w-xl">
-      <h2 v-if="selectedAccount" class="text-xl font-bold mb-4">
+      <h2
+        v-if="selectedAccount"
+        class="text-xl font-bold mb-4"
+      >
         Transaktionen für Konto: {{ selectedAccount.name }}
       </h2>
       <p v-else>Wähle ein Konto, um die Transaktionen anzuzeigen.</p>
