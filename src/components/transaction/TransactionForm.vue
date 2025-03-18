@@ -43,15 +43,14 @@ const recipients = computed(() =>
   Array.isArray(recipientStore.recipients) ? recipientStore.recipients : []
 );
 
-// Sicherstellen, dass activeCategories bzw. activeTags immer ein Array sind
 const categories = computed(() =>
-  (categoryStore.activeCategories || []).map((c: any) => ({
+  (categoryStore.activeCategories || []).map((c) => ({
     id: c.id,
     name: c.name,
   }))
 );
 const tags = computed(() =>
-  (tagStore.activeTags || []).map((t: any) => ({ id: t.id, name: t.name }))
+  (tagStore.activeTags || []).map((t) => ({ id: t.id, name: t.name }))
 );
 
 const amountInputRef = ref<InstanceType<typeof CurrencyInput> | null>(null);
@@ -160,10 +159,10 @@ const insertNewLine = (event: KeyboardEvent) => {
 };
 
 const accounts = computed(() =>
-  accountStore.activeAccounts.map((a: any) => ({ id: a.id, name: a.name }))
+  accountStore.activeAccounts.map((a) => ({ id: a.id, name: a.name }))
 );
 const filteredAccounts = computed(() =>
-  accounts.value.filter((a: any) => a.id !== accountId.value)
+  accounts.value.filter((a) => a.id !== accountId.value)
 );
 </script>
 
@@ -226,7 +225,6 @@ const filteredAccounts = computed(() =>
       :disabled="isTransfer"
     />
 
-    <!-- Kategorie und Tags nur anzeigen, wenn es KEIN Transfer ist -->
     <div
       v-if="transactionType !== TransactionType.TRANSFER"
       class="grid grid-cols-1 md:grid-cols-2 gap-4"
@@ -235,12 +233,14 @@ const filteredAccounts = computed(() =>
         v-model="categoryId"
         :options="categories"
         label="Kategorie"
+        @create="emit('createCategory', $event)"
       />
       <SearchableSelect
         v-model="tagIds"
         :options="tags"
         label="Tags"
         multiple
+        @create="emit('createTag', $event)"
       />
     </div>
 

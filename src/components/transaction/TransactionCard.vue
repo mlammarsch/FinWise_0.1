@@ -9,7 +9,7 @@ import { formatDate } from "../../utils/formatters";
 import CurrencyDisplay from "../ui/CurrencyDisplay.vue";
 
 /**
- * Pfad zur Komponente: components/TransactionCard.vue
+ * Pfad zur Komponente: components/transaction/TransactionCard.vue
  *
  * Diese Komponente stellt eine einzelne Transaktionskarte dar, die alle relevanten Informationen untereinander anzeigt.
  *
@@ -19,7 +19,6 @@ import CurrencyDisplay from "../ui/CurrencyDisplay.vue";
  * Emits:
  * - Keine Emits vorhanden.
  */
-
 const props = defineProps<{ transaction: Transaction }>();
 
 const categoryStore = useCategoryStore();
@@ -27,30 +26,27 @@ const tagStore = useTagStore();
 const accountStore = useAccountStore();
 const recipientStore = useRecipientStore();
 
-const categoryName = computed(() => {
-  return props.transaction.categoryId
+const categoryName = computed(() =>
+  props.transaction.categoryId
     ? categoryStore.getCategoryById(props.transaction.categoryId)?.name ||
-        "Keine Kategorie"
-    : "Keine Kategorie";
-});
+      "Keine Kategorie"
+    : "Keine Kategorie"
+);
 
-const accountName = computed(() => {
-  return (
+const accountName = computed(
+  () =>
     accountStore.getAccountById(props.transaction.accountId)?.name ||
     "Unbekanntes Konto"
-  );
-});
+);
 
-const recipientName = computed(() => {
-  return props.transaction.recipientId
+const recipientName = computed(() =>
+  props.transaction.recipientId
     ? recipientStore.getRecipientById(props.transaction.recipientId)?.name ||
-        "Unbekannter Empfänger"
-    : "Unbekannter Empfänger";
-});
+      "Unbekannter Empfänger"
+    : "Unbekannter Empfänger"
+);
 
-const getTagName = (tagId: string) => {
-  return tagStore.getTagById(tagId)?.name || "";
-};
+const getTagName = (tagId: string) => tagStore.getTagById(tagId)?.name || "";
 </script>
 
 <template>
