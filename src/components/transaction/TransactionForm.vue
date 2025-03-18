@@ -8,7 +8,6 @@ import { useRecipientStore } from "../../stores/recipientStore";
 import DatePicker from "../ui/DatePicker.vue";
 import SearchableSelect from "../ui/SearchableSelect.vue";
 import CurrencyInput from "../ui/CurrencyInput.vue";
-import { Icon } from "@iconify/vue";
 
 const props = defineProps<{
   transaction?: Transaction;
@@ -62,25 +61,39 @@ onMounted(() => {
   }
 });
 
-watch(date, (newDate) => {
-  valueDate.value = newDate;
-});
-
-watch([amount, toAccountId], () => {
+// Passt den Buchungstyp an, wenn der Betrag geändert wird
+watch(amount, (newAmount) => {
   if (toAccountId.value) {
     transactionType.value = TransactionType.TRANSFER;
-  } else if (amount.value < 0) {
+  } else if (newAmount < 0) {
     transactionType.value = TransactionType.EXPENSE;
-  } else if (amount.value > 0) {
+  } else if (newAmount > 0) {
     transactionType.value = TransactionType.INCOME;
-  } else {
-    transactionType.value = TransactionType.EXPENSE;
   }
 });
 
-watch(accountId, () => {
-  if (toAccountId.value === accountId.value) {
+// Passt den Betrag an, wenn der Buchungstyp geändert wird
+watch(transactionType, (newType) => {
+  if (newType === TransactionType.TRANSFER) return;
+
+  if (newType === TransactionType.EXPENSE && amount.value > 0) {
+    amount.value = -amount.value;
+  } else if (newType === TransactionType.INCOME && amount.value < 0) {
+    amount.value = Math.abs(amount.value);
+  }
+});
+
+// Löscht das Zielkonto, wenn der Typ nicht mehr Transfer ist
+watch(transactionType, (newType) => {
+  if (newType !== TransactionType.TRANSFER) {
     toAccountId.value = "";
+  }
+});
+
+// Verhindert das Ändern des Typs, wenn ein Zielkonto gesetzt ist
+watch(toAccountId, (newToAccountId) => {
+  if (newToAccountId) {
+    transactionType.value = TransactionType.TRANSFER;
   }
 });
 
@@ -122,31 +135,31 @@ const filteredAccounts = computed(() =>
   >
     <!-- Transaktionstyp als Radio -->
     <div class="flex justify-center gap-4">
-      <label class="flex items-center gap-2 text-neutral">
+      <label class="flex items-center gap-2">
         <input
           type="radio"
           name="transactionType"
-          class="radio radio-sm radio-error"
+          class="radio border-neutral checked:bg-red-200 checked:text-red-600 checked:border-red-600"
           v-model="transactionType"
           :value="TransactionType.EXPENSE"
         />
         <span>Ausgabe</span>
       </label>
-      <label class="flex items-center gap-2 text-neutral">
+      <label class="flex items-center gap-2">
         <input
           type="radio"
           name="transactionType"
-          class="radio radio-sm radio-success"
+          class="radio border-neutral checked:bg-green-200 checked:text-green-600 checked:border-green-600"
           v-model="transactionType"
           :value="TransactionType.INCOME"
         />
         <span>Einnahme</span>
       </label>
-      <label class="flex items-center gap-2 text-neutral">
+      <label class="flex items-center gap-2">
         <input
           type="radio"
           name="transactionType"
-          class="radio radio-sm radio-warning"
+          class="radio border-neutral checked:bg-yellow-200 checked:text-yellow-600 checked:border-yellow-600"
           v-model="transactionType"
           :value="TransactionType.TRANSFER"
         />
@@ -159,10 +172,10 @@ const filteredAccounts = computed(() =>
       <DatePicker v-model="valueDate" label="Wertstellung" />
     </div>
 
-    <!-- Betrag mit Euro-Symbol -->
-    <div class="flex items-center gap-2">
-      <Icon icon="mdi:currency-eur" class="text-4xl" />
-      <CurrencyInput v-model="amount" class="w-full" />
+    <!-- Betrag mit Euro-Symbol, rechtsbündig -->
+    <div class="flex justify-end items-center gap-2">
+      <CurrencyInput v-model="amount" class="w-[150px]" />
+      <span class="text-3xl">€</span>
     </div>
 
     <SearchableSelect
@@ -198,23 +211,6 @@ const filteredAccounts = computed(() =>
       :options="categoryStore.categories"
       label="Kategorie"
     />
-
-    <!-- Tags als Badges -->
-    <div>
-      <label class="label">
-        <Icon icon="mdi:tags" class="mr-2" />
-        <span class="label-text">Tags</span>
-      </label>
-      <div class="flex flex-wrap gap-2 p-1">
-        <div
-          v-for="tag in tagStore.tags.filter((t) => tagIds.includes(t.id))"
-          :key="tag.id"
-          class="badge badge-soft badge-secondary"
-        >
-          {{ tag.name }}
-        </div>
-      </div>
-    </div>
 
     <textarea
       v-model="note"
