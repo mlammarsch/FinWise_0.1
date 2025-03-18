@@ -2,9 +2,9 @@
 import { ref, computed, onMounted, watch, nextTick } from "vue";
 import { Transaction, TransactionType } from "../../types";
 import { useAccountStore } from "../../stores/accountStore";
+import { useRecipientStore } from "../../stores/recipientStore";
 import { useCategoryStore } from "../../stores/categoryStore";
 import { useTagStore } from "../../stores/tagStore";
-import { useRecipientStore } from "../../stores/recipientStore";
 import DatePicker from "../ui/DatePicker.vue";
 import SearchableSelect from "../ui/SearchableSelect.vue";
 import CurrencyInput from "../ui/CurrencyInput.vue";
@@ -19,9 +19,9 @@ const props = defineProps<{
 const emit = defineEmits(["save", "cancel", "createCategory", "createTag"]);
 
 const accountStore = useAccountStore();
+const recipientStore = useRecipientStore();
 const categoryStore = useCategoryStore();
 const tagStore = useTagStore();
-const recipientStore = useRecipientStore();
 
 const date = ref(new Date().toISOString().split("T")[0]);
 const valueDate = ref(date.value);
@@ -41,6 +41,17 @@ const locked = computed(
 
 const recipients = computed(() =>
   Array.isArray(recipientStore.recipients) ? recipientStore.recipients : []
+);
+
+// Sicherstellen, dass activeCategories bzw. activeTags immer ein Array sind
+const categories = computed(() =>
+  (categoryStore.activeCategories || []).map((c: any) => ({
+    id: c.id,
+    name: c.name,
+  }))
+);
+const tags = computed(() =>
+  (tagStore.activeTags || []).map((t: any) => ({ id: t.id, name: t.name }))
 );
 
 const amountInputRef = ref<InstanceType<typeof CurrencyInput> | null>(null);
@@ -95,13 +106,15 @@ watch(amount, (newAmount) => {
 });
 
 watch(transactionType, (newType) => {
-  if (!locked.value && newType !== TransactionType.TRANSFER)
+  if (!locked.value && newType !== TransactionType.TRANSFER) {
     toAccountId.value = "";
+  }
 });
 
 watch(toAccountId, (newToAccountId) => {
-  if (!locked.value && newToAccountId)
+  if (!locked.value && newToAccountId) {
     transactionType.value = TransactionType.TRANSFER;
+  }
 });
 
 const isTransfer = computed(
@@ -136,11 +149,21 @@ const saveTransaction = () => {
   emit("save", payload);
 };
 
+const insertNewLine = (event: KeyboardEvent) => {
+  const textarea = event.target as HTMLTextAreaElement;
+  const { selectionStart, selectionEnd } = textarea;
+  note.value =
+    note.value.slice(0, selectionStart) + "\n" + note.value.slice(selectionEnd);
+  nextTick(() => {
+    textarea.selectionStart = textarea.selectionEnd = selectionStart + 1;
+  });
+};
+
 const accounts = computed(() =>
-  accountStore.activeAccounts.map((a) => ({ id: a.id, name: a.name }))
+  accountStore.activeAccounts.map((a: any) => ({ id: a.id, name: a.name }))
 );
 const filteredAccounts = computed(() =>
-  accounts.value.filter((a) => a.id !== accountId.value)
+  accounts.value.filter((a: any) => a.id !== accountId.value)
 );
 </script>
 
@@ -151,13 +174,13 @@ const filteredAccounts = computed(() =>
     tabindex="-1"
     v-else
     @submit.prevent="saveTransaction"
+    @keydown.esc.prevent="$emit('cancel')"
     class="space-y-4 max-w-[calc(100%-80px)] mx-auto"
   >
     <div class="flex justify-center gap-4">
       <label class="flex items-center gap-2">
         <input
           type="radio"
-          name="transactionType"
           class="radio border-neutral checked:bg-red-200 checked:text-red-600 checked:border-red-600"
           v-model="transactionType"
           :value="TransactionType.EXPENSE"
@@ -168,7 +191,6 @@ const filteredAccounts = computed(() =>
       <label class="flex items-center gap-2">
         <input
           type="radio"
-          name="transactionType"
           class="radio border-neutral checked:bg-green-200 checked:text-green-600 checked:border-green-600"
           v-model="transactionType"
           :value="TransactionType.INCOME"
@@ -179,7 +201,6 @@ const filteredAccounts = computed(() =>
       <label class="flex items-center gap-2">
         <input
           type="radio"
-          name="transactionType"
           class="radio border-neutral checked:bg-yellow-200 checked:text-yellow-600 checked:border-yellow-600"
           v-model="transactionType"
           :value="TransactionType.TRANSFER"
@@ -187,20 +208,42 @@ const filteredAccounts = computed(() =>
         <span>Transfer</span>
       </label>
     </div>
+
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <DatePicker v-model="date" label="Buchungsdatum" required />
       <DatePicker v-model="valueDate" label="Wertstellung" />
     </div>
+
     <div class="flex justify-end items-center gap-2">
       <CurrencyInput ref="amountInputRef" v-model="amount" class="w-[150px]" />
       <span class="text-3xl">€</span>
     </div>
+
     <SearchableSelect
       v-model="recipientId"
       :options="recipients"
       label="Empfänger"
       :disabled="isTransfer"
     />
+
+    <!-- Kategorie und Tags nur anzeigen, wenn es KEIN Transfer ist -->
+    <div
+      v-if="transactionType !== TransactionType.TRANSFER"
+      class="grid grid-cols-1 md:grid-cols-2 gap-4"
+    >
+      <SearchableSelect
+        v-model="categoryId"
+        :options="categories"
+        label="Kategorie"
+      />
+      <SearchableSelect
+        v-model="tagIds"
+        :options="tags"
+        label="Tags"
+        multiple
+      />
+    </div>
+
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <select v-model="accountId" class="select select-bordered w-full">
         <option v-for="a in accounts" :key="a.id" :value="a.id">
@@ -217,11 +260,15 @@ const filteredAccounts = computed(() =>
         </option>
       </select>
     </div>
+
     <textarea
       v-model="note"
-      class="textarea textarea-bordered w-full"
+      class="textarea textarea-bordered w-full min-h-[3rem]"
       placeholder="Notiz"
+      @keydown.enter.prevent="saveTransaction"
+      @keydown.ctrl.enter.prevent="insertNewLine"
     ></textarea>
+
     <div class="flex justify-end space-x-2">
       <button type="button" class="btn btn-secondary" @click="$emit('cancel')">
         Abbrechen
