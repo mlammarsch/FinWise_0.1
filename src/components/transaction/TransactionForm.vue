@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from "vue";
+import { ref, computed, onMounted, watch, nextTick } from "vue";
 import { Transaction, TransactionType } from "../../types";
 import { useAccountStore } from "../../stores/accountStore";
 import { useCategoryStore } from "../../stores/categoryStore";
@@ -35,105 +35,124 @@ const note = ref("");
 const recipientId = ref("");
 const recipientsLoaded = ref(false);
 
+const locked = computed(
+  () => props.transaction && (props.transaction as any).counterTransactionId
+);
+
 const recipients = computed(() =>
   Array.isArray(recipientStore.recipients) ? recipientStore.recipients : []
 );
 
-onMounted(() => {
-  recipientsLoaded.value = true;
+const amountInputRef = ref<InstanceType<typeof CurrencyInput> | null>(null);
+const formModalRef = ref<HTMLFormElement | null>(null);
 
-  if (props.transaction) {
-    date.value = props.transaction.date;
-    valueDate.value = props.transaction.valueDate || props.transaction.date;
-    accountId.value = props.transaction.accountId;
-    categoryId.value = props.transaction.categoryId;
-    tagIds.value = props.transaction.tagIds;
-    amount.value = props.transaction.amount ?? 0;
-    note.value = props.transaction.note || "";
-    recipientId.value = props.transaction.recipientId || "";
-    transactionType.value = props.transaction.type;
-  } else {
-    if (props.initialAccountId) {
-      accountId.value = props.initialAccountId;
-    } else if (accountStore.activeAccounts.length > 0) {
-      accountId.value = accountStore.activeAccounts[0].id;
-    }
-  }
-});
-
-// Passt den Buchungstyp an, wenn der Betrag geändert wird
-watch(amount, (newAmount) => {
-  if (toAccountId.value) {
-    transactionType.value = TransactionType.TRANSFER;
-  } else if (newAmount < 0) {
-    transactionType.value = TransactionType.EXPENSE;
-  } else if (newAmount > 0) {
-    transactionType.value = TransactionType.INCOME;
-  }
-});
-
-// Passt den Betrag an, wenn der Buchungstyp geändert wird
-watch(transactionType, (newType) => {
-  if (newType === TransactionType.TRANSFER) return;
-
-  if (newType === TransactionType.EXPENSE && amount.value > 0) {
-    amount.value = -amount.value;
-  } else if (newType === TransactionType.INCOME && amount.value < 0) {
-    amount.value = Math.abs(amount.value);
-  }
-});
-
-// Löscht das Zielkonto, wenn der Typ nicht mehr Transfer ist
-watch(transactionType, (newType) => {
-  if (newType !== TransactionType.TRANSFER) {
-    toAccountId.value = "";
-  }
-});
-
-// Verhindert das Ändern des Typs, wenn ein Zielkonto gesetzt ist
-watch(toAccountId, (newToAccountId) => {
-  if (newToAccountId) {
-    transactionType.value = TransactionType.TRANSFER;
-  }
-});
-
-const saveTransaction = () => {
-  emit("save", {
-    type: transactionType.value,
-    transaction: {
-      date: date.value,
-      valueDate: valueDate.value || date.value,
-      accountId: accountId.value,
-      categoryId: categoryId.value,
-      tagIds: tagIds.value,
-      amount: amount.value,
-      note: note.value,
-      recipientId: recipientId.value || undefined,
-    },
+const focusModalAndAmount = () => {
+  nextTick(() => {
+    formModalRef.value?.focus();
+    amountInputRef.value?.focus();
+    amountInputRef.value?.select();
   });
 };
 
-const accounts = computed(() =>
-  accountStore.activeAccounts.map((account) => ({
-    id: account.id,
-    name: account.name,
-  }))
+onMounted(() => {
+  recipientsLoaded.value = true;
+  if (props.transaction) {
+    date.value = props.transaction.date;
+    valueDate.value =
+      (props.transaction as any).valueDate || props.transaction.date;
+    accountId.value = props.transaction.accountId;
+    categoryId.value = props.transaction.categoryId;
+    tagIds.value = (props.transaction as any).tagIds || [];
+    amount.value = props.transaction.amount ?? 0;
+    note.value = props.transaction.note || "";
+    recipientId.value = (props.transaction as any).recipientId || "";
+    transactionType.value =
+      (props.transaction as any).type || TransactionType.EXPENSE;
+    if (transactionType.value === TransactionType.TRANSFER) {
+      toAccountId.value = (props.transaction as any).transferToAccountId || "";
+    }
+  } else {
+    accountId.value =
+      props.initialAccountId || accountStore.activeAccounts[0]?.id || "";
+  }
+  focusModalAndAmount();
+});
+
+watch(
+  () => props.isEdit,
+  (newValue) => newValue && focusModalAndAmount()
 );
 
+watch(amount, (newAmount) => {
+  if (locked.value) return;
+  transactionType.value = toAccountId.value
+    ? TransactionType.TRANSFER
+    : newAmount < 0
+    ? TransactionType.EXPENSE
+    : newAmount > 0
+    ? TransactionType.INCOME
+    : transactionType.value;
+});
+
+watch(transactionType, (newType) => {
+  if (!locked.value && newType !== TransactionType.TRANSFER)
+    toAccountId.value = "";
+});
+
+watch(toAccountId, (newToAccountId) => {
+  if (!locked.value && newToAccountId)
+    transactionType.value = TransactionType.TRANSFER;
+});
+
+const isTransfer = computed(
+  () => transactionType.value === TransactionType.TRANSFER
+);
+
+const saveTransaction = () => {
+  const payload =
+    transactionType.value === TransactionType.TRANSFER
+      ? {
+          type: transactionType.value,
+          fromAccountId: accountId.value,
+          toAccountId: toAccountId.value,
+          amount: Math.abs(amount.value),
+          date: date.value,
+          valueDate: valueDate.value || date.value,
+          note,
+        }
+      : {
+          type: transactionType.value,
+          transaction: {
+            date: date.value,
+            valueDate: valueDate.value || date.value,
+            accountId: accountId.value,
+            categoryId,
+            tagIds,
+            amount: amount.value,
+            note,
+            recipientId: recipientId.value || undefined,
+          },
+        };
+  emit("save", payload);
+};
+
+const accounts = computed(() =>
+  accountStore.activeAccounts.map((a) => ({ id: a.id, name: a.name }))
+);
 const filteredAccounts = computed(() =>
-  accounts.value.filter((account) => account.id !== accountId.value)
+  accounts.value.filter((a) => a.id !== accountId.value)
 );
 </script>
 
 <template>
   <div v-if="!recipientsLoaded" class="text-center p-4">Lade Empfänger...</div>
-
   <form
+    ref="formModalRef"
+    tabindex="-1"
     v-else
     @submit.prevent="saveTransaction"
     class="space-y-4 max-w-[calc(100%-80px)] mx-auto"
   >
-    <!-- Transaktionstyp als Radio -->
     <div class="flex justify-center gap-4">
       <label class="flex items-center gap-2">
         <input
@@ -142,6 +161,7 @@ const filteredAccounts = computed(() =>
           class="radio border-neutral checked:bg-red-200 checked:text-red-600 checked:border-red-600"
           v-model="transactionType"
           :value="TransactionType.EXPENSE"
+          :disabled="locked"
         />
         <span>Ausgabe</span>
       </label>
@@ -152,6 +172,7 @@ const filteredAccounts = computed(() =>
           class="radio border-neutral checked:bg-green-200 checked:text-green-600 checked:border-green-600"
           v-model="transactionType"
           :value="TransactionType.INCOME"
+          :disabled="locked"
         />
         <span>Einnahme</span>
       </label>
@@ -166,58 +187,41 @@ const filteredAccounts = computed(() =>
         <span>Transfer</span>
       </label>
     </div>
-
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <DatePicker v-model="date" label="Buchungsdatum" required />
       <DatePicker v-model="valueDate" label="Wertstellung" />
     </div>
-
-    <!-- Betrag mit Euro-Symbol, rechtsbündig -->
     <div class="flex justify-end items-center gap-2">
-      <CurrencyInput v-model="amount" class="w-[150px]" />
+      <CurrencyInput ref="amountInputRef" v-model="amount" class="w-[150px]" />
       <span class="text-3xl">€</span>
     </div>
-
     <SearchableSelect
       v-model="recipientId"
       :options="recipients"
       label="Empfänger"
+      :disabled="isTransfer"
     />
-
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <select v-model="accountId" class="select select-bordered w-full">
-        <option
-          v-for="account in accounts"
-          :key="account.id"
-          :value="account.id"
-        >
-          {{ account.name }}
+        <option v-for="a in accounts" :key="a.id" :value="a.id">
+          {{ a.name }}
         </option>
       </select>
-
-      <select v-model="toAccountId" class="select select-bordered w-full">
-        <option
-          v-for="account in filteredAccounts"
-          :key="account.id"
-          :value="account.id"
-        >
-          {{ account.name }}
+      <select
+        v-model="toAccountId"
+        class="select select-bordered w-full"
+        :disabled="!isTransfer"
+      >
+        <option v-for="a in filteredAccounts" :key="a.id" :value="a.id">
+          {{ a.name }}
         </option>
       </select>
     </div>
-
-    <SearchableSelect
-      v-model="categoryId"
-      :options="categoryStore.categories"
-      label="Kategorie"
-    />
-
     <textarea
       v-model="note"
-      class="textarea textarea-bordered w-full min-h-[3rem]"
+      class="textarea textarea-bordered w-full"
       placeholder="Notiz"
     ></textarea>
-
     <div class="flex justify-end space-x-2">
       <button type="button" class="btn btn-secondary" @click="$emit('cancel')">
         Abbrechen

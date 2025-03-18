@@ -9,17 +9,6 @@ import TransactionForm from "../components/transaction/TransactionForm.vue";
 import { Transaction } from "../types";
 import { Icon } from "@iconify/vue";
 
-/**
- * Pfad zur Komponente: /components/TransactionOverview.vue
- * Übersicht über alle Transaktionen mit Bearbeitungsfunktionen.
- *
- * Komponenten-Props:
- * - Keine Props vorhanden
- *
- * Emits:
- * - Keine Emits vorhanden
- */
-
 // Stores
 const transactionStore = useTransactionStore();
 const categoryStore = useCategoryStore();
@@ -60,17 +49,40 @@ const createTransaction = () => {
 // Transaktion speichern
 const saveTransaction = (data: any) => {
   if (selectedTransaction.value) {
-    // Bestehende Transaktion aktualisieren
-    if (data.type === "TRANSFER") {
-      // Transfers können nicht bearbeitet werden, nur gelöscht und neu erstellt
-      alert(
-        "Transfers können nicht bearbeitet werden. Bitte löschen Sie den Transfer und erstellen Sie einen neuen."
+    // Falls es sich um eine bestehende Transferbuchung handelt, diese aber nun als Einnahme/Ausgabe gespeichert wird:
+    if (
+      selectedTransaction.value.counterTransactionId &&
+      data.type !== "TRANSFER"
+    ) {
+      transactionStore.deleteTransaction(
+        selectedTransaction.value.counterTransactionId
       );
-    } else {
+      alert(
+        "Da die Buchung nicht mehr als Transfer markiert ist, wurde die Gegenbuchung gelöscht."
+      );
       transactionStore.updateTransaction(
         selectedTransaction.value.id,
         data.transaction
       );
+    } else {
+      if (data.type === "TRANSFER") {
+        transactionStore.updateTransferTransaction(
+          selectedTransaction.value.id,
+          {
+            fromAccountId: data.fromAccountId,
+            toAccountId: data.toAccountId,
+            amount: data.amount,
+            date: data.date,
+            valueDate: data.valueDate,
+            note: data.note,
+          }
+        );
+      } else {
+        transactionStore.updateTransaction(
+          selectedTransaction.value.id,
+          data.transaction
+        );
+      }
     }
   } else {
     // Neue Transaktion erstellen

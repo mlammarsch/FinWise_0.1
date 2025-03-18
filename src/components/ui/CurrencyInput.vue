@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, computed, onMounted } from "vue";
+import { ref, watch, computed, onMounted, defineExpose } from "vue";
 
 const props = defineProps({
   modelValue: {
@@ -35,18 +35,15 @@ const textClass = computed(() => {
 });
 
 const parseInput = (input: string): string => {
-  let validInput = input.replace(/[^0-9,-]/g, ""); // Erlaubt Zahlen, Komma und Minus
-  const hasMinus = validInput.startsWith("-"); // Prüft, ob Minus vorne steht
-  validInput = validInput.replace(/-/g, ""); // Entfernt alle Minuszeichen
-  if (hasMinus) validInput = "-" + validInput; // Fügt Minuszeichen nur vorne hinzu
+  let validInput = input.replace(/[^0-9,-]/g, "");
+  const hasMinus = validInput.startsWith("-");
+  validInput = validInput.replace(/-/g, "");
+  if (hasMinus) validInput = "-" + validInput;
 
   const parts = validInput.split(",");
-
-  if (parts.length > 2) {
-    validInput = parts[0] + "," + parts[1]; // Mehrere Kommata verhindern
-  } else if (parts.length > 1 && parts[1].length > 2) {
-    validInput = parts[0] + "," + parts[1].slice(0, 2); // Maximal zwei Nachkommastellen
-  }
+  if (parts.length > 2) validInput = parts[0] + "," + parts[1];
+  else if (parts.length > 1 && parts[1].length > 2)
+    validInput = parts[0] + "," + parts[1].slice(0, 2);
 
   return validInput;
 };
@@ -61,9 +58,7 @@ const onEnter = (event: KeyboardEvent) => {
   event.target?.dispatchEvent(new Event("change", { bubbles: true }));
 };
 
-const onBlur = () => {
-  formatAndEmitValue();
-};
+const onBlur = () => formatAndEmitValue();
 
 const formatAndEmitValue = () => {
   const parsedValue = parseGermanCurrency(rawInputValue.value);
@@ -84,10 +79,20 @@ function formatToGermanCurrency(value: number): string {
 }
 
 function parseGermanCurrency(value: string): number {
-  const normalizedValue = value.replace(/\./g, "").replace(",", ".");
-  const parsedValue = parseFloat(normalizedValue);
-  return isNaN(parsedValue) ? 0 : parsedValue;
+  const normalized = value.replace(/\./g, "").replace(",", ".");
+  const parsed = parseFloat(normalized);
+  return isNaN(parsed) ? 0 : parsed;
 }
+
+function focus() {
+  inputRef.value?.focus();
+}
+
+function select() {
+  inputRef.value?.select();
+}
+
+defineExpose({ focus, select });
 </script>
 
 <template>

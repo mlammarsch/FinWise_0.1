@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { Transaction } from "../../types";
+import { Transaction, TransactionType } from "../../types";
 import { useAccountStore } from "../../stores/accountStore";
 import { useCategoryStore } from "../../stores/categoryStore";
 import { useTagStore } from "../../stores/tagStore";
@@ -25,8 +25,8 @@ function getAccountName(accountId: string): string {
 
 function getCategoryName(categoryId: string | undefined): string {
   return categoryId
-    ? categoryStore.getCategoryById(categoryId)?.name || "Keine Kategorie"
-    : "Keine Kategorie";
+    ? categoryStore.getCategoryById(categoryId)?.name || "-"
+    : "-";
 }
 
 function getRecipientName(recipientId: string | undefined): string {
@@ -34,12 +34,6 @@ function getRecipientName(recipientId: string | undefined): string {
     ? recipientStore.getRecipientById(recipientId)?.name ||
         "Unbekannter Empfänger"
     : "Unbekannter Empfänger";
-}
-
-function getTagNames(tagIds: string[]): string {
-  return tagIds
-    .map((id) => tagStore.getTagById(id)?.name || "Unbekanntes Tag")
-    .join(", ");
 }
 
 const paginatedTransactions = computed(() => props.transactions);
@@ -63,9 +57,29 @@ const paginatedTransactions = computed(() => props.transactions);
         <tr v-for="tx in paginatedTransactions" :key="tx.id">
           <td>{{ formatDate(tx.date) }}</td>
           <td v-if="showAccount">{{ getAccountName(tx.accountId) }}</td>
-          <td>{{ getRecipientName(tx.recipientId) }}</td>
+          <td>
+            <span v-if="tx.type === TransactionType.TRANSFER">
+              {{
+                accountStore.getAccountById(tx.transferToAccountId)?.name ||
+                "Unbekanntes Konto"
+              }}
+            </span>
+            <span v-else>
+              {{ getRecipientName(tx.recipientId) }}
+            </span>
+          </td>
           <td>{{ getCategoryName(tx.categoryId) }}</td>
-          <td>{{ getTagNames(tx.tagIds) }}</td>
+          <td class="whitespace-pre-line">
+            <span v-if="tx.tagIds && tx.tagIds.length">
+              {{
+                tx.tagIds
+                  .map(
+                    (id) => tagStore.getTagById(id)?.name || "Unbekanntes Tag"
+                  )
+                  .join(", ")
+              }}
+            </span>
+          </td>
           <td class="text-right">
             <CurrencyDisplay :amount="tx.amount" :show-zero="true" />
           </td>

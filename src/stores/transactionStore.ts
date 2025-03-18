@@ -5,9 +5,22 @@ import { Transaction, TransactionType } from '../types'
 import { useAccountStore } from './accountStore'
 import { useCategoryStore } from './categoryStore'
 
+// Erweiterter Transaction-Typ
+export interface ExtendedTransaction extends Transaction {
+  type: TransactionType,
+  valueDate: string,
+  tagIds: string[],
+  payee: string,
+  counterTransactionId: string | null,
+  planningTransactionId: string | null,
+  isReconciliation: boolean,
+  runningBalance: number,
+  transferToAccountId?: string | null
+}
+
 export const useTransactionStore = defineStore('transaction', () => {
   // State
-  const transactions = ref<Transaction[]>([])
+  const transactions = ref<ExtendedTransaction[]>([])
 
   // Stores
   const accountStore = useAccountStore()
@@ -44,7 +57,6 @@ export const useTransactionStore = defineStore('transaction', () => {
     }
   })
 
-  // Updated: Convert getRecentTransactions to a function instead of computed getter
   const getRecentTransactions = (limit: number = 10) => {
     return [...transactions.value]
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
@@ -52,14 +64,14 @@ export const useTransactionStore = defineStore('transaction', () => {
   }
 
   // Actions
-  function addTransaction(transaction: Omit<Transaction, 'id' | 'runningBalance'>) {
+  function addTransaction(transaction: Omit<ExtendedTransaction, 'id' | 'runningBalance'>) {
     // Berechne den laufenden Saldo
     const accountTransactions = getTransactionsByAccount.value(transaction.accountId)
     const runningBalance = accountTransactions.length > 0
       ? accountTransactions[0].runningBalance + transaction.amount
       : transaction.amount
 
-    const newTransaction: Transaction = {
+    const newTransaction: ExtendedTransaction = {
       ...transaction,
       id: uuidv4(),
       runningBalance
@@ -70,8 +82,8 @@ export const useTransactionStore = defineStore('transaction', () => {
     // Aktualisiere den Kontostand
     accountStore.updateAccountBalance(transaction.accountId, runningBalance)
 
-    // Aktualisiere den Kategoriesaldo, wenn eine Kategorie angegeben ist
-    if (transaction.categoryId && !transaction.isReconciliation) {
+    // Aktualisiere den Kategoriesaldo, wenn eine Kategorie angegeben ist und es keine Transferbuchung ist
+    if (transaction.categoryId && !transaction.isReconciliation && transaction.type !== TransactionType.TRANSFER) {
       categoryStore.updateCategoryBalance(transaction.categoryId, transaction.amount)
     }
 
@@ -88,10 +100,12 @@ export const useTransactionStore = defineStore('transaction', () => {
     note: string = ''
   ) {
     // Erstelle zwei Transaktionen für den Transfer
-    const fromTransaction: Omit<Transaction, 'id' | 'runningBalance'> = {
+    const fromTransaction: Omit<ExtendedTransaction, 'id' | 'runningBalance'> = {
+      type: TransactionType.TRANSFER,
       date,
       valueDate: valueDate || date,
       accountId: fromAccountId,
+      transferToAccountId: toAccountId,
       categoryId: null,
       tagIds: [],
       payee: `Transfer zu ${accountStore.getAccountById(toAccountId)?.name || 'Konto'}`,
@@ -99,13 +113,15 @@ export const useTransactionStore = defineStore('transaction', () => {
       note,
       counterTransactionId: null,
       planningTransactionId: null,
-      isReconciliation: false
+      isReconciliation: false,
     }
 
-    const toTransaction: Omit<Transaction, 'id' | 'runningBalance'> = {
+    const toTransaction: Omit<ExtendedTransaction, 'id' | 'runningBalance'> = {
+      type: TransactionType.TRANSFER,
       date,
       valueDate: valueDate || date,
       accountId: toAccountId,
+      transferToAccountId: fromAccountId,
       categoryId: null,
       tagIds: [],
       payee: `Transfer von ${accountStore.getAccountById(fromAccountId)?.name || 'Konto'}`,
@@ -113,7 +129,7 @@ export const useTransactionStore = defineStore('transaction', () => {
       note,
       counterTransactionId: null,
       planningTransactionId: null,
-      isReconciliation: false
+      isReconciliation: false,
     }
 
     // Füge die Transaktionen hinzu
@@ -125,6 +141,52 @@ export const useTransactionStore = defineStore('transaction', () => {
     updateTransaction(newToTx.id, { counterTransactionId: newFromTx.id })
 
     return { fromTransaction: newFromTx, toTransaction: newToTx }
+  }
+
+  function updateTransferTransaction(
+    id: string,
+    updates: { fromAccountId: string, toAccountId: string, amount: number, date: string, valueDate: string, note: string }
+  ) {
+    const originalTx = transactions.value.find(tx => tx.id === id)
+    if (!originalTx || !originalTx.counterTransactionId) {
+      return false
+    }
+
+    let fromTx: ExtendedTransaction | undefined, toTx: ExtendedTransaction | undefined
+    if (originalTx.amount < 0) {
+      fromTx = originalTx
+      toTx = transactions.value.find(tx => tx.id === originalTx!.counterTransactionId)
+    } else {
+      toTx = originalTx
+      fromTx = transactions.value.find(tx => tx.id === originalTx!.counterTransactionId)
+    }
+    if (!fromTx || !toTx) {
+      return false
+    }
+
+    // Update from transaction
+    fromTx.accountId = updates.fromAccountId
+    fromTx.transferToAccountId = updates.toAccountId
+    fromTx.amount = -Math.abs(updates.amount)
+    fromTx.date = updates.date
+    fromTx.valueDate = updates.valueDate
+    fromTx.note = updates.note
+    fromTx.payee = `Transfer zu ${accountStore.getAccountById(updates.toAccountId)?.name || 'Konto'}`
+
+    // Update to transaction
+    toTx.accountId = updates.toAccountId
+    toTx.transferToAccountId = updates.fromAccountId
+    toTx.amount = Math.abs(updates.amount)
+    toTx.date = updates.date
+    toTx.valueDate = updates.valueDate
+    toTx.note = updates.note
+    toTx.payee = `Transfer von ${accountStore.getAccountById(updates.fromAccountId)?.name || 'Konto'}`
+
+    saveTransactions()
+    updateRunningBalances(updates.fromAccountId)
+    updateRunningBalances(updates.toAccountId)
+
+    return true
   }
 
   function addCategoryTransfer(
@@ -180,24 +242,25 @@ export const useTransactionStore = defineStore('transaction', () => {
     if (difference === 0) return null // Keine Anpassung notwendig
 
     // Erstelle eine Ausgleichsbuchung
-    const reconciliation: Omit<Transaction, 'id' | 'runningBalance'> = {
+    const reconciliation: Omit<ExtendedTransaction, 'id' | 'runningBalance'> = {
+      type: TransactionType.EXPENSE,
       date,
       valueDate: date,
       accountId,
-      categoryId: null, // Keine Kategorie für Ausgleichsbuchungen
+      categoryId: null,
       tagIds: [],
       payee: 'Kontoabgleich',
       amount: difference,
       note,
       counterTransactionId: null,
       planningTransactionId: null,
-      isReconciliation: true // Markiere als Ausgleichsbuchung
+      isReconciliation: true,
     }
 
     return addTransaction(reconciliation)
   }
 
-  function updateTransaction(id: string, updates: Partial<Transaction>) {
+  function updateTransaction(id: string, updates: Partial<ExtendedTransaction>) {
     const index = transactions.value.findIndex(transaction => transaction.id === id)
     if (index !== -1) {
       transactions.value[index] = { ...transactions.value[index], ...updates }
@@ -278,6 +341,7 @@ export const useTransactionStore = defineStore('transaction', () => {
     getRecentTransactions,
     addTransaction,
     addTransferTransaction,
+    updateTransferTransaction,
     addCategoryTransfer,
     addReconciliationTransaction,
     updateTransaction,

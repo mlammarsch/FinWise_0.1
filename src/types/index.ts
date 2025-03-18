@@ -66,10 +66,17 @@ export interface Transaction {
   accountId: string
   categoryId?: string
   date: string
+  valueDate: string          // Neues Feld: Wertstellungsdatum
   amount: number
   description: string
   note?: string
-  tags: string[]
+  tagIds: string[]           // Umbenannt von "tags"
+  type: TransactionType      // Neues Feld: Transaktionstyp
+  runningBalance: number     // Neues Feld: Laufender Saldo
+  counterTransactionId?: string | null   // Neues Feld: Gegenbuchung
+  planningTransactionId?: string | null    // Neues Feld: Planung
+  isReconciliation?: boolean // Neues Feld: Kennzeichnung für Ausgleichsbuchungen
+  transferToAccountId?: string | null // Neues Feld: Zielkonto bei Transfers
 }
 
 export interface Category {
