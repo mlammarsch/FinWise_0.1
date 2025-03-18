@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { Transaction, TransactionType } from "../../types";
 import { useAccountStore } from "../../stores/accountStore";
 import { useCategoryStore } from "../../stores/categoryStore";
@@ -19,6 +19,9 @@ const categoryStore = useCategoryStore();
 const tagStore = useTagStore();
 const recipientStore = useRecipientStore();
 
+const sortKey = ref<keyof Transaction>("date");
+const sortOrder = ref<"asc" | "desc">("desc");
+
 function getAccountName(accountId: string): string {
   return accountStore.getAccountById(accountId)?.name || "Unbekanntes Konto";
 }
@@ -36,7 +39,35 @@ function getRecipientName(recipientId: string | undefined): string {
     : "Unbekannter Empfänger";
 }
 
-const paginatedTransactions = computed(() => props.transactions);
+function sortBy(key: keyof Transaction) {
+  if (sortKey.value === key) {
+    sortOrder.value = sortOrder.value === "asc" ? "desc" : "asc";
+  } else {
+    sortKey.value = key;
+    sortOrder.value = "asc";
+  }
+}
+
+const sortedTransactions = computed(() => {
+  const sorted = [...props.transactions];
+  if (sortKey.value) {
+    sorted.sort((a, b) => {
+      const aValue = a[sortKey.value!];
+      const bValue = b[sortKey.value!];
+
+      if (typeof aValue === "string" && typeof bValue === "string") {
+        return sortOrder.value === "asc"
+          ? aValue.localeCompare(bValue)
+          : bValue.localeCompare(aValue);
+      }
+      if (typeof aValue === "number" && typeof bValue === "number") {
+        return sortOrder.value === "asc" ? aValue - bValue : bValue - aValue;
+      }
+      return 0;
+    });
+  }
+  return sorted;
+});
 </script>
 
 <template>
@@ -44,17 +75,66 @@ const paginatedTransactions = computed(() => props.transactions);
     <table class="table w-full">
       <thead>
         <tr>
-          <th>Datum</th>
-          <th v-if="showAccount">Konto</th>
-          <th>Empfänger</th>
-          <th>Kategorie</th>
+          <th @click="sortBy('date')" class="cursor-pointer">
+            <div class="flex items-center">
+              Datum
+              <Icon
+                v-if="sortKey === 'date'"
+                :icon="sortOrder === 'asc' ? 'mdi:arrow-up' : 'mdi:arrow-down'"
+                class="ml-1 text-sm"
+              />
+            </div>
+          </th>
+          <th
+            v-if="showAccount"
+            @click="sortBy('accountId')"
+            class="cursor-pointer"
+          >
+            <div class="flex items-center">
+              Konto
+              <Icon
+                v-if="sortKey === 'accountId'"
+                :icon="sortOrder === 'asc' ? 'mdi:arrow-up' : 'mdi:arrow-down'"
+                class="ml-1 text-sm"
+              />
+            </div>
+          </th>
+          <th @click="sortBy('recipientId')" class="cursor-pointer">
+            <div class="flex items-center">
+              Empfänger
+              <Icon
+                v-if="sortKey === 'recipientId'"
+                :icon="sortOrder === 'asc' ? 'mdi:arrow-up' : 'mdi:arrow-down'"
+                class="ml-1 text-sm"
+              />
+            </div>
+          </th>
+          <th @click="sortBy('categoryId')" class="cursor-pointer">
+            <div class="flex items-center">
+              Kategorie
+              <Icon
+                v-if="sortKey === 'categoryId'"
+                :icon="sortOrder === 'asc' ? 'mdi:arrow-up' : 'mdi:arrow-down'"
+                class="ml-1 text-sm"
+              />
+            </div>
+          </th>
           <th>Tags</th>
-          <th class="text-right">Betrag</th>
+          <th @click="sortBy('amount')" class="text-right cursor-pointer">
+            <div class="flex items-center justify-end">
+              Betrag
+              <Icon
+                v-if="sortKey === 'amount'"
+                :icon="sortOrder === 'asc' ? 'mdi:arrow-up' : 'mdi:arrow-down'"
+                class="ml-1 text-sm"
+              />
+            </div>
+          </th>
           <th class="text-right">Aktionen</th>
         </tr>
       </thead>
       <tbody>
-        <tr v-for="tx in paginatedTransactions" :key="tx.id">
+        <tr v-for="tx in sortedTransactions" :key="tx.id">
           <td>{{ formatDate(tx.date) }}</td>
           <td v-if="showAccount">{{ getAccountName(tx.accountId) }}</td>
           <td>
@@ -69,19 +149,23 @@ const paginatedTransactions = computed(() => props.transactions);
             </span>
           </td>
           <td>{{ getCategoryName(tx.categoryId) }}</td>
-          <td class="whitespace-pre-line">
-            <span v-if="tx.tagIds && tx.tagIds.length">
-              {{
-                tx.tagIds
-                  .map(
-                    (id) => tagStore.getTagById(id)?.name || "Unbekanntes Tag"
-                  )
-                  .join(", ")
-              }}
-            </span>
+          <td>
+            <div class="flex flex-wrap gap-1">
+              <span
+                v-for="tagId in tx.tagIds"
+                :key="tagId"
+                class="badge badge-soft badge-secondary rounded-2xl"
+              >
+                {{ tagStore.getTagById(tagId)?.name || "Unbekanntes Tag" }}
+              </span>
+            </div>
           </td>
           <td class="text-right">
-            <CurrencyDisplay :amount="tx.amount" :show-zero="true" />
+            <CurrencyDisplay
+              :amount="tx.amount"
+              :show-zero="true"
+              :class="{ 'text-warning': tx.type === TransactionType.TRANSFER }"
+            />
           </td>
           <td class="text-right">
             <div class="flex justify-end space-x-1">
