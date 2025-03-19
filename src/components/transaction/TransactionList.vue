@@ -14,6 +14,8 @@ const props = defineProps<{
   showAccount?: boolean;
 }>();
 
+const emit = defineEmits(["view", "edit", "delete"]);
+
 const accountStore = useAccountStore();
 const categoryStore = useCategoryStore();
 const tagStore = useTagStore();
@@ -22,23 +24,10 @@ const recipientStore = useRecipientStore();
 const sortKey = ref<keyof Transaction>("date");
 const sortOrder = ref<"asc" | "desc">("desc");
 
-function getAccountName(accountId: string): string {
-  return accountStore.getAccountById(accountId)?.name || "Unbekanntes Konto";
-}
-
-function getCategoryName(categoryId: string | undefined): string {
-  return categoryId
-    ? categoryStore.getCategoryById(categoryId)?.name || "-"
-    : "-";
-}
-
-function getRecipientName(recipientId: string | undefined): string {
-  return recipientId
-    ? recipientStore.getRecipientById(recipientId)?.name ||
-        "Unbekannter Empfänger"
-    : "Unbekannter Empfänger";
-}
-
+/**
+ * **Sortierfunktion**:
+ * - Ermöglicht das Sortieren der Tabelle nach einer bestimmten Spalte.
+ */
 function sortBy(key: keyof Transaction) {
   if (sortKey.value === key) {
     sortOrder.value = sortOrder.value === "asc" ? "desc" : "asc";
@@ -136,7 +125,9 @@ const sortedTransactions = computed(() => {
       <tbody>
         <tr v-for="tx in sortedTransactions" :key="tx.id">
           <td>{{ formatDate(tx.date) }}</td>
-          <td v-if="showAccount">{{ getAccountName(tx.accountId) }}</td>
+          <td v-if="showAccount">
+            {{ accountStore.getAccountById(tx.accountId)?.name || "Unbekannt" }}
+          </td>
           <td>
             <span v-if="tx.type === TransactionType.TRANSFER">
               {{
@@ -145,10 +136,15 @@ const sortedTransactions = computed(() => {
               }}
             </span>
             <span v-else>
-              {{ getRecipientName(tx.recipientId) }}
+              {{
+                recipientStore.getRecipientById(tx.recipientId)?.name ||
+                "Unbekannter Empfänger"
+              }}
             </span>
           </td>
-          <td>{{ getCategoryName(tx.categoryId) }}</td>
+          <td>
+            {{ categoryStore.getCategoryById(tx.categoryId)?.name || "-" }}
+          </td>
           <td>
             <div class="flex flex-wrap gap-1">
               <span
