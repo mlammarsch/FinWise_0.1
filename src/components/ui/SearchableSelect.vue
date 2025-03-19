@@ -1,25 +1,29 @@
-### Änderungen gegenüber letzter Variante: - Hinzugefügt: Beschreibungskommentar
-für die Komponente gemäß Coderegeln. - Verbesserung: Struktur der Datei
-beibehalten, aber besser lesbare Abschnitte geschaffen. - Kleinere Optimierungen
-in der Lesbarkeit des Codes. ```vue /** * Pfad zur Komponente:
-src/components/ui/SearchableSelect.vue * * Suchbare und auswählbare
-Dropdown-Komponente. * * Komponenten-Props: * - modelValue: string | string[] -
-Der aktuell ausgewählte Wert oder Werte. * - options: Array<{ id: string, name:
-string }> - Verfügbare Auswahloptionen. * - label?: string - Optional:
-Beschriftung des Dropdowns. * - placeholder?: string - Optional:
-Platzhaltertext, wenn keine Auswahl getroffen wurde. * - multiple?: boolean -
-Optional: Ermöglicht Mehrfachauswahl. * - allowCreate?: boolean - Optional:
-Erlaubt das Erstellen neuer Optionen. * - required?: boolean - Optional:
-Markiert das Feld als erforderlich. * - disabled?: boolean - Optional:
-Deaktiviert die Auswahl. * * Emits: * - update:modelValue - Wird ausgelöst, wenn
-eine Auswahl geändert wird. * - create - Wird ausgelöst, wenn eine neue Option
-erstellt wird. */
+/**
+ * Pfad zur Komponente: src/components/ui/SearchableSelect.vue
+ *
+ * Suchbare und auswählbare Dropdown-Komponente.
+ *
+ * Komponenten-Props:
+ * - modelValue: string | string[] - Der aktuell ausgewählte Wert oder Werte.
+ * - options: Array<{ id: string, name: string }> - Verfügbare Auswahloptionen.
+ * - label?: string - Optional: Beschriftung des Dropdowns.
+ * - placeholder?: string - Optional: Platzhaltertext, wenn keine Auswahl getroffen wurde.
+ * - multiple?: boolean - Optional: Ermöglicht Mehrfachauswahl.
+ * - allowCreate?: boolean - Optional: Erlaubt das Erstellen neuer Optionen.
+ * - required?: boolean - Optional: Markiert das Feld als erforderlich.
+ * - disabled?: boolean - Optional: Deaktiviert die Auswahl.
+ *
+ * Emits:
+ * - update:modelValue - Wird ausgelöst, wenn eine Auswahl geändert wird.
+ * - create - Wird ausgelöst, wenn eine neue Option erstellt wird.
+ */
 
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
+import { Icon } from "@iconify/vue";
 
 const props = defineProps<{
-  modelValue: string | string[];
+  modelValue: string | string[] | null;
   options: Array<{ id: string; name: string }>;
   label?: string;
   placeholder?: string;
@@ -34,6 +38,13 @@ const emit = defineEmits(["update:modelValue", "create"]);
 const searchTerm = ref("");
 const isOpen = ref(false);
 
+// Stelle sicher, dass modelValue nie null ist
+const selectedValue = computed({
+  get: () =>
+    props.modelValue !== null ? props.modelValue : props.multiple ? [] : "",
+  set: (val) => emit("update:modelValue", val),
+});
+
 // Berechne die gefilterten Optionen basierend auf dem Suchbegriff
 const filteredOptions = computed(() => {
   if (!searchTerm.value) return props.options;
@@ -46,8 +57,8 @@ const filteredOptions = computed(() => {
 // Prüfe, ob eine Option ausgewählt ist
 const isSelected = (id: string) => {
   return props.multiple
-    ? (props.modelValue as string[]).includes(id)
-    : props.modelValue === id;
+    ? (selectedValue.value as string[]).includes(id)
+    : selectedValue.value === id;
 };
 
 // Wähle eine Option aus oder entferne sie
@@ -55,13 +66,13 @@ const toggleOption = (id: string) => {
   if (props.disabled) return;
 
   if (props.multiple) {
-    const currentValue = [...(props.modelValue as string[])];
+    const currentValue = [...(selectedValue.value as string[])];
     const index = currentValue.indexOf(id);
 
     index === -1 ? currentValue.push(id) : currentValue.splice(index, 1);
-    emit("update:modelValue", currentValue);
+    selectedValue.value = currentValue;
   } else {
-    emit("update:modelValue", id);
+    selectedValue.value = id;
     isOpen.value = false;
   }
 
@@ -79,7 +90,7 @@ const createOption = () => {
 const selectedDisplay = computed(() => {
   if (props.multiple) {
     const selectedOptions = props.options.filter((option) =>
-      (props.modelValue as string[]).includes(option.id)
+      (selectedValue.value as string[]).includes(option.id)
     );
 
     if (selectedOptions.length === 0) return "";
@@ -87,7 +98,8 @@ const selectedDisplay = computed(() => {
     return `${selectedOptions.length} ausgewählt`;
   } else {
     return (
-      props.options.find((option) => option.id === props.modelValue)?.name || ""
+      props.options.find((option) => option.id === selectedValue.value)?.name ||
+      ""
     );
   }
 });
@@ -100,7 +112,7 @@ const closeDropdown = (event: MouseEvent) => {
   }
 };
 
-// Füge den Event-Listener hinzu, wenn die Komponente gemountet wird
+// Füge den Event-Listener hinzu, wenn die Komponente geöffnet wird
 watch(isOpen, (newValue) => {
   if (newValue) {
     setTimeout(() => {
@@ -133,7 +145,7 @@ watch(isOpen, (newValue) => {
         <span v-else class="text-base-content/50">{{
           placeholder || "Auswählen..."
         }}</span>
-        <span class="iconify" data-icon="mdi:chevron-down"></span>
+        <Icon icon="mdi:chevron-down" class="ml-2 text-lg" />
       </div>
 
       <!-- Dropdown mit Optionen -->
@@ -177,7 +189,7 @@ watch(isOpen, (newValue) => {
               @click="createOption"
             >
               <span class="flex items-center">
-                <span class="iconify mr-2" data-icon="mdi:plus-circle"></span>
+                <Icon icon="mdi:plus-circle" class="mr-2 text-lg" />
                 "{{ searchTerm }}" erstellen
               </span>
             </div>
@@ -190,4 +202,3 @@ watch(isOpen, (newValue) => {
     </div>
   </div>
 </template>
-```
