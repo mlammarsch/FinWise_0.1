@@ -43,7 +43,7 @@ const emit = defineEmits([
   <div class="join flex">
     <button
       type="button"
-      class="btn join-item rounded-l-full shadow-none"
+      class="btn join-item shadow-none rounded-l-full"
       :class="[leftColor, { 'border border-base-300': border }]"
       @click="emit('left-click')"
     >
@@ -72,7 +72,7 @@ const emit = defineEmits([
 
     <button
       type="button"
-      class="btn join-item rounded-r-full shadow-none"
+      class="btn join-item shadow-none rounded-r-full"
       :class="[rightColor, { 'border border-base-300': border }]"
       @click="emit('right-click')"
     >

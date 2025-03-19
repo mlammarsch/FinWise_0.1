@@ -3,10 +3,12 @@ import { ref, computed } from "vue";
 import { useRecipientStore } from "../../stores/recipientStore";
 import { useTransactionStore } from "../../stores/transactionStore";
 import type { Recipient } from "../../stores/recipientStore";
+import SearchGroup from "../../components/ui/SearchGroup.vue";
 
 /**
  * Pfad zur Komponente: src/views/admin/AdminRecipientsView.vue
  * Verwaltung der Empfänger/Auftraggeber.
+ *
  * Komponenten-Props:
  * - Keine Props vorhanden
  *
@@ -93,27 +95,12 @@ const getPageNumbers = computed(() => {
       <h2 class="text-xl font-bold flex-shrink-0">
         Empfänger/Auftraggeber verwalten
       </h2>
-      <div class="flex justify-end w-full md:w-auto mt-2 md:mt-0">
-        <div class="join flex items-center">
-          <input
-            v-model="searchQuery"
-            type="text"
-            placeholder="Suche Auftraggeber"
-            class="input join-item rounded-l-full input-sm input-bordered text-center"
-          />
-          <button
-            class="btn join-item btn-sm btn-soft border border-base-300 flex items-center justify-center"
-          >
-            <Icon icon="mdi:magnify" class="mr-2" />
-          </button>
-          <button
-            class="btn join-item rounded-r-full btn-sm btn-soft border border-base-300 flex items-center justify-center"
-            @click="createRecipient"
-          >
-            <Icon icon="mdi:plus" class="mr-2" /> Neu
-          </button>
-        </div>
-      </div>
+      <SearchGroup
+        btnRight="Neu"
+        btnRightIcon="mdi:plus"
+        @search="(query) => (searchQuery = query)"
+        @btn-right-click="createRecipient"
+      />
     </div>
 
     <!-- Card -->

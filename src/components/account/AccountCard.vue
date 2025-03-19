@@ -68,7 +68,7 @@ const selectAccount = () => {
   >
     <!-- Dropdown-Menü für Aktionen -->
     <div class="dropdown dropdown-end absolute top-1 right-1" @click.stop>
-      <label tabindex="0" class="btn btn-ghost btn-sm btn-circle">
+      <label tabindex="0" class="btn btn-ghost border-none btn-sm btn-circle">
         <Icon icon="mdi:dots-vertical" />
       </label>
       <ul

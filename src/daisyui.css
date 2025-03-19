@@ -9,6 +9,25 @@
   root: ":root";
 }
 
+@utility btn {
+  @apply shadow-none;
+}
+
+@utility input {
+  @apply input-neutral rounded-lg;
+}
+
+@utility select {
+  @apply select-neutral rounded-lg;
+}
+
+@utility textarea {
+  @apply textarea-neutral rounded-lg;
+}
+
+
+
+
 
 /* Dark Theme */
 @plugin "daisyui/theme" {

@@ -72,16 +72,9 @@ function formatDateForInput(date: Date): string {
 
 <template>
   <div class="form-control w-full">
-    <label
-      v-if="label"
-      class="label"
-    >
+    <label v-if="label" class="label">
       <span class="label-text">{{ label }}</span>
-      <span
-        v-if="required"
-        class="text-error"
-        >*</span
-      >
+      <span v-if="required" class="text-error">*</span>
     </label>
 
     <div class="flex">
@@ -94,24 +87,15 @@ function formatDateForInput(date: Date): string {
         :required="required"
       />
 
-      <div class="dropdown dropdown-end ml-2">
-        <label
-          tabindex="0"
-          class="btn btn-square btn-ghost"
-        >
-          <span
-            class="iconify text-xl"
-            data-icon="mdi:calendar-month"
-          ></span>
+      <div class="dropdown dropdown-end ml-1">
+        <label tabindex="0" class="btn btn-square btn-ghost btn-sm">
+          <Icon icon="mdi:calendar-month" class="text-lg" />
         </label>
         <ul
           tabindex="0"
-          class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-52"
+          class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-52 border-1 border-base-300"
         >
-          <li
-            v-for="preset in presets"
-            :key="preset.label"
-          >
+          <li v-for="preset in presets" :key="preset.label">
             <a @click="setPresetDate(preset)">{{ preset.label }}</a>
           </li>
         </ul>

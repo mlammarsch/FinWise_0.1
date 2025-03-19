@@ -169,14 +169,20 @@ const sortedTransactions = computed(() => {
           </td>
           <td class="text-right">
             <div class="flex justify-end space-x-1">
-              <button class="btn btn-ghost btn-xs" @click="$emit('view', tx)">
-                <Icon icon="mdi:eye" class="text-base" />
-              </button>
-              <button class="btn btn-ghost btn-xs" @click="$emit('edit', tx)">
-                <Icon icon="mdi:pencil" class="text-base" />
+              <button
+                class="btn btn-ghost btn-xs border-none"
+                @click="$emit('view', tx)"
+              >
+                <Icon icon="mdi:eye" class="text-base/75" />
               </button>
               <button
-                class="btn btn-ghost btn-xs text-error"
+                class="btn btn-ghost btn-xs border-none"
+                @click="$emit('edit', tx)"
+              >
+                <Icon icon="mdi:pencil" class="text-base/75" />
+              </button>
+              <button
+                class="btn btn-ghost btn-xs border-none text-error/75"
                 @click="$emit('delete', tx)"
               >
                 <Icon icon="mdi:trash-can" class="text-base" />

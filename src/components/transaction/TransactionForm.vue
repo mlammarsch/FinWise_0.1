@@ -154,7 +154,7 @@ onMounted(() => {
     class="space-y-4 max-w-[calc(100%-80px)] mx-auto"
   >
     <!-- Transaktionstyp Auswahl -->
-    <div class="flex justify-center gap-4 pt-4">
+    <div class="flex justify-center gap-4">
       <label class="flex items-center gap-2">
         <input
           type="radio"
