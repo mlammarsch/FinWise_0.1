@@ -30,9 +30,8 @@ const tagStore = useTagStore();
 const recipientStore = useRecipientStore();
 
 // Modals
-const showNewTransactionModal = ref(false);
+const showTransactionFormModal = ref(false);
 const showTransactionDetailModal = ref(false);
-const showEditTransactionModal = ref(false);
 
 // State
 const selectedTransaction = ref<Transaction | null>(null);
@@ -89,12 +88,14 @@ const totalPages = computed(() =>
     : Math.ceil(filteredTransactions.value.length / itemsPerPage.value)
 );
 
+// **Fehler behobene Funktion für Seitenzahlen**
 const getPageNumbers = computed(() => {
   if (totalPages.value <= 5) {
     return Array.from({ length: totalPages.value }, (_, i) => i + 1);
   }
 
-  const pages = [1];
+  const pages: (number | string)[] = [1];
+
   if (currentPage.value > 3) pages.push("...");
   if (currentPage.value > 2) pages.push(currentPage.value - 1);
   pages.push(currentPage.value);
@@ -124,14 +125,14 @@ const viewTransaction = (transaction: Transaction) => {
 // **Transaktion bearbeiten**
 const editTransaction = (transaction: Transaction) => {
   selectedTransaction.value = transaction;
-  showEditTransactionModal.value = true;
+  showTransactionFormModal.value = true;
   showTransactionDetailModal.value = false;
 };
 
 // **Neue Transaktion erstellen**
 const createTransaction = () => {
   selectedTransaction.value = null;
-  showNewTransactionModal.value = true;
+  showTransactionFormModal.value = true;
 };
 
 // **Transaktion löschen**
@@ -162,7 +163,6 @@ const deleteTransaction = (transaction: Transaction) => {
         <TransactionList
           :transactions="paginatedTransactions"
           :show-account="true"
-          @view="viewTransaction"
           @edit="editTransaction"
           @delete="deleteTransaction"
         />
@@ -184,43 +184,33 @@ const deleteTransaction = (transaction: Transaction) => {
               {{ option }}
             </option>
           </select>
-
-          <!-- Paginierungsbuttons -->
-          <div class="join">
-            <button
-              class="join-item btn btn-sm rounded-l-full border border-base-300"
-              :disabled="currentPage === 1"
-              @click="changePage(currentPage - 1)"
-            >
-              <Icon icon="mdi:chevron-left" class="text-base" />
-            </button>
-            <button
-              v-for="page in getPageNumbers"
-              :key="page"
-              class="join-item btn btn-sm border border-base-300"
-              :class="{
-                'btn-disabled': page === '...',
-                'btn-primary': page === currentPage,
-              }"
-              @click="changePage(page)"
-            >
-              {{ page }}
-            </button>
-            <button
-              class="join-item btn btn-sm rounded-r-full border border-base-300"
-              :disabled="currentPage === totalPages"
-              @click="changePage(currentPage + 1)"
-            >
-              <Icon icon="mdi:chevron-right" class="text-base" />
-            </button>
-          </div>
-
-          <!-- Seitenanzeige -->
-          <span class="text-sm"
-            >Seite {{ currentPage }} von {{ totalPages }}</span
-          >
         </div>
       </div>
     </div>
+
+    <!-- Detailansicht Modal -->
+    <Teleport to="body">
+      <TransactionDetailModal
+        v-if="showTransactionDetailModal"
+        :transaction="selectedTransaction"
+        @close="showTransactionDetailModal = false"
+      />
+    </Teleport>
+
+    <!-- Transaktionsformular Modal -->
+    <Teleport to="body">
+      <div
+        v-if="showTransactionFormModal"
+        class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center"
+      >
+        <div class="bg-base-100 p-6 rounded-lg shadow-lg w-full max-w-2xl">
+          <TransactionForm
+            :transaction="selectedTransaction"
+            @close="showTransactionFormModal = false"
+            @save="showTransactionFormModal = false"
+          />
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>

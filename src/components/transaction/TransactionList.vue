@@ -14,7 +14,7 @@ const props = defineProps<{
   showAccount?: boolean;
 }>();
 
-const emit = defineEmits(["view", "edit", "delete"]);
+const emit = defineEmits(["edit", "delete"]);
 
 const accountStore = useAccountStore();
 const categoryStore = useCategoryStore();
@@ -165,12 +165,6 @@ const sortedTransactions = computed(() => {
           </td>
           <td class="text-right">
             <div class="flex justify-end space-x-1">
-              <button
-                class="btn btn-ghost btn-xs border-none"
-                @click="$emit('view', tx)"
-              >
-                <Icon icon="mdi:eye" class="text-base/75" />
-              </button>
               <button
                 class="btn btn-ghost btn-xs border-none"
                 @click="$emit('edit', tx)"

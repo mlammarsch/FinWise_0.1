@@ -1,21 +1,3 @@
-/**
- * Pfad zur Komponente: components/transaction/TransactionForm.vue
- *
- * Diese Komponente ermöglicht das Erstellen und Bearbeiten von Transaktionen.
- *
- * Komponenten-Props:
- * - transaction?: Transaction - Optional: Die zu bearbeitende Transaktion.
- * - isEdit?: boolean - Optional: Gibt an, ob sich die Komponente im Bearbeitungsmodus befindet.
- * - initialAccountId?: string - Optional: Vorab gesetztes Konto.
- * - initialTransactionType?: TransactionType - Optional: Vorab gesetzter Transaktionstyp.
- *
- * Emits:
- * - save - Wird ausgelöst, wenn eine Transaktion gespeichert wird.
- * - cancel - Wird ausgelöst, wenn der Vorgang abgebrochen wird.
- * - createCategory - Wird ausgelöst, wenn eine neue Kategorie erstellt wird.
- * - createTag - Wird ausgelöst, wenn ein neues Tag erstellt wird.
- */
-
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, nextTick } from "vue";
 import { Transaction, TransactionType } from "../../types";
@@ -73,16 +55,6 @@ const tags = computed(() =>
   tagStore.tags.map((t) => ({ id: t.id, name: t.name }))
 );
 
-const selectedCategory = computed(() =>
-  categoryId.value ? categoryStore.getCategoryById(categoryId.value) : undefined
-);
-
-const selectedTags = computed(() =>
-  tagIds.value.length > 0
-    ? tagIds.value.map((id) => tagStore.getTagById(id))
-    : []
-);
-
 const isTransfer = computed(
   () => transactionType.value === TransactionType.TRANSFER
 );
@@ -99,6 +71,22 @@ const focusModalAndAmount = () => {
   nextTick(() => {
     amountInputRef.value?.focus();
     amountInputRef.value?.select();
+  });
+};
+
+// **Formular absenden**
+const submitForm = () => {
+  emit("save", {
+    date: date.value,
+    valueDate: valueDate.value,
+    accountId: accountId.value,
+    categoryId: categoryId.value,
+    tagIds: tagIds.value,
+    amount: amount.value,
+    note: note.value,
+    recipientId: recipientId.value,
+    type: transactionType.value,
+    transferToAccountId: isTransfer.value ? toAccountId.value : null,
   });
 };
 
@@ -138,18 +126,7 @@ onMounted(() => {
     ref="formModalRef"
     tabindex="-1"
     v-else
-    @submit.prevent="
-      emit('save', {
-        date,
-        valueDate,
-        accountId,
-        categoryId,
-        tagIds,
-        amount,
-        note,
-        recipientId,
-      })
-    "
+    @submit.prevent="submitForm"
     @keydown.esc.prevent="emit('cancel')"
     class="space-y-4 max-w-[calc(100%-80px)] mx-auto"
   >
@@ -190,22 +167,9 @@ onMounted(() => {
 
     <!-- Grid für Datumsauswahl und Betrag -->
     <div class="grid grid-cols-3 gap-4 items-end">
-      <!-- Datumsauswahl -->
-      <DatePicker
-        v-model="date"
-        label="Buchungsdatum"
-        required
-        class="self-end fieldset"
-      />
-      <DatePicker
-        v-model="valueDate"
-        label="Wertstellung"
-        required
-        class="self-end fieldset"
-      />
-
-      <!-- Betrag -->
-      <div class="flex justify-end items-center gap-2 self-end">
+      <DatePicker v-model="date" label="Buchungsdatum" required />
+      <DatePicker v-model="valueDate" label="Wertstellung" required />
+      <div class="flex justify-end items-center gap-2">
         <CurrencyInput
           ref="amountInputRef"
           v-model="amount"
@@ -218,7 +182,6 @@ onMounted(() => {
     <div class="divider pt-5" />
 
     <!-- Konto Auswahl -->
-
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <fieldset class="fieldset">
         <legend class="fieldset-legend">Konto</legend>
@@ -246,7 +209,6 @@ onMounted(() => {
 
     <!-- Empfänger -->
     <SearchableSelect
-      class="fieldset"
       v-model="recipientId"
       :options="recipients"
       label="Empfänger"
@@ -259,14 +221,12 @@ onMounted(() => {
       class="grid grid-cols-1 md:grid-cols-2 gap-4"
     >
       <SearchableSelect
-        class="fieldset"
         v-model="categoryId"
         :options="categories"
         label="Kategorie"
         @create="emit('createCategory', $event)"
       />
       <SearchableSelect
-        class="fieldset"
         v-model="tagIds"
         :options="tags"
         label="Tags"
@@ -278,7 +238,7 @@ onMounted(() => {
     <!-- Notizfeld -->
     <textarea
       v-model="note"
-      class="textarea textarea-bordered w-full min-h-[3rem] fieldset"
+      class="textarea textarea-bordered w-full min-h-[3rem]"
       placeholder="Notiz"
     ></textarea>
 
