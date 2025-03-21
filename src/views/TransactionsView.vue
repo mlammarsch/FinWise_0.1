@@ -192,7 +192,7 @@ const deleteTransaction = (transaction: Transaction) => {
       />
     </div>
 
-    <div class="card bg-base-100 shadow">
+    <div class="card bg-base-100 shadow-md border border-base-300 shadow">
       <div class="card-body">
         <TransactionList
           :transactions="paginatedTransactions"
