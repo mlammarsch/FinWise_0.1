@@ -6,42 +6,48 @@ import { useRecipientStore } from "../stores/recipientStore";
 import { usePlanningStore } from "../stores/planningStore";
 import { useStatisticsStore } from "../stores/statisticsStore";
 import { useThemeStore } from "../stores/themeStore";
-import { createPinia } from 'pinia'; // Import createPinia
+import { createPinia } from 'pinia';
 
 import dayjs from "dayjs";
 
-// Create a Pinia instance
 const pinia = createPinia();
 
-export function seedData() { // Removed pinia parameter from function definition
+export function seedData() {
   const accountStore = useAccountStore(pinia);
   const transactionStore = useTransactionStore(pinia);
   const tagStore = useTagStore(pinia);
   const categoryStore = useCategoryStore(pinia);
   const recipientStore = useRecipientStore(pinia);
 
-  // Seed recipients if none exist
   if (recipientStore.recipients.length === 0) {
     recipientStore.addRecipient({ name: "Rewe" });
     recipientStore.addRecipient({ name: "Freizeitindustrie" });
     recipientStore.addRecipient({ name: "Autowerkstatt Halmich" });
+    recipientStore.addRecipient({ name: "Amazon" });
+    recipientStore.addRecipient({ name: "Tankstelle" });
+    recipientStore.addRecipient({ name: "Klaus Wilhelm" });
   }
 
-  // Seed tags if none exist
   if (tagStore.tags.length === 0) {
     tagStore.addTag({ name: "HaushaltTag", parentTagId: null });
     tagStore.addTag({ name: "FreizeitTag", parentTagId: null });
     tagStore.addTag({ name: "LebensmittelTag", parentTagId: null });
     tagStore.addTag({ name: "ReisenTag", parentTagId: null });
+    tagStore.addTag({ name: "RücklageTag", parentTagId: null });
+    tagStore.addTag({ name: "WerkstattTag", parentTagId: null });
+    tagStore.addTag({ name: "WohnungTag", parentTagId: null });
+    tagStore.addTag({ name: "VersicherungTag", parentTagId: null });
   }
 
-  // Seed categories if none exist
   if (categoryStore.categories.length === 0) {
     categoryStore.addCategory({ name: "HaushaltCat", parentCategoryId: null });
     categoryStore.addCategory({ name: "FreizeitCat", parentCategoryId: null });
+    categoryStore.addCategory({ name: "SpartopfCat", parentCategoryId: null });
+    categoryStore.addCategory({ name: "SondertilgungCat", parentCategoryId: null });
+    categoryStore.addCategory({ name: "WerkstattCat", parentCategoryId: null });
+    categoryStore.addCategory({ name: "SportCat", parentCategoryId: null });
   }
 
-  // Seed accounts if none exist
   if (accountStore.accounts.length === 0) {
     const defaultGroupId = accountStore.accountGroups[0]?.id || "";
     const secondGroupId = accountStore.accountGroups[1]?.id || defaultGroupId;
@@ -73,18 +79,16 @@ export function seedData() { // Removed pinia parameter from function definition
     });
   }
 
-  // Seed 15 fake transactions if none exist
   if (transactionStore.transactions.length === 0) {
     const accounts = accountStore.accounts;
     const categories = categoryStore.categories;
     const tags = tagStore.tags;
     const recipients = recipientStore.recipients;
 
-    for (let i = 0; i < 15; i++) {
+    for (let i = 0; i < 120; i++) {
       const randomAccount = accounts[Math.floor(Math.random() * accounts.length)];
       const randomCategory = categories[Math.floor(Math.random() * categories.length)];
 
-      // Select 1-2 unique random tags
       let randomTags: string[] = [];
       if (tags.length > 0) {
         const firstTag = tags[Math.floor(Math.random() * tags.length)];
@@ -134,22 +138,18 @@ export function clearData() {
   localStorage.removeItem('finwise_statistics');
   localStorage.removeItem('finwise_theme');
 
-  // Clear Pinia stores (reset to initial state)
-  const accountStore = useAccountStore(pinia);
-  const transactionStore = useTransactionStore(pinia);
-  const tagStore = useTagStore(pinia);
-  const categoryStore = useCategoryStore(pinia);
-  const recipientStore = useRecipientStore(pinia);
-  const planningStore = usePlanningStore(pinia);
-  const statisticsStore = useStatisticsStore(pinia);
-  const themeStore = useThemeStore(pinia);
+  const stores = [
+    useAccountStore(pinia),
+    useTransactionStore(pinia),
+    useTagStore(pinia),
+    useCategoryStore(pinia),
+    useRecipientStore(pinia),
+    usePlanningStore(pinia),
+    useStatisticsStore(pinia),
+    useThemeStore(pinia),
+  ];
 
-  accountStore.$reset();
-  transactionStore.$reset();
-  tagStore.$reset();
-  categoryStore.$reset();
-  recipientStore.$reset();
-  planningStore.$reset();
-  statisticsStore.$reset();
-  themeStore.$reset();
+  stores.forEach(store => {
+    if (typeof store.reset === 'function') store.reset();
+  });
 }

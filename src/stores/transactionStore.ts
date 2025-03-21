@@ -332,6 +332,11 @@ export const useTransactionStore = defineStore('transaction', () => {
   // Initialisiere beim ersten Laden
   loadTransactions()
 
+  function reset() {
+    transactions.value = []
+    loadTransactions()
+  }
+  
   return {
     transactions,
     getTransactionById,
@@ -346,6 +351,7 @@ export const useTransactionStore = defineStore('transaction', () => {
     addReconciliationTransaction,
     updateTransaction,
     deleteTransaction,
-    loadTransactions
+    loadTransactions,
+    reset
   }
 })

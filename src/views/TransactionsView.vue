@@ -234,9 +234,9 @@ const deleteTransaction = (transaction: Transaction) => {
 
     <!-- Formular-Modal -->
     <Teleport to="body">
-      <dialog
-        open
-        class="modal"
+      <div
+        v-if="showTransactionFormModal"
+        class="modal modal-open"
       >
         <div class="modal-box w-full max-w-2xl">
           <TransactionForm
@@ -245,7 +245,7 @@ const deleteTransaction = (transaction: Transaction) => {
             @save="handleSave"
           />
         </div>
-      </dialog>
+      </div>
     </Teleport>
   </div>
 </template>

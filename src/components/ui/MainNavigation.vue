@@ -58,15 +58,33 @@ const isActive = (path: string) => {
 
 const clearAndReseedData = () => {
   if (confirm("Möchten Sie wirklich alle Daten löschen und neu laden?")) {
+    const stores = [
+      useAccountStore(),
+      useCategoryStore(),
+      useRecipientStore(),
+      useTagStore(),
+      useTransactionStore(),
+      usePlanningStore(),
+      useStatisticsStore(),
+      useThemeStore(),
+    ];
+
+    stores.forEach((store) => {
+      if (typeof store.reset === "function") store.reset();
+    });
+
     clearData();
-    seedData(); // Removed pinia instance here
-    router.push("/"); // Navigate to dashboard after reseeding
+    seedData();
+    router.push("/");
   }
 };
 </script>
 
 <template>
-  <template v-for="route in routes" :key="route.path">
+  <template
+    v-for="route in routes"
+    :key="route.path"
+  >
     <li @click="$emit('closeMenu')">
       <router-link
         :to="route.path"
@@ -77,7 +95,10 @@ const clearAndReseedData = () => {
         class="rounded-box"
       >
         <span class="flex items-center">
-          <Icon class="mr-2" :icon="route.icon" />
+          <Icon
+            class="mr-2"
+            :icon="route.icon"
+          />
           {{ route.name }}
         </span>
       </router-link>
@@ -88,12 +109,18 @@ const clearAndReseedData = () => {
     <details>
       <summary class="rounded-box">
         <span class="flex items-center">
-          <Icon class="mr-2" icon="mdi:tools" />
+          <Icon
+            class="mr-2"
+            icon="mdi:tools"
+          />
           Administration
         </span>
       </summary>
       <ul class="p-2 bg-base-100">
-        <template v-for="route in adminRoutes" :key="route.path">
+        <template
+          v-for="route in adminRoutes"
+          :key="route.path"
+        >
           <li @click="$emit('closeMenu')">
             <router-link
               :to="route.path"
@@ -104,17 +131,26 @@ const clearAndReseedData = () => {
               class="rounded-box"
             >
               <span class="flex items-center">
-                <Icon class="mr-2" :icon="route.icon" />
+                <Icon
+                  class="mr-2"
+                  :icon="route.icon"
+                />
                 {{ route.name }}
               </span>
             </router-link>
           </li>
         </template>
         <li>
-          <button class="rounded-box" @click="clearAndReseedData">
+          <button
+            class="rounded-box"
+            @click="clearAndReseedData"
+          >
             <span class="flex items-center">
-              <Icon class="mr-2" icon="mdi:database-refresh" />
-              Clear Data & Re-seed
+              <Icon
+                class="mr-2"
+                icon="mdi:database-refresh"
+              />
+              Daten löschen & neu laden
             </span>
           </button>
         </li>

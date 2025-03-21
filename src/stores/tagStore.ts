@@ -74,15 +74,22 @@ export const useTagStore = defineStore('tag', () => {
   // Initialisiere beim ersten Laden
   loadTags()
 
-  return {
-    tags,
-    getTagById,
-    rootTags,
-    getChildTags,
-    getTagsByIds,
-    addTag,
-    updateTag,
-    deleteTag,
-    loadTags
-  }
+function reset() {
+  tags.value = []
+  loadTags()
+}
+
+return {
+  tags,
+  getTagById,
+  rootTags,
+  getChildTags,
+  getTagsByIds,
+  addTag,
+  updateTag,
+  deleteTag,
+  loadTags,
+  reset
+}
+
 })

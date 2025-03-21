@@ -18,7 +18,8 @@ $excludedDirectories = @(
 )
 
 $includeDirectories = @(
-    "./src/components/transaction"
+    "./src/components/transaction",
+    "./src/stores/"
 
 )
 
@@ -35,7 +36,7 @@ $excludeFiles = @(
 $searchFiles = @(
     "./src/views/TransactionsView.vue",
     "./src/components/transaction/*.vue",
-    "./src/stores/transactionStore.ts"
+    "./src/stores/*.ts"
 
 )
 

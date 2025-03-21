@@ -189,6 +189,10 @@ export const useStatisticsStore = defineStore('statistics', () => {
     }
   })
 
+  function reset() {
+    // Hier nur leeren, keine Persistenz vorhanden
+  }
+
   return {
     getIncomeExpenseSummary,
     getCategoryExpenses,
@@ -200,6 +204,7 @@ export const useStatisticsStore = defineStore('statistics', () => {
     getMonthlyTrendChartData: getMonthlyTrendChartData.value,
     getAccountBalanceTrendChartData: getAccountBalanceTrendChartData.value,
     getCategoryIncome: getCategoryIncome.value,
-    getAccountBalanceTrend: getAccountBalanceTrend.value
+    getAccountBalanceTrend: getAccountBalanceTrend.value,
+    reset
   }
 })

@@ -256,6 +256,11 @@ export const usePlanningStore = defineStore('planning', () => {
   // Initialisiere beim ersten Laden
   loadPlanningTransactions()
 
+  function reset() {
+    planningTransactions.value = []
+    loadPlanningTransactions()
+  }
+
   return {
     planningTransactions,
     getPlanningTransactionById,
@@ -265,6 +270,7 @@ export const usePlanningStore = defineStore('planning', () => {
     updatePlanningTransaction,
     deletePlanningTransaction,
     executePlanningTransaction,
-    loadPlanningTransactions
+    loadPlanningTransactions,
+    reset
   }
 })

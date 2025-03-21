@@ -51,12 +51,18 @@ export const useRecipientStore = defineStore('recipient', () => {
   // Initialisierung beim Laden
   loadRecipients()
 
+  function reset() {
+    recipients.value = []
+    loadRecipients()
+  }
+  
   return {
     recipients,
     getRecipientById,
     addRecipient,
     updateRecipient,
     deleteRecipient,
-    loadRecipients
+    loadRecipients,
+    reset
   }
 })

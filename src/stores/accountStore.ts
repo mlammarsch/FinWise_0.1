@@ -9,11 +9,6 @@ export const useAccountStore = defineStore('account', () => {
   const accounts = ref<Account[]>([])
   const accountGroups = ref<AccountGroup[]>([])
 
-  const initialState = { // Define initial state
-    accounts: [],
-    accountGroups: []
-  }
-
   // Getters
   const activeAccounts = computed(() => {
     return accounts.value.filter(account => account.isActive)
@@ -25,7 +20,6 @@ export const useAccountStore = defineStore('account', () => {
       .reduce((sum, account) => sum + account.balance, 0)
   })
 
-  // Changed: getAccountById now is a function instead of a computed returning a function
   function getAccountById(id: string) {
     return accounts.value.find(account => account.id === id)
   }
@@ -93,7 +87,6 @@ export const useAccountStore = defineStore('account', () => {
   }
 
   function deleteAccountGroup(id: string) {
-    // Prüfe, ob noch Konten in dieser Gruppe sind
     const hasAccounts = accounts.value.some(account => account.accountGroupId === id)
     if (hasAccounts) {
       return false
@@ -114,7 +107,6 @@ export const useAccountStore = defineStore('account', () => {
     return false
   }
 
-  // Persistenz
   function loadAccounts() {
     const savedAccounts = localStorage.getItem('finwise_accounts')
     if (savedAccounts) {
@@ -125,7 +117,6 @@ export const useAccountStore = defineStore('account', () => {
     if (savedGroups) {
       accountGroups.value = JSON.parse(savedGroups)
     } else {
-      // Erstelle Standardgruppen, wenn keine vorhanden sind
       accountGroups.value = [
         { id: uuidv4(), name: 'Girokonten', sortOrder: 0 },
         { id: uuidv4(), name: 'Sparkonten', sortOrder: 1 },
@@ -144,19 +135,17 @@ export const useAccountStore = defineStore('account', () => {
     localStorage.setItem('finwise_account_groups', JSON.stringify(accountGroups.value))
   }
 
-    function getTransactionByAccountId(accountId: string) {
-        const transactionStore = useTransactionStore();
-        return transactionStore.transactions.filter(transaction => transaction.accountId === accountId);
-    }
-
-  function reset() { // Implement reset function
-    accounts.value = initialState.accounts;
-    accountGroups.value = initialState.accountGroups;
-    loadAccounts(); // Reload initial data from localStorage or default groups
+  function getTransactionByAccountId(accountId: string) {
+    const transactionStore = useTransactionStore();
+    return transactionStore.transactions.filter(transaction => transaction.accountId === accountId);
   }
 
+  function reset() {
+    accounts.value = []
+    accountGroups.value = []
+    loadAccounts()
+  }
 
-  // Initialisiere beim ersten Laden
   loadAccounts()
 
   return {
@@ -176,6 +165,6 @@ export const useAccountStore = defineStore('account', () => {
     updateAccountBalance,
     loadAccounts,
     getTransactionByAccountId,
-    reset // Expose reset function
+    reset
   }
 })

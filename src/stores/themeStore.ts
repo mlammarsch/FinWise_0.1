@@ -10,10 +10,9 @@ export const useThemeStore = defineStore("theme", () => {
     if (savedTheme) {
       isDarkMode.value = savedTheme === "dark";
     } else {
-      // Nutzt System-Präferenz, falls kein Theme gespeichert wurde
       isDarkMode.value = window.matchMedia("(prefers-color-scheme: dark)").matches;
     }
-    applyTheme(); // WICHTIG: Direkt anwenden
+    applyTheme();
   }
 
   function toggleTheme() {
@@ -25,22 +24,22 @@ export const useThemeStore = defineStore("theme", () => {
   function applyTheme() {
     const theme = isDarkMode.value ? "dark" : "light";
     document.documentElement.setAttribute("data-theme", theme);
-
-    // Falls DaisyUI das Theme überschreibt, nach 100ms erneut setzen
-    // setTimeout(() => {
-    //   document.documentElement.setAttribute("data-theme", theme);
-    // }, 100);
   }
 
-  // Reagiere auf Änderungen von isDarkMode
   watch(isDarkMode, () => {
     applyTheme();
   });
+
+  function reset() {
+    isDarkMode.value = false;
+    initTheme();
+  }
 
   return {
     isDarkMode,
     initTheme,
     toggleTheme,
     applyTheme,
+    reset
   };
 });
