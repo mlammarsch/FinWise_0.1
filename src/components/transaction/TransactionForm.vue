@@ -5,6 +5,7 @@ import { useAccountStore } from "../../stores/accountStore";
 import { useRecipientStore } from "../../stores/recipientStore";
 import { useCategoryStore } from "../../stores/categoryStore";
 import { useTagStore } from "../../stores/tagStore";
+import { useTransactionStore } from "../../stores/transactionStore"; // Neu hinzugefügt
 import DatePicker from "../ui/DatePicker.vue";
 import SearchableSelect from "../ui/SearchableSelect.vue";
 import CurrencyInput from "../ui/CurrencyInput.vue";
@@ -39,6 +40,7 @@ const accountStore = useAccountStore();
 const recipientStore = useRecipientStore();
 const categoryStore = useCategoryStore();
 const tagStore = useTagStore();
+const transactionStore = useTransactionStore(); // Neu definiert
 
 const date = ref(new Date().toISOString().split("T")[0]);
 const valueDate = ref(date.value);
@@ -177,32 +179,35 @@ const validationErrors = computed(() => {
 });
 
 const saveTransaction = () => {
-  const payload =
-    transactionType.value === TransactionType.TRANSFER
-      ? {
-          type: transactionType.value,
-          fromAccountId: accountId.value,
-          toAccountId: toAccountId.value,
-          amount: Math.abs(amount.value),
-          date: date.value,
-          valueDate: valueDate.value || date.value,
-          note: note.value,
-        }
-      : {
-          type: transactionType.value,
-          transaction: {
-            date: date.value,
-            valueDate: valueDate.value || date.value,
-            accountId: accountId.value,
-            categoryId: categoryId.value,
-            tagIds: tagIds.value,
-            amount: amount.value,
-            note: note.value,
-            recipientId: recipientId.value || undefined,
-            reconciled: reconciled.value,
-          },
-        };
-  emit("save", payload);
+  // Unterscheidung zwischen Transfer und normaler Transaktion
+  if (transactionType.value === TransactionType.TRANSFER) {
+    return {
+      type: transactionType.value,
+      fromAccountId: accountId.value,
+      toAccountId: toAccountId.value,
+      amount: Math.abs(amount.value),
+      date: date.value,
+      valueDate: valueDate.value || date.value,
+      note: note.value,
+    };
+  } else {
+    return {
+      date: date.value,
+      valueDate: valueDate.value || date.value,
+      accountId: accountId.value,
+      categoryId: categoryId.value,
+      tagIds: tagIds.value,
+      amount: amount.value,
+      note: note.value,
+      recipientId: recipientId.value || undefined,
+      reconciled: reconciled.value,
+      type: transactionType.value,
+      counterTransactionId: null,
+      planningTransactionId: null,
+      isReconciliation: false,
+      runningBalance: 0,
+    };
+  }
 };
 
 const submitForm = () => {
@@ -213,7 +218,40 @@ const submitForm = () => {
     );
     return;
   }
-  saveTransaction();
+  // Verwende die Formulardaten aus den State-Variablen
+  const transactionPayload = saveTransaction();
+  if (transactionType.value === TransactionType.TRANSFER) {
+    if (props.transaction && (props.transaction as any).counterTransactionId) {
+      transactionStore.updateTransferTransaction(props.transaction.id, {
+        fromAccountId: accountId.value,
+        toAccountId: toAccountId.value,
+        amount: Math.abs(amount.value),
+        date: date.value,
+        valueDate: valueDate.value,
+        note: note.value,
+        reconciled: reconciled.value,
+      });
+    } else {
+      transactionStore.addTransferTransaction(
+        accountId.value,
+        toAccountId.value,
+        Math.abs(amount.value),
+        date.value,
+        valueDate.value,
+        note.value
+      );
+    }
+  } else {
+    if (props.transaction) {
+      transactionStore.updateTransaction(
+        props.transaction.id,
+        transactionPayload
+      );
+    } else {
+      transactionStore.addTransaction(transactionPayload);
+    }
+  }
+  emit("save", transactionPayload);
 };
 </script>
 

@@ -1,3 +1,4 @@
+// transactionStore.ts
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { v4 as uuidv4 } from 'uuid'
@@ -145,48 +146,62 @@ export const useTransactionStore = defineStore('transaction', () => {
 
   function updateTransferTransaction(
     id: string,
-    updates: { fromAccountId: string, toAccountId: string, amount: number, date: string, valueDate: string, note: string }
+    updates: { 
+      fromAccountId: string,
+      toAccountId: string,
+      amount: number,
+      date: string,
+      valueDate: string,
+      note: string,
+      reconciled?: boolean
+    }
   ) {
-    const originalTx = transactions.value.find(tx => tx.id === id)
+    const originalTx = transactions.value.find(tx => tx.id === id);
     if (!originalTx || !originalTx.counterTransactionId) {
-      return false
+      return false;
     }
 
-    let fromTx: ExtendedTransaction | undefined, toTx: ExtendedTransaction | undefined
+    let fromTx: ExtendedTransaction | undefined, toTx: ExtendedTransaction | undefined;
     if (originalTx.amount < 0) {
-      fromTx = originalTx
-      toTx = transactions.value.find(tx => tx.id === originalTx!.counterTransactionId)
+      fromTx = originalTx;
+      toTx = transactions.value.find(tx => tx.id === originalTx.counterTransactionId);
     } else {
-      toTx = originalTx
-      fromTx = transactions.value.find(tx => tx.id === originalTx!.counterTransactionId)
+      toTx = originalTx;
+      fromTx = transactions.value.find(tx => tx.id === originalTx.counterTransactionId);
     }
     if (!fromTx || !toTx) {
-      return false
+      return false;
     }
 
     // Update from transaction
-    fromTx.accountId = updates.fromAccountId
-    fromTx.transferToAccountId = updates.toAccountId
-    fromTx.amount = -Math.abs(updates.amount)
-    fromTx.date = updates.date
-    fromTx.valueDate = updates.valueDate
-    fromTx.note = updates.note
-    fromTx.payee = `Transfer zu ${accountStore.getAccountById(updates.toAccountId)?.name || 'Konto'}`
+    fromTx.accountId = updates.fromAccountId;
+    fromTx.transferToAccountId = updates.toAccountId;
+    fromTx.amount = -Math.abs(updates.amount);
+    fromTx.date = updates.date;
+    fromTx.valueDate = updates.valueDate;
+    fromTx.note = updates.note;
+    fromTx.payee = `Transfer zu ${accountStore.getAccountById(updates.toAccountId)?.name || 'Konto'}`;
 
     // Update to transaction
-    toTx.accountId = updates.toAccountId
-    toTx.transferToAccountId = updates.fromAccountId
-    toTx.amount = Math.abs(updates.amount)
-    toTx.date = updates.date
-    toTx.valueDate = updates.valueDate
-    toTx.note = updates.note
-    toTx.payee = `Transfer von ${accountStore.getAccountById(updates.fromAccountId)?.name || 'Konto'}`
+    toTx.accountId = updates.toAccountId;
+    toTx.transferToAccountId = updates.fromAccountId;
+    toTx.amount = Math.abs(updates.amount);
+    toTx.date = updates.date;
+    toTx.valueDate = updates.valueDate;
+    toTx.note = updates.note;
+    toTx.payee = `Transfer von ${accountStore.getAccountById(updates.fromAccountId)?.name || 'Konto'}`;
 
-    saveTransactions()
-    updateRunningBalances(updates.fromAccountId)
-    updateRunningBalances(updates.toAccountId)
+    // Wenn "reconciled" aktualisiert wird, beide Transaktionen anpassen
+    if (updates.hasOwnProperty("reconciled")) {
+      fromTx.reconciled = updates.reconciled;
+      toTx.reconciled = updates.reconciled;
+    }
 
-    return true
+    saveTransactions();
+    updateRunningBalances(updates.fromAccountId);
+    updateRunningBalances(updates.toAccountId);
+
+    return true;
   }
 
   function addCategoryTransfer(
@@ -261,17 +276,29 @@ export const useTransactionStore = defineStore('transaction', () => {
   }
 
   function updateTransaction(id: string, updates: Partial<ExtendedTransaction>) {
-    const index = transactions.value.findIndex(transaction => transaction.id === id)
+    const index = transactions.value.findIndex(transaction => transaction.id === id);
     if (index !== -1) {
-      transactions.value[index] = { ...transactions.value[index], ...updates }
-      saveTransactions()
+      transactions.value[index] = { ...transactions.value[index], ...updates };
 
-      // Aktualisiere die laufenden Salden für alle nachfolgenden Transaktionen
-      updateRunningBalances(transactions.value[index].accountId)
+      // Wenn "reconciled" aktualisiert wird, auch die Gegenbuchung updaten
+      if (updates.hasOwnProperty("reconciled")) {
+        const counterId = transactions.value[index].counterTransactionId;
+        if (counterId) {
+          const counterIndex = transactions.value.findIndex(tx => tx.id === counterId);
+          if (counterIndex !== -1) {
+            transactions.value[counterIndex] = {
+              ...transactions.value[counterIndex],
+              reconciled: updates.reconciled
+            };
+          }
+        }
+      }
 
-      return true
+      saveTransactions();
+      updateRunningBalances(transactions.value[index].accountId);
+      return true;
     }
-    return false
+    return false;
   }
 
   function deleteTransaction(id: string) {
