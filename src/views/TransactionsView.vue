@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
 import { useTransactionStore } from "../stores/transactionStore";
+import { useAccountStore } from "../stores/accountStore"; // hinzugefügt
 import { useCategoryStore } from "../stores/categoryStore";
 import { useTagStore } from "../stores/tagStore";
 import { useRecipientStore } from "../stores/recipientStore";
@@ -14,6 +15,7 @@ import { Icon } from "@iconify/vue";
 
 // Stores
 const transactionStore = useTransactionStore();
+const accountStore = useAccountStore(); // neu verwendet
 const categoryStore = useCategoryStore();
 const tagStore = useTagStore();
 const recipientStore = useRecipientStore();
