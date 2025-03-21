@@ -1,6 +1,5 @@
-<!-- TransactionList.vue -->
 <script setup lang="ts">
-import { defineProps, defineEmits } from "vue";
+import { defineProps, defineEmits, ref, computed } from "vue";
 import { Transaction, TransactionType } from "../../types";
 import { useAccountStore } from "../../stores/accountStore";
 import { useCategoryStore } from "../../stores/categoryStore";
@@ -28,6 +27,63 @@ const accountStore = useAccountStore();
 const categoryStore = useCategoryStore();
 const tagStore = useTagStore();
 const recipientStore = useRecipientStore();
+
+// Auswahl-Logik
+const selectedIds = ref<string[]>([]);
+const lastSelectedIndex = ref<number | null>(null);
+const currentPageIds = computed(() => props.transactions.map((tx) => tx.id));
+const allSelected = computed(() =>
+  currentPageIds.value.every((id) => selectedIds.value.includes(id))
+);
+
+function handleHeaderCheckboxChange(event: Event) {
+  const checked = (event.target as HTMLInputElement).checked;
+  if (checked) {
+    selectedIds.value = [...currentPageIds.value];
+  } else {
+    selectedIds.value = selectedIds.value.filter(
+      (id) => !currentPageIds.value.includes(id)
+    );
+  }
+}
+
+function handleCheckboxClick(
+  transactionId: string,
+  index: number,
+  event: MouseEvent
+) {
+  const target = event.target as HTMLInputElement;
+  const isChecked = target.checked;
+  if (event.shiftKey && lastSelectedIndex.value !== null) {
+    const start = Math.min(lastSelectedIndex.value, index);
+    const end = Math.max(lastSelectedIndex.value, index);
+    for (let i = start; i <= end; i++) {
+      const id = props.transactions[i].id;
+      if (isChecked && !selectedIds.value.includes(id)) {
+        selectedIds.value.push(id);
+      } else if (!isChecked) {
+        const pos = selectedIds.value.indexOf(id);
+        if (pos !== -1) selectedIds.value.splice(pos, 1);
+      }
+    }
+  } else if (event.ctrlKey || event.metaKey) {
+    if (isChecked) {
+      if (!selectedIds.value.includes(transactionId)) {
+        selectedIds.value.push(transactionId);
+      }
+    } else {
+      const pos = selectedIds.value.indexOf(transactionId);
+      if (pos !== -1) selectedIds.value.splice(pos, 1);
+    }
+  } else {
+    if (isChecked) {
+      selectedIds.value = [transactionId];
+    } else {
+      selectedIds.value = [];
+    }
+  }
+  lastSelectedIndex.value = index;
+}
 </script>
 
 <template>
@@ -35,6 +91,15 @@ const recipientStore = useRecipientStore();
     <table class="table w-full">
       <thead>
         <tr>
+          <!-- Auswahl-Checkbox Header -->
+          <th class="w-5">
+            <input
+              type="checkbox"
+              class="checkbox checkbox-sm"
+              :checked="allSelected"
+              @change="handleHeaderCheckboxChange"
+            />
+          </th>
           <th
             @click="emit('sort-change', 'date')"
             class="cursor-pointer"
@@ -120,9 +185,18 @@ const recipientStore = useRecipientStore();
       </thead>
       <tbody>
         <tr
-          v-for="tx in transactions"
+          v-for="(tx, index) in transactions"
           :key="tx.id"
         >
+          <!-- Auswahl-Checkbox in jeder Zeile -->
+          <td>
+            <input
+              type="checkbox"
+              class="checkbox checkbox-sm"
+              :checked="selectedIds.includes(tx.id)"
+              @click="handleCheckboxClick(tx.id, index, $event)"
+            />
+          </td>
           <td>{{ formatDate(tx.date) }}</td>
           <td v-if="showAccount">
             {{ accountStore.getAccountById(tx.accountId)?.name || "Unbekannt" }}
