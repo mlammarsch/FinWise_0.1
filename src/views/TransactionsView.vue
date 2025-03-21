@@ -1,3 +1,4 @@
+<!-- TransactionView.vue -->
 <script setup lang="ts">
 import { ref, computed } from "vue";
 import { useTransactionStore } from "../stores/transactionStore";
@@ -11,7 +12,7 @@ import TransactionForm from "../components/transaction/TransactionForm.vue";
 import PagingComponent from "../components/ui/PagingComponent.vue";
 import { Transaction } from "../types";
 import SearchGroup from "../components/ui/SearchGroup.vue";
-import { formatCurrency } from "../utils/formatters";
+import { formatCurrency, formatDate } from "../utils/formatters";
 import { Icon } from "@iconify/vue";
 import DateRangePicker from "../components/ui/DateRangePicker.vue";
 
@@ -30,14 +31,12 @@ const showTransactionDetailModal = ref(false);
 
 // Monatliche Selektion
 const currentDate = ref(new Date());
-
 const formattedMonthYear = computed(() =>
   currentDate.value.toLocaleDateString("de-DE", {
     year: "numeric",
     month: "long",
   })
 );
-
 const previousMonth = () => {
   currentDate.value = new Date(
     currentDate.value.getFullYear(),
@@ -45,7 +44,6 @@ const previousMonth = () => {
     1
   );
 };
-
 const nextMonth = () => {
   currentDate.value = new Date(
     currentDate.value.getFullYear(),
@@ -69,28 +67,40 @@ const currentPage = ref(1);
 const itemsPerPage = ref(25);
 const itemsPerPageOptions = [10, 20, 25, 50, 100, "all"];
 
+// Sortiervariablen
+const sortKey = ref<keyof Transaction | "">("date");
+const sortOrder = ref<"asc" | "desc">("desc");
+
+function sortBy(key: keyof Transaction) {
+  if (sortKey.value === key) {
+    sortOrder.value = sortOrder.value === "asc" ? "desc" : "asc";
+  } else {
+    sortKey.value = key;
+    sortOrder.value = "asc";
+  }
+  currentPage.value = 1;
+}
+function handleSortChange(key: keyof Transaction) {
+  sortBy(key);
+}
+
 // Filterung der Transaktionen
 const filteredTransactions = computed(() => {
   refreshKey.value;
   let transactions = transactionStore.transactions;
-
   if (selectedAccountId.value) {
     transactions = transactions.filter(
       (tx) => tx.accountId === selectedAccountId.value
     );
   }
-
   if (selectedTransactionType.value) {
     transactions = transactions.filter(
       (tx) => tx.type === selectedTransactionType.value.toUpperCase()
     );
   }
-
   if (!searchQuery.value.trim()) return transactions;
-
   const searchLower = searchQuery.value.toLowerCase();
   const searchNumeric = searchLower.replace(",", ".");
-
   return transactions.filter((transaction) => {
     const categoryName =
       (transaction.categoryId &&
@@ -107,15 +117,16 @@ const filteredTransactions = computed(() => {
       : "";
     const accountName =
       accountStore.getAccountById(transaction.accountId)?.name || "";
+    // Bei Transfer: Verwende den Namen des Gegenkontos statt Empfänger
     const toAccountName =
-      (transaction.transferToAccountId &&
-        accountStore.getAccountById(transaction.transferToAccountId)?.name) ||
-      "";
+      transaction.type === "TRANSFER"
+        ? accountStore.getAccountById(transaction.transferToAccountId)?.name ||
+          ""
+        : "";
     const payee = transaction.payee || "";
     const formattedAmount = formatCurrency(transaction.amount)
       .replace(/\./g, "")
       .replace(/,/g, ".");
-
     return (
       categoryName.toLowerCase().includes(searchLower) ||
       recipientName.toLowerCase().includes(searchLower) ||
@@ -129,34 +140,82 @@ const filteredTransactions = computed(() => {
   });
 });
 
-// Paginierung
+// Computed Property für sortierte Transaktionen
+const sortedTransactions = computed(() => {
+  const txs = [...filteredTransactions.value];
+  if (sortKey.value) {
+    txs.sort((a, b) => {
+      let aVal: any, bVal: any;
+      switch (sortKey.value) {
+        case "accountId":
+          aVal = accountStore.getAccountById(a.accountId)?.name || "";
+          bVal = accountStore.getAccountById(b.accountId)?.name || "";
+          break;
+        case "recipientId":
+          // Für Transfer: Name des Gegenkontos, sonst Empfängername
+          aVal =
+            a.type === "TRANSFER"
+              ? accountStore.getAccountById(a.transferToAccountId)?.name || ""
+              : recipientStore.getRecipientById(a.recipientId)?.name || "";
+          bVal =
+            b.type === "TRANSFER"
+              ? accountStore.getAccountById(b.transferToAccountId)?.name || ""
+              : recipientStore.getRecipientById(b.recipientId)?.name || "";
+          break;
+        case "categoryId":
+          aVal = categoryStore.getCategoryById(a.categoryId)?.name || "";
+          bVal = categoryStore.getCategoryById(b.categoryId)?.name || "";
+          break;
+        case "reconciled":
+          aVal = a.reconciled ? 1 : 0;
+          bVal = b.reconciled ? 1 : 0;
+          break;
+        case "amount":
+          aVal = a.amount;
+          bVal = b.amount;
+          break;
+        case "date":
+          aVal = new Date(a.date).getTime();
+          bVal = new Date(b.date).getTime();
+          break;
+        default:
+          aVal = a[sortKey.value];
+          bVal = b[sortKey.value];
+      }
+      if (typeof aVal === "string" && typeof bVal === "string") {
+        return sortOrder.value === "asc"
+          ? aVal.localeCompare(bVal)
+          : bVal.localeCompare(aVal);
+      }
+      if (typeof aVal === "number" && typeof bVal === "number") {
+        return sortOrder.value === "asc" ? aVal - bVal : bVal - aVal;
+      }
+      return 0;
+    });
+  }
+  return txs;
+});
+
+// Pagination auf sortierte Daten
 const paginatedTransactions = computed(() => {
-  if (itemsPerPage.value === "all") return filteredTransactions.value;
+  if (itemsPerPage.value === "all") return sortedTransactions.value;
   const start = (currentPage.value - 1) * Number(itemsPerPage.value);
-  return filteredTransactions.value.slice(
+  return sortedTransactions.value.slice(
     start,
     start + Number(itemsPerPage.value)
   );
 });
-
-const totalPages = computed(() =>
-  itemsPerPage.value === "all"
-    ? 1
-    : Math.ceil(filteredTransactions.value.length / Number(itemsPerPage.value))
-);
 
 // Aktionen: Anzeigen, Bearbeiten, Erstellen
 const viewTransaction = (transaction: Transaction) => {
   selectedTransaction.value = transaction;
   showTransactionDetailModal.value = true;
 };
-
 const editTransaction = (transaction: Transaction) => {
   selectedTransaction.value = transaction;
   showTransactionFormModal.value = true;
   showTransactionDetailModal.value = false;
 };
-
 const createTransaction = () => {
   selectedTransaction.value = null;
   showTransactionFormModal.value = true;
@@ -199,14 +258,12 @@ const handleSave = (payload: any) => {
       isReconciliation: false,
       runningBalance: 0,
     };
-
     if (selectedTransaction.value) {
       transactionStore.updateTransaction(selectedTransaction.value.id, tx);
     } else {
       transactionStore.addTransaction(tx);
     }
   }
-
   showTransactionFormModal.value = false;
   selectedTransaction.value = null;
   refreshKey.value++;
@@ -253,7 +310,6 @@ const deleteTransaction = (transaction: Transaction) => {
                 />
               </button>
             </div>
-
             <!-- Konto Dropdown -->
             <select
               v-model="selectedAccountId"
@@ -273,7 +329,6 @@ const deleteTransaction = (transaction: Transaction) => {
                 {{ acc.name }}
               </option>
             </select>
-
             <!-- Transaktionstyp Dropdown -->
             <select
               v-model="selectedTransactionType"
@@ -292,7 +347,6 @@ const deleteTransaction = (transaction: Transaction) => {
           </div>
         </div>
       </div>
-
       <!-- Suchgruppe -->
       <SearchGroup
         btnRight="Neue Transaktion"
@@ -301,26 +355,34 @@ const deleteTransaction = (transaction: Transaction) => {
         @btn-right-click="createTransaction"
       />
     </div>
-
     <!-- Transaktionsliste -->
     <div class="card bg-base-100 shadow-md border border-base-300">
       <div class="card-body">
         <TransactionList
           :transactions="paginatedTransactions"
           :show-account="true"
+          :sort-key="sortKey"
+          :sort-order="sortOrder"
+          @sort-change="handleSortChange"
           @edit="editTransaction"
           @delete="deleteTransaction"
+          @toggleReconciliation="
+            (tx, val) =>
+              transactionStore.updateTransaction(tx.id, { reconciled: val })
+          "
         />
-
         <PagingComponent
           v-model:currentPage="currentPage"
           v-model:itemsPerPage="itemsPerPage"
-          :totalPages="totalPages"
+          :totalPages="
+            itemsPerPage === 'all'
+              ? 1
+              : Math.ceil(sortedTransactions.length / Number(itemsPerPage))
+          "
           :itemsPerPageOptions="itemsPerPageOptions"
         />
       </div>
     </div>
-
     <!-- Detail-Modal -->
     <Teleport to="body">
       <TransactionDetailModal
@@ -329,7 +391,6 @@ const deleteTransaction = (transaction: Transaction) => {
         @close="showTransactionDetailModal = false"
       />
     </Teleport>
-
     <!-- Formular-Modal -->
     <Teleport to="body">
       <div

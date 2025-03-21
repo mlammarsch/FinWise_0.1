@@ -1,5 +1,6 @@
+<!-- TransactionList.vue -->
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { defineProps, defineEmits } from "vue";
 import { Transaction, TransactionType } from "../../types";
 import { useAccountStore } from "../../stores/accountStore";
 import { useCategoryStore } from "../../stores/categoryStore";
@@ -8,56 +9,25 @@ import { useRecipientStore } from "../../stores/recipientStore";
 import { formatDate } from "../../utils/formatters";
 import CurrencyDisplay from "../ui/CurrencyDisplay.vue";
 import { Icon } from "@iconify/vue";
-import { useTransactionStore } from "../../stores/transactionStore";
-const transactionStore = useTransactionStore();
 
 const props = defineProps<{
   transactions: Transaction[];
   showAccount?: boolean;
+  sortKey: keyof Transaction | "";
+  sortOrder: "asc" | "desc";
 }>();
 
-const emit = defineEmits(["edit", "delete"]);
+const emit = defineEmits([
+  "edit",
+  "delete",
+  "sort-change",
+  "toggleReconciliation",
+]);
 
 const accountStore = useAccountStore();
 const categoryStore = useCategoryStore();
 const tagStore = useTagStore();
 const recipientStore = useRecipientStore();
-
-const sortKey = ref<keyof Transaction>("date");
-const sortOrder = ref<"asc" | "desc">("desc");
-
-function sortBy(key: keyof Transaction) {
-  if (sortKey.value === key) {
-    sortOrder.value = sortOrder.value === "asc" ? "desc" : "asc";
-  } else {
-    sortKey.value = key;
-    sortOrder.value = "asc";
-  }
-}
-
-const sortedTransactions = computed(() => {
-  const sorted = [...props.transactions];
-  if (sortKey.value) {
-    sorted.sort((a, b) => {
-      const aValue = a[sortKey.value!];
-      const bValue = b[sortKey.value!];
-      if (typeof aValue === "string" && typeof bValue === "string") {
-        return sortOrder.value === "asc"
-          ? aValue.localeCompare(bValue)
-          : bValue.localeCompare(aValue);
-      }
-      if (typeof aValue === "number" && typeof bValue === "number") {
-        return sortOrder.value === "asc" ? aValue - bValue : bValue - aValue;
-      }
-      return 0;
-    });
-  }
-  return sorted;
-});
-
-const toggleReconciliation = (tx: Transaction, newValue: boolean) => {
-  transactionStore.updateTransaction(tx.id, { reconciled: newValue });
-};
 </script>
 
 <template>
@@ -66,7 +36,7 @@ const toggleReconciliation = (tx: Transaction, newValue: boolean) => {
       <thead>
         <tr>
           <th
-            @click="sortBy('date')"
+            @click="emit('sort-change', 'date')"
             class="cursor-pointer"
           >
             <div class="flex items-center">
@@ -80,7 +50,7 @@ const toggleReconciliation = (tx: Transaction, newValue: boolean) => {
           </th>
           <th
             v-if="showAccount"
-            @click="sortBy('accountId')"
+            @click="emit('sort-change', 'accountId')"
             class="cursor-pointer"
           >
             <div class="flex items-center">
@@ -93,7 +63,7 @@ const toggleReconciliation = (tx: Transaction, newValue: boolean) => {
             </div>
           </th>
           <th
-            @click="sortBy('recipientId')"
+            @click="emit('sort-change', 'recipientId')"
             class="cursor-pointer"
           >
             <div class="flex items-center">
@@ -106,7 +76,7 @@ const toggleReconciliation = (tx: Transaction, newValue: boolean) => {
             </div>
           </th>
           <th
-            @click="sortBy('categoryId')"
+            @click="emit('sort-change', 'categoryId')"
             class="cursor-pointer"
           >
             <div class="flex items-center">
@@ -120,7 +90,7 @@ const toggleReconciliation = (tx: Transaction, newValue: boolean) => {
           </th>
           <th>Tags</th>
           <th
-            @click="sortBy('amount')"
+            @click="emit('sort-change', 'amount')"
             class="text-right cursor-pointer"
           >
             <div class="flex items-center justify-end">
@@ -132,13 +102,25 @@ const toggleReconciliation = (tx: Transaction, newValue: boolean) => {
               />
             </div>
           </th>
-          <th class="text-center">Abgleich</th>
+          <th
+            @click="emit('sort-change', 'reconciled')"
+            class="text-center cursor-pointer"
+          >
+            <div class="flex items-center">
+              Abgleich
+              <Icon
+                v-if="sortKey === 'reconciled'"
+                :icon="sortOrder === 'asc' ? 'mdi:arrow-up' : 'mdi:arrow-down'"
+                class="ml-1 text-sm"
+              />
+            </div>
+          </th>
           <th class="text-right">Aktionen</th>
         </tr>
       </thead>
       <tbody>
         <tr
-          v-for="tx in sortedTransactions"
+          v-for="tx in transactions"
           :key="tx.id"
         >
           <td>{{ formatDate(tx.date) }}</td>
@@ -185,7 +167,7 @@ const toggleReconciliation = (tx: Transaction, newValue: boolean) => {
               type="checkbox"
               class="checkbox checkbox-xs"
               :checked="tx.reconciled"
-              @change="toggleReconciliation(tx, $event.target.checked)"
+              @change="$emit('toggleReconciliation', tx, $event.target.checked)"
             />
           </td>
           <td class="text-right">
