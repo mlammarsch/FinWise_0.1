@@ -1,9 +1,11 @@
+<!-- src/views/admin/AdminRecipientsView.vue -->
 <script setup lang="ts">
 import { ref, computed } from "vue";
 import { useRecipientStore } from "../../stores/recipientStore";
 import { useTransactionStore } from "../../stores/transactionStore";
 import type { Recipient } from "../../stores/recipientStore";
 import SearchGroup from "../../components/ui/SearchGroup.vue";
+import PagingComponent from "../../components/ui/PagingComponent.vue";
 
 /**
  * Pfad zur Komponente: src/views/admin/AdminRecipientsView.vue
@@ -25,22 +27,28 @@ const selectedRecipient = ref<Recipient | null>(null);
 const searchQuery = ref("");
 
 const currentPage = ref(1);
-const itemsPerPage = 25;
+const itemsPerPage = ref<number | string>(25);
 
 const filteredRecipients = computed(() => {
   if (searchQuery.value.trim() === "") {
     return recipientStore.recipients;
   }
-  return recipientStore.searchRecipients(searchQuery.value);
+  return recipientStore.recipients.filter((r) =>
+    r.name.toLowerCase().includes(searchQuery.value.toLowerCase())
+  );
 });
 
-const totalPages = computed(() =>
-  Math.ceil(filteredRecipients.value.length / itemsPerPage)
-);
+const totalPages = computed(() => {
+  if (itemsPerPage.value === "all") return 1;
+  return Math.ceil(
+    filteredRecipients.value.length / Number(itemsPerPage.value)
+  );
+});
 
 const paginatedRecipients = computed(() => {
-  const start = (currentPage.value - 1) * itemsPerPage;
-  const end = start + itemsPerPage;
+  if (itemsPerPage.value === "all") return filteredRecipients.value;
+  const start = (currentPage.value - 1) * Number(itemsPerPage.value);
+  const end = start + Number(itemsPerPage.value);
   return filteredRecipients.value.slice(start, end);
 });
 
@@ -55,35 +63,6 @@ const createRecipient = () => {
   isEditMode.value = false;
   showRecipientModal.value = true;
 };
-
-const nextPage = () => {
-  if (currentPage.value < totalPages.value) {
-    currentPage.value++;
-  }
-};
-
-const prevPage = () => {
-  if (currentPage.value > 1) {
-    currentPage.value--;
-  }
-};
-
-// Dynamische Seitenzahlen generieren
-const getPageNumbers = computed(() => {
-  const pages = [];
-  if (totalPages.value <= 5) {
-    for (let i = 1; i <= totalPages.value; i++) pages.push(i);
-  } else {
-    pages.push(1);
-    if (currentPage.value > 3) pages.push("...");
-    let start = Math.max(2, currentPage.value - 1);
-    let end = Math.min(totalPages.value - 1, currentPage.value + 1);
-    for (let i = start; i <= end; i++) pages.push(i);
-    if (currentPage.value < totalPages.value - 2) pages.push("...");
-    pages.push(totalPages.value);
-  }
-  return pages;
-});
 </script>
 
 <template>
@@ -124,7 +103,10 @@ const getPageNumbers = computed(() => {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="recipient in paginatedRecipients" :key="recipient.id">
+              <tr
+                v-for="recipient in paginatedRecipients"
+                :key="recipient.id"
+              >
                 <td>{{ recipient.name }}</td>
                 <td class="text-center hidden md:table-cell">-</td>
                 <td class="text-center hidden md:table-cell">0</td>
@@ -136,12 +118,18 @@ const getPageNumbers = computed(() => {
                     <button
                       class="btn btn-ghost btn-sm text-secondary flex items-center justify-center"
                     >
-                      <Icon icon="mdi:pencil" class="text-base" />
+                      <Icon
+                        icon="mdi:pencil"
+                        class="text-base"
+                      />
                     </button>
                     <button
                       class="btn btn-ghost btn-sm text-error flex items-center justify-center"
                     >
-                      <Icon icon="mdi:trash-can" class="text-base" />
+                      <Icon
+                        icon="mdi:trash-can"
+                        class="text-base"
+                      />
                     </button>
                   </div>
                 </td>
@@ -150,40 +138,14 @@ const getPageNumbers = computed(() => {
           </table>
         </div>
 
-        <!-- Paginierung -->
-        <div class="flex justify-between items-center mt-4">
-          <div class="join">
-            <button
-              class="join-item btn btn-sm rounded-l-full border border-base-300 flex items-center justify-center"
-              :disabled="currentPage === 1"
-              @click="prevPage"
-            >
-              <Icon icon="mdi:chevron-left" class="text-base" />
-            </button>
-            <button
-              v-for="page in getPageNumbers"
-              :key="page"
-              class="join-item btn btn-sm border border-base-300 shadow-none"
-              :class="{
-                'btn-disabled': page === '...',
-                'btn-primary': page === currentPage,
-              }"
-              @click="page !== '...' && (currentPage = page)"
-            >
-              {{ page }}
-            </button>
-            <button
-              class="join-item btn btn-sm rounded-r-full border border-base-300 flex items-center justify-center"
-              :disabled="currentPage === totalPages"
-              @click="nextPage"
-            >
-              <Icon icon="mdi:chevron-right" class="text-base" />
-            </button>
-          </div>
-          <span class="text-sm ml-4"
-            >Seite {{ currentPage }} von {{ totalPages }}</span
-          >
-        </div>
+        <!-- Paginierungskomponente -->
+        <PagingComponent
+          :currentPage="currentPage"
+          :totalPages="totalPages"
+          :itemsPerPage="itemsPerPage"
+          @update:currentPage="(val) => (currentPage = val)"
+          @update:itemsPerPage="(val) => (itemsPerPage = val)"
+        />
       </div>
     </div>
   </div>

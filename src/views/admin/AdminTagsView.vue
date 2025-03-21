@@ -1,3 +1,4 @@
+<!-- src/views/admin/AdminTagsView.vue -->
 <script setup lang="ts">
 import { ref, computed } from "vue";
 import { useTagStore } from "../../stores/tagStore";
