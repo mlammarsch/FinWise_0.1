@@ -15,6 +15,8 @@ import { formatCurrency } from "../utils/formatters";
 import { Icon } from "@iconify/vue";
 import DateRangePicker from "../components/ui/DateRangePicker.vue";
 
+const refreshKey = ref(0);
+
 // Stores
 const transactionStore = useTransactionStore();
 const accountStore = useAccountStore();
@@ -69,6 +71,7 @@ const itemsPerPageOptions = [10, 20, 25, 50, 100, "all"];
 
 // Filterung der Transaktionen
 const filteredTransactions = computed(() => {
+  refreshKey.value;
   let transactions = transactionStore.transactions;
 
   if (selectedAccountId.value) {
@@ -206,6 +209,7 @@ const handleSave = (payload: any) => {
 
   showTransactionFormModal.value = false;
   selectedTransaction.value = null;
+  refreshKey.value++;
 };
 
 // Löschen
