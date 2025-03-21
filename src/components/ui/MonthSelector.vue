@@ -1,3 +1,4 @@
+<!-- MonthSelector.vue -->
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
 import { Icon } from "@iconify/vue";
@@ -6,7 +7,7 @@ const emit = defineEmits<{
   (e: "update-daterange", payload: { start: string; end: string }): void;
 }>();
 
-// Aktueller Monat als erstes Datum des Monats
+// Initialer Monat: aktueller Monat, erster Tag
 const currentMonth = ref(
   new Date(new Date().getFullYear(), new Date().getMonth(), 1)
 );
@@ -18,9 +19,9 @@ const formattedMonthYear = computed(() =>
   })
 );
 
-const startDate = computed(() => {
-  return currentMonth.value.toISOString().split("T")[0];
-});
+const startDate = computed(
+  () => currentMonth.value.toISOString().split("T")[0]
+);
 
 const endDate = computed(() => {
   const lastDay = new Date(
@@ -31,7 +32,7 @@ const endDate = computed(() => {
   return lastDay.toISOString().split("T")[0];
 });
 
-// Beim Wechsel sofort den Datumsbereich emittieren
+// Emit bei Änderung
 watch(
   currentMonth,
   () => {

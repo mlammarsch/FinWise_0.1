@@ -10,11 +10,10 @@ import TransactionDetailModal from "../components/transaction/TransactionDetailM
 import TransactionForm from "../components/transaction/TransactionForm.vue";
 import PagingComponent from "../components/ui/PagingComponent.vue";
 import MonthSelector from "../components/ui/MonthSelector.vue";
-import { Transaction } from "../types";
+import { Transaction, TransactionType } from "../types";
 import SearchGroup from "../components/ui/SearchGroup.vue";
 import { formatCurrency, formatDate } from "../utils/formatters";
 import { Icon } from "@iconify/vue";
-import DateRangePicker from "../components/ui/DateRangePicker.vue";
 
 const refreshKey = ref(0);
 
@@ -31,14 +30,14 @@ const showTransactionDetailModal = ref(false);
 
 // Filter- und UI-Status
 const selectedTransaction = ref<Transaction | null>(null);
-const selectedAccountId = ref("");
-const selectedTransactionType = ref("");
+const selectedAccountId = ref(""); // Leerer Wert => kein Filter
+const selectedTransactionType = ref(""); // Leerer Wert => kein Filter
 const searchQuery = ref("");
 const currentPage = ref(1);
 const itemsPerPage = ref(25);
 const itemsPerPageOptions = [10, 20, 25, 50, 100, "all"];
 
-// Daterange aus MonthSelector (Filterpriorität)
+// Filterpriorität: Zuerst Typ, dann Konto, dann Datumsbereich
 const dateRange = ref<{ start: string; end: string }>({
   start: new Date().toISOString().split("T")[0],
   end: new Date().toISOString().split("T")[0],
@@ -48,7 +47,6 @@ function handleDateRangeUpdate(payload: { start: string; end: string }) {
   refreshKey.value++;
 }
 
-// Sortiervariablen
 const sortKey = ref<keyof Transaction | "">("date");
 const sortOrder = ref<"asc" | "desc">("desc");
 
@@ -65,12 +63,32 @@ function handleSortChange(key: keyof Transaction) {
   sortBy(key);
 }
 
-// Filterung der Transaktionen (Filter hat Priorität)
+// Filterung der Transaktionen – Filterreihenfolge: Typ, Konto, Datum, Suchbegriff
 const filteredTransactions = computed(() => {
   refreshKey.value;
   let transactions = transactionStore.transactions;
 
-  // Filter nach Datum (Daterange)
+  // Filter nach Transaktionstyp
+  if (selectedTransactionType.value) {
+    const typeMapping: Record<string, TransactionType> = {
+      ausgabe: TransactionType.EXPENSE,
+      einnahme: TransactionType.INCOME,
+      transfer: TransactionType.TRANSFER,
+    };
+    const desiredType = typeMapping[selectedTransactionType.value];
+    if (desiredType) {
+      transactions = transactions.filter((tx) => tx.type === desiredType);
+    }
+  }
+
+  // Filter nach Konto
+  if (selectedAccountId.value) {
+    transactions = transactions.filter(
+      (tx) => tx.accountId === selectedAccountId.value
+    );
+  }
+
+  // Filter nach Datum
   transactions = transactions.filter((tx) => {
     const txDate = new Date(tx.date).getTime();
     const start = new Date(dateRange.value.start).getTime();
@@ -78,42 +96,30 @@ const filteredTransactions = computed(() => {
     return txDate >= start && txDate <= end;
   });
 
-  if (selectedAccountId.value) {
-    transactions = transactions.filter(
-      (tx) => tx.accountId === selectedAccountId.value
-    );
-  }
-  if (selectedTransactionType.value) {
-    transactions = transactions.filter(
-      (tx) => tx.type === selectedTransactionType.value.toUpperCase()
-    );
-  }
+  // Suchfilter
   if (!searchQuery.value.trim()) return transactions;
   const searchLower = searchQuery.value.toLowerCase();
   const searchNumeric = searchLower.replace(",", ".");
-  return transactions.filter((transaction) => {
+  return transactions.filter((tx) => {
     const categoryName =
-      (transaction.categoryId &&
-        categoryStore.getCategoryById(transaction.categoryId)?.name) ||
+      (tx.categoryId && categoryStore.getCategoryById(tx.categoryId)?.name) ||
       "";
     const recipientName =
-      (transaction.recipientId &&
-        recipientStore.getRecipientById(transaction.recipientId)?.name) ||
+      (tx.recipientId &&
+        recipientStore.getRecipientById(tx.recipientId)?.name) ||
       "";
-    const tagNames = Array.isArray(transaction.tagIds)
-      ? transaction.tagIds
+    const tagNames = Array.isArray(tx.tagIds)
+      ? tx.tagIds
           .map((tagId) => tagStore.getTagById(tagId)?.name || "")
           .join(" ")
       : "";
-    const accountName =
-      accountStore.getAccountById(transaction.accountId)?.name || "";
+    const accountName = accountStore.getAccountById(tx.accountId)?.name || "";
     const toAccountName =
-      transaction.type === "TRANSFER"
-        ? accountStore.getAccountById(transaction.transferToAccountId)?.name ||
-          ""
+      tx.type === "TRANSFER"
+        ? accountStore.getAccountById(tx.transferToAccountId)?.name || ""
         : "";
-    const payee = transaction.payee || "";
-    const formattedAmount = formatCurrency(transaction.amount)
+    const payee = tx.payee || "";
+    const formattedAmount = formatCurrency(tx.amount)
       .replace(/\./g, "")
       .replace(/,/g, ".");
     return (
@@ -124,12 +130,11 @@ const filteredTransactions = computed(() => {
       toAccountName.toLowerCase().includes(searchLower) ||
       payee.toLowerCase().includes(searchLower) ||
       formattedAmount.includes(searchNumeric) ||
-      (transaction.note || "").toLowerCase().includes(searchLower)
+      (tx.note || "").toLowerCase().includes(searchLower)
     );
   });
 });
 
-// Sortierung auf gefilterte Daten
 const sortedTransactions = computed(() => {
   const txs = [...filteredTransactions.value];
   if (sortKey.value) {
@@ -184,7 +189,6 @@ const sortedTransactions = computed(() => {
   return txs;
 });
 
-// Pagination auf sortierte Daten
 const paginatedTransactions = computed(() => {
   if (itemsPerPage.value === "all") return sortedTransactions.value;
   const start = (currentPage.value - 1) * Number(itemsPerPage.value);
@@ -195,12 +199,12 @@ const paginatedTransactions = computed(() => {
 });
 
 // Aktionen: Anzeigen, Bearbeiten, Erstellen
-const viewTransaction = (transaction: Transaction) => {
-  selectedTransaction.value = transaction;
+const viewTransaction = (tx: Transaction) => {
+  selectedTransaction.value = tx;
   showTransactionDetailModal.value = true;
 };
-const editTransaction = (transaction: Transaction) => {
-  selectedTransaction.value = transaction;
+const editTransaction = (tx: Transaction) => {
+  selectedTransaction.value = tx;
   showTransactionFormModal.value = true;
   showTransactionDetailModal.value = false;
 };
@@ -258,9 +262,9 @@ const handleSave = (payload: any) => {
 };
 
 // Löschen
-const deleteTransaction = (transaction: Transaction) => {
+const deleteTransaction = (tx: Transaction) => {
   if (confirm("Möchten Sie diese Transaktion wirklich löschen?")) {
-    transactionStore.deleteTransaction(transaction.id);
+    transactionStore.deleteTransaction(tx.id);
     showTransactionDetailModal.value = false;
   }
 };
@@ -271,11 +275,41 @@ const deleteTransaction = (transaction: Transaction) => {
     <!-- Filterleiste -->
     <div class="flex flex-wrap items-center justify-between gap-1">
       <!-- FilterCard -->
-      <div class="card w-2/3 bg-base-100 shadow-md border border-base-300">
-        <div class="rounded-md bg-base-200/50 backdrop-blur-lg p-2">
+      <div class="card w-2/3 bg-base-100 shadow-md">
+        <!-- Container für Filter mit flex, items-center, justify-start und mx-2 -->
+        <div
+          class="rounded-md backdrop-blur-lg p-2 flex items-center justify-start mx-2 gap-2"
+        >
+          <!-- Transaktionstyp Dropdown -->
+          <select
+            v-model="selectedTransactionType"
+            class="select select-sm select-bordered border-base-300 w-40 mx-2"
+          >
+            <option value="">Alle Typen</option>
+            <option value="ausgabe">Ausgabe</option>
+            <option value="einnahme">Einnahme</option>
+            <option value="transfer">Transfer</option>
+          </select>
+          <!-- Konto Dropdown -->
+          <select
+            v-model="selectedAccountId"
+            class="select select-sm select-bordered border-base-300 w-40 mx-2"
+          >
+            <option value="">Alle Konten</option>
+            <option
+              v-for="acc in accountStore.activeAccounts"
+              :key="acc.id"
+              :value="acc.id"
+              class="mx-2"
+            >
+              {{ acc.name }}
+            </option>
+          </select>
           <!-- Monatliche Selektion via MonthSelector -->
-          <MonthSelector @update-daterange="handleDateRangeUpdate" />
-          <!-- Weitere Filter (z. B. Dropdowns) können hier folgen -->
+          <MonthSelector
+            @update-daterange="handleDateRangeUpdate"
+            class="mx-2"
+          />
         </div>
       </div>
       <!-- Suchgruppe -->

@@ -10,6 +10,22 @@ import SearchableSelect from "../ui/SearchableSelect.vue";
 import CurrencyInput from "../ui/CurrencyInput.vue";
 import ButtonGroup from "../ui/ButtonGroup.vue";
 
+/**
+ * Pfad zur Komponente: components/transaction/TransactionForm.vue
+ * Diese Komponente dient zur Erstellung und Bearbeitung einer Transaktion.
+ *
+ * Komponenten-Props:
+ * - transaction?: Transaction - Optional: Bestehende Transaktion zum Bearbeiten.
+ * - isEdit?: boolean - Optional: Gibt an, ob die Transaktion bearbeitet wird.
+ * - initialAccountId?: string - Optional: Vorausgewähltes Konto.
+ * - initialTransactionType?: TransactionType - Optional: Vorausgewählter Transaktionstyp.
+ *
+ * Emits:
+ * - save - Gibt die eingegebene Transaktion zurück.
+ * - cancel - Bricht die Bearbeitung ab.
+ * - createCategory - Erzeugt eine neue Kategorie.
+ * - createTag - Erzeugt ein neues Tag.
+ */
 const props = defineProps<{
   transaction?: Transaction;
   isEdit?: boolean;
@@ -123,9 +139,15 @@ watch(amount, (newAmount) => {
     ? TransactionType.INCOME
     : transactionType.value;
 });
-watch(transactionType, (newType) => {
+watch(transactionType, (newType, oldType) => {
   if (!locked.value && newType !== TransactionType.TRANSFER) {
     toAccountId.value = "";
+  }
+  // Bei Änderung des Transaktionstyps Betrag anpassen:
+  if (newType === TransactionType.EXPENSE && amount.value > 0) {
+    amount.value = -Math.abs(amount.value);
+  } else if (newType === TransactionType.INCOME && amount.value < 0) {
+    amount.value = Math.abs(amount.value);
   }
 });
 watch(toAccountId, (newToAccountId) => {
