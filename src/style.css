@@ -11,13 +11,14 @@
   -moz-osx-font-smoothing: grayscale;
 } */
 
-
 :root {
+  font-family: lobster-two, 'Segoe UI', Inter, Roboto, sans-serif;
   --z-navbar: 10;
   --z-dropdown: 30;
   --z-dropdown-content: 60;
   --z-modal: 50;
 }
+
 
 .header {
   @apply z-[var(--z-navbar)];
@@ -38,14 +39,23 @@
   @apply z-[var(--z-modal)];
 }
 
-:root {
-  font-family: lobster-two, 'Segoe UI', Inter, Roboto, sans-serif;
+.datepicker-button {
+  @apply border border-base-100 rounded-md p-2 flex items-center justify-between bg-base-100 hover:bg-primary/20 active:bg-primary/40;
 }
+.datepicker-shortcut {
+  @apply text-sm text-neutral hover:text-primary hover:font-semibold cursor-pointer;
+}
+.datepicker-day {
+  @apply w-10 h-10 flex items-center justify-center rounded-md text-sm cursor-pointer hover:bg-primary hover:text-white;
+}
+
+
 
 .bg-gradient {
   @apply relative;
   background: linear-gradient(-18deg, var(--color-secondary) 5%, var(--color-base-100) 68%, var(--color-primary) 95%);
 }
+
 
 .glass-effect {
   @apply bg-base-100/60 backdrop-blur-md;

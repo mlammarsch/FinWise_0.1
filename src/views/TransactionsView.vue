@@ -12,6 +12,8 @@ import PagingComponent from "../components/ui/PagingComponent.vue";
 import { Transaction } from "../types";
 import SearchGroup from "../components/ui/SearchGroup.vue";
 import { formatCurrency } from "../utils/formatters";
+import { Icon } from "@iconify/vue";
+import DateRangePicker from "../components/ui/DateRangePicker.vue";
 
 // Stores
 const transactionStore = useTransactionStore();
@@ -24,49 +26,107 @@ const recipientStore = useRecipientStore();
 const showTransactionFormModal = ref(false);
 const showTransactionDetailModal = ref(false);
 
-// State
+// Monatliche Selektion
+const currentDate = ref(new Date());
+
+const formattedMonthYear = computed(() =>
+  currentDate.value.toLocaleDateString("de-DE", {
+    year: "numeric",
+    month: "long",
+  })
+);
+
+const previousMonth = () => {
+  currentDate.value = new Date(
+    currentDate.value.getFullYear(),
+    currentDate.value.getMonth() - 1,
+    1
+  );
+};
+
+const nextMonth = () => {
+  currentDate.value = new Date(
+    currentDate.value.getFullYear(),
+    currentDate.value.getMonth() + 1,
+    1
+  );
+};
+
+// Date Range Picker
+const dateRange = ref<{ start: string; end: string }>({
+  start: new Date().toISOString().split("T")[0],
+  end: new Date().toISOString().split("T")[0],
+});
+
+// Filter- und UI-Status
 const selectedTransaction = ref<Transaction | null>(null);
+const selectedAccountId = ref("");
+const selectedTransactionType = ref("");
 const searchQuery = ref("");
 const currentPage = ref(1);
 const itemsPerPage = ref(25);
 const itemsPerPageOptions = [10, 20, 25, 50, 100, "all"];
 
-// Filter und Pagination
+// Filterung der Transaktionen
 const filteredTransactions = computed(() => {
-  if (!searchQuery.value.trim()) return transactionStore.transactions;
+  let transactions = transactionStore.transactions;
+
+  if (selectedAccountId.value) {
+    transactions = transactions.filter(
+      (tx) => tx.accountId === selectedAccountId.value
+    );
+  }
+
+  if (selectedTransactionType.value) {
+    transactions = transactions.filter(
+      (tx) => tx.type === selectedTransactionType.value.toUpperCase()
+    );
+  }
+
+  if (!searchQuery.value.trim()) return transactions;
 
   const searchLower = searchQuery.value.toLowerCase();
-  const searchNumeric = searchLower.replace(/,/g, ".");
+  const searchNumeric = searchLower.replace(",", ".");
 
-  return transactionStore.transactions.filter((transaction) => {
+  return transactions.filter((transaction) => {
     const categoryName =
-      categoryStore.getCategoryById(transaction.categoryId)?.name || "";
+      (transaction.categoryId &&
+        categoryStore.getCategoryById(transaction.categoryId)?.name) ||
+      "";
     const recipientName =
-      recipientStore.getRecipientById(transaction.recipientId)?.name || "";
-    const tagNames = transaction.tagIds
-      .map((tagId) => tagStore.getTagById(tagId)?.name || "")
-      .join(" ");
+      (transaction.recipientId &&
+        recipientStore.getRecipientById(transaction.recipientId)?.name) ||
+      "";
+    const tagNames = Array.isArray(transaction.tagIds)
+      ? transaction.tagIds
+          .map((tagId) => tagStore.getTagById(tagId)?.name || "")
+          .join(" ")
+      : "";
+    const accountName =
+      accountStore.getAccountById(transaction.accountId)?.name || "";
+    const toAccountName =
+      (transaction.transferToAccountId &&
+        accountStore.getAccountById(transaction.transferToAccountId)?.name) ||
+      "";
+    const payee = transaction.payee || "";
     const formattedAmount = formatCurrency(transaction.amount)
       .replace(/\./g, "")
       .replace(/,/g, ".");
-    const accountName =
-      accountStore.getAccountById(transaction.accountId)?.name || "";
-    const toAccountName = transaction.transferToAccountId
-      ? accountStore.getAccountById(transaction.transferToAccountId)?.name || ""
-      : "";
 
     return (
-      (transaction.note || "").toLowerCase().includes(searchLower) ||
       categoryName.toLowerCase().includes(searchLower) ||
       recipientName.toLowerCase().includes(searchLower) ||
       tagNames.toLowerCase().includes(searchLower) ||
-      formattedAmount.includes(searchNumeric) ||
       accountName.toLowerCase().includes(searchLower) ||
-      toAccountName.toLowerCase().includes(searchLower)
+      toAccountName.toLowerCase().includes(searchLower) ||
+      payee.toLowerCase().includes(searchLower) ||
+      formattedAmount.includes(searchNumeric) ||
+      (transaction.note || "").toLowerCase().includes(searchLower)
     );
   });
 });
 
+// Paginierung
 const paginatedTransactions = computed(() => {
   if (itemsPerPage.value === "all") return filteredTransactions.value;
   const start = (currentPage.value - 1) * Number(itemsPerPage.value);
@@ -82,7 +142,7 @@ const totalPages = computed(() =>
     : Math.ceil(filteredTransactions.value.length / Number(itemsPerPage.value))
 );
 
-// Anzeigen, Bearbeiten, Erstellen
+// Aktionen: Anzeigen, Bearbeiten, Erstellen
 const viewTransaction = (transaction: Transaction) => {
   selectedTransaction.value = transaction;
   showTransactionDetailModal.value = true;
@@ -99,7 +159,7 @@ const createTransaction = () => {
   showTransactionFormModal.value = true;
 };
 
-// Speichern von Transaktionen (neu oder bearbeiten)
+// Speichern
 const handleSave = (payload: any) => {
   if (payload.type === "TRANSFER") {
     if (
@@ -159,8 +219,77 @@ const deleteTransaction = (transaction: Transaction) => {
 
 <template>
   <div class="space-y-6">
-    <div class="flex justify-between items-center mb-6">
-      <h2 class="text-xl font-bold">Transaktionen</h2>
+    <!-- Filterleiste -->
+    <div class="flex flex-wrap items-center justify-between gap-1">
+      <!-- FilterCard -->
+      <div class="card w-2/3 bg-base-100 shadow-md border border-base-300">
+        <div class="rounded-md bg-base-200/50 backdrop-blur-lg p-2">
+          <div class="flex flex-wrap items-center justify-left gap-2">
+            <!-- Monatsauswahl -->
+            <div class="join">
+              <button
+                class="btn join-item rounded-l-full btn-sm btn-soft border border-base-300 w-10"
+                @click="previousMonth"
+              >
+                <Icon
+                  icon="mdi:chevron-left"
+                  class="text-lg"
+                />
+              </button>
+              <button class="btn join-item btn-sm border border-base-300 w-30">
+                {{ formattedMonthYear }}
+              </button>
+              <button
+                class="btn join-item rounded-r-full btn-sm btn-soft border border-base-300 w-10"
+                @click="nextMonth"
+              >
+                <Icon
+                  icon="mdi:chevron-right"
+                  class="text-lg"
+                />
+              </button>
+            </div>
+
+            <!-- Konto Dropdown -->
+            <select
+              v-model="selectedAccountId"
+              class="select select-sm select-bordered border-base-300 w-40"
+            >
+              <option
+                disabled
+                value=""
+              >
+                Konto wählen
+              </option>
+              <option
+                v-for="acc in accountStore.activeAccounts"
+                :key="acc.id"
+                :value="acc.id"
+              >
+                {{ acc.name }}
+              </option>
+            </select>
+
+            <!-- Transaktionstyp Dropdown -->
+            <select
+              v-model="selectedTransactionType"
+              class="select select-sm select-bordered border-base-300 w-40"
+            >
+              <option
+                disabled
+                value=""
+              >
+                Typ wählen
+              </option>
+              <option value="ausgabe">Ausgabe</option>
+              <option value="einnahme">Einnahme</option>
+              <option value="transfer">Transfer</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Suchgruppe -->
       <SearchGroup
         btnRight="Neue Transaktion"
         btnRightIcon="mdi:plus"
@@ -169,7 +298,8 @@ const deleteTransaction = (transaction: Transaction) => {
       />
     </div>
 
-    <div class="card bg-base-100 shadow-md border border-base-300 shadow">
+    <!-- Transaktionsliste -->
+    <div class="card bg-base-100 shadow-md border border-base-300">
       <div class="card-body">
         <TransactionList
           :transactions="paginatedTransactions"
