@@ -50,6 +50,16 @@
 }
 
 
+  /* Checkbox mit class "checkbox-sm" rund darstellen */
+  .checkbox.checkbox-sm {
+    @apply rounded-sm;
+  }
+  
+  /* Andere Checkboxen scharfkantig darstellen */
+  .checkbox:not(.checkbox-sm) {
+    @apply rounded-full;
+  }
+
 
 .bg-gradient {
   @apply relative;
