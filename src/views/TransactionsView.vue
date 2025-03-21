@@ -1,21 +1,21 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
 import { useTransactionStore } from "../stores/transactionStore";
-import { useAccountStore } from "../stores/accountStore"; // hinzugefügt
+import { useAccountStore } from "../stores/accountStore";
 import { useCategoryStore } from "../stores/categoryStore";
 import { useTagStore } from "../stores/tagStore";
 import { useRecipientStore } from "../stores/recipientStore";
 import TransactionList from "../components/transaction/TransactionList.vue";
 import TransactionDetailModal from "../components/transaction/TransactionDetailModal.vue";
 import TransactionForm from "../components/transaction/TransactionForm.vue";
+import PagingComponent from "../components/ui/PagingComponent.vue";
 import { Transaction } from "../types";
 import SearchGroup from "../components/ui/SearchGroup.vue";
 import { formatCurrency } from "../utils/formatters";
-import { Icon } from "@iconify/vue";
 
 // Stores
 const transactionStore = useTransactionStore();
-const accountStore = useAccountStore(); // neu verwendet
+const accountStore = useAccountStore();
 const categoryStore = useCategoryStore();
 const tagStore = useTagStore();
 const recipientStore = useRecipientStore();
@@ -28,8 +28,8 @@ const showTransactionDetailModal = ref(false);
 const selectedTransaction = ref<Transaction | null>(null);
 const searchQuery = ref("");
 const currentPage = ref(1);
-const itemsPerPage = ref(20);
-const itemsPerPageOptions = [10, 20, 50, 100, "All"];
+const itemsPerPage = ref(25);
+const itemsPerPageOptions = [10, 20, 25, 50, 100, "all"];
 
 // Filter und Pagination
 const filteredTransactions = computed(() => {
@@ -68,42 +68,19 @@ const filteredTransactions = computed(() => {
 });
 
 const paginatedTransactions = computed(() => {
-  if (itemsPerPage.value === "All") return filteredTransactions.value;
-  const start = (currentPage.value - 1) * itemsPerPage.value;
-  return filteredTransactions.value.slice(start, start + itemsPerPage.value);
+  if (itemsPerPage.value === "all") return filteredTransactions.value;
+  const start = (currentPage.value - 1) * Number(itemsPerPage.value);
+  return filteredTransactions.value.slice(
+    start,
+    start + Number(itemsPerPage.value)
+  );
 });
 
 const totalPages = computed(() =>
-  itemsPerPage.value === "All"
+  itemsPerPage.value === "all"
     ? 1
-    : Math.ceil(filteredTransactions.value.length / itemsPerPage.value)
+    : Math.ceil(filteredTransactions.value.length / Number(itemsPerPage.value))
 );
-
-const getPageNumbers = computed(() => {
-  if (totalPages.value <= 5) {
-    return Array.from({ length: totalPages.value }, (_, i) => i + 1);
-  }
-
-  const pages: (number | string)[] = [1];
-  if (currentPage.value > 3) pages.push("...");
-  if (currentPage.value > 2) pages.push(currentPage.value - 1);
-  pages.push(currentPage.value);
-  if (currentPage.value < totalPages.value - 1)
-    pages.push(currentPage.value + 1);
-  if (currentPage.value < totalPages.value - 2) pages.push("...");
-  pages.push(totalPages.value);
-
-  return pages;
-});
-
-const changePage = (page: number | "...") => {
-  if (page !== "...") currentPage.value = page;
-};
-
-const changeItemsPerPage = (value: number | "All") => {
-  itemsPerPage.value = value;
-  currentPage.value = 1;
-};
 
 // Anzeigen, Bearbeiten, Erstellen
 const viewTransaction = (transaction: Transaction) => {
@@ -201,27 +178,12 @@ const deleteTransaction = (transaction: Transaction) => {
           @delete="deleteTransaction"
         />
 
-        <div class="divider"></div>
-
-        <div class="flex justify-between items-center">
-          <select
-            class="select select-bordered select-sm w-20"
-            @change="(e) =>
-              changeItemsPerPage(
-                (e.target as HTMLSelectElement).value === 'All'
-                  ? 'All'
-                  : parseInt((e.target as HTMLSelectElement).value)
-              )"
-          >
-            <option
-              v-for="option in itemsPerPageOptions"
-              :key="option"
-              :value="option"
-            >
-              {{ option }}
-            </option>
-          </select>
-        </div>
+        <PagingComponent
+          v-model:currentPage="currentPage"
+          v-model:itemsPerPage="itemsPerPage"
+          :totalPages="totalPages"
+          :itemsPerPageOptions="itemsPerPageOptions"
+        />
       </div>
     </div>
 
