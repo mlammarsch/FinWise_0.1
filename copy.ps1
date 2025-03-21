@@ -37,7 +37,8 @@ $searchFiles = @(
     "./src/views/TransactionsView.vue",
     "./src/components/transaction/*.vue",
     "./src/stores/*.ts"
-    "./src/components/ui/PagingComponent.vue"
+    "./src/components/ui/PagingComponent.vue",
+    "prompt\sytemprompt.md"
 
 )
 

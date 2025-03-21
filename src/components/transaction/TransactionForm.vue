@@ -34,7 +34,9 @@ const tagIds = ref<string[]>([]);
 const amount = ref(0);
 const note = ref("");
 const recipientId = ref("");
+const reconciled = ref(false);
 const recipientsLoaded = ref(false);
+const submitAttempted = ref(false);
 
 const amountInputRef = ref<InstanceType<typeof CurrencyInput> | null>(null);
 const formModalRef = ref<HTMLFormElement | null>(null);
@@ -76,7 +78,6 @@ const focusModalAndAmount = () => {
 
 onMounted(() => {
   recipientsLoaded.value = true;
-
   if (props.transaction) {
     date.value = props.transaction.date;
     valueDate.value =
@@ -91,15 +92,15 @@ onMounted(() => {
     recipientId.value = (props.transaction as any).recipientId || "";
     transactionType.value =
       (props.transaction as any).type || TransactionType.EXPENSE;
-
+    reconciled.value = (props.transaction as any).reconciled || false;
     if (transactionType.value === TransactionType.TRANSFER) {
       toAccountId.value = (props.transaction as any).transferToAccountId || "";
     }
   } else {
     accountId.value =
       props.initialAccountId || accountStore.activeAccounts[0]?.id || "";
+    reconciled.value = false;
   }
-
   focusModalAndAmount();
 });
 
@@ -107,14 +108,11 @@ watch(
   () => props.isEdit,
   (newValue) => newValue && focusModalAndAmount()
 );
-
 watch(date, (newDate) => {
-  // Synchronisiere valueDate nur, wenn valueDate zuvor gleich dem alten date war
   if (!props.transaction || valueDate.value === props.transaction.date) {
     valueDate.value = newDate;
   }
 });
-
 watch(amount, (newAmount) => {
   if (locked.value) return;
   transactionType.value = toAccountId.value
@@ -125,17 +123,35 @@ watch(amount, (newAmount) => {
     ? TransactionType.INCOME
     : transactionType.value;
 });
-
 watch(transactionType, (newType) => {
   if (!locked.value && newType !== TransactionType.TRANSFER) {
     toAccountId.value = "";
   }
 });
-
 watch(toAccountId, (newToAccountId) => {
   if (!locked.value && newToAccountId) {
     transactionType.value = TransactionType.TRANSFER;
   }
+});
+
+const validationErrors = computed(() => {
+  const errors: string[] = [];
+  if (!date.value) {
+    errors.push("Buchungsdatum ist erforderlich");
+  }
+  if (!amount.value || amount.value === 0) {
+    errors.push("Betrag ist erforderlich");
+  }
+  if (!accountId.value) {
+    errors.push("Konto ist erforderlich");
+  }
+  if (
+    transactionType.value === TransactionType.TRANSFER &&
+    !toAccountId.value
+  ) {
+    errors.push("Gegenkonto ist erforderlich");
+  }
+  return errors;
 });
 
 const saveTransaction = () => {
@@ -161,63 +177,96 @@ const saveTransaction = () => {
             amount: amount.value,
             note: note.value,
             recipientId: recipientId.value || undefined,
+            reconciled: reconciled.value,
           },
         };
-
   emit("save", payload);
 };
 
 const submitForm = () => {
+  submitAttempted.value = true;
+  if (validationErrors.value.length > 0) {
+    alert(
+      "Bitte fülle alle Pflichtfelder aus: " + validationErrors.value.join(", ")
+    );
+    return;
+  }
   saveTransaction();
 };
 </script>
 
 <template>
   <div
-    v-if="!recipientsLoaded"
     class="text-center p-4"
+    v-if="!recipientsLoaded"
   >
     Lade Empfänger...
   </div>
   <form
     ref="formModalRef"
+    novalidate
     tabindex="-1"
     v-else
     @submit.prevent="submitForm"
     @keydown.esc.prevent="emit('cancel')"
     class="space-y-4 max-w-[calc(100%-80px)] mx-auto"
   >
-    <!-- Transaktionstyp Auswahl -->
-    <div class="flex justify-center gap-4 pt-4">
+    <div class="flex flex-row justify-between items-center">
+      <!-- Transaktionstyp Auswahl -->
+      <div class="flex justify-center gap-4 pt-4">
+        <label class="flex items-center gap-2">
+          <input
+            type="radio"
+            class="radio radio-sm border-neutral checked:bg-error/60 checked:text-error checked:border-error"
+            v-model="transactionType"
+            :value="TransactionType.EXPENSE"
+            :disabled="locked"
+          />
+          <span class="text-sm">Ausgabe</span>
+        </label>
+        <label class="flex items-center gap-2">
+          <input
+            type="radio"
+            class="radio radio-sm border-neutral checked:bg-success/60 checked:text-success checked:border-success"
+            v-model="transactionType"
+            :value="TransactionType.INCOME"
+            :disabled="locked"
+          />
+          <span class="text-sm">Einnahme</span>
+        </label>
+        <label class="flex items-center gap-2">
+          <input
+            type="radio"
+            class="radio radio-sm border-neutral checked:bg-warning/60 checked:text-warning checked:border-warning"
+            v-model="transactionType"
+            :value="TransactionType.TRANSFER"
+          />
+          <span class="text-sm">Transfer</span>
+        </label>
+      </div>
       <label class="flex items-center gap-2">
         <input
-          type="radio"
-          class="radio radio-sm border-neutral checked:bg-error/60 checked:text-error checked:border-error"
-          v-model="transactionType"
-          :value="TransactionType.EXPENSE"
-          :disabled="locked"
+          type="checkbox"
+          v-model="reconciled"
+          class="checkbox checkbox-sm"
         />
-        <span class="text-sm">Ausgabe</span>
+        abgeglichen?
       </label>
-      <label class="flex items-center gap-2">
-        <input
-          type="radio"
-          class="radio radio-sm border-neutral checked:bg-success/60 checked:text-success checked:border-success"
-          v-model="transactionType"
-          :value="TransactionType.INCOME"
-          :disabled="locked"
-        />
-        <span class="text-sm">Einnahme</span>
-      </label>
-      <label class="flex items-center gap-2">
-        <input
-          type="radio"
-          class="radio radio-sm border-neutral checked:bg-warning/60 checked:text-warning checked:border-warning"
-          v-model="transactionType"
-          :value="TransactionType.TRANSFER"
-        />
-        <span class="text-sm">Transfer</span>
-      </label>
+    </div>
+
+    <!-- Fehlermeldungsanzeige (nur nach Speichern) -->
+    <div
+      v-if="submitAttempted && validationErrors.length > 0"
+      class="alert alert-error p-2"
+    >
+      <ul class="list-disc list-inside">
+        <li
+          v-for="(err, index) in validationErrors"
+          :key="index"
+        >
+          {{ err }}
+        </li>
+      </ul>
     </div>
 
     <div class="divider" />
@@ -226,7 +275,7 @@ const submitForm = () => {
     <div class="grid grid-cols-3 gap-4 items-end">
       <DatePicker
         v-model="date"
-        label="Buchungsdatum"
+        label="Buchungsdatum (Pflicht)"
         required
         class="self-end fieldset"
       />
@@ -251,7 +300,7 @@ const submitForm = () => {
     <!-- Konto Auswahl -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <fieldset class="fieldset">
-        <legend class="fieldset-legend">Konto</legend>
+        <legend class="fieldset-legend">Konto (Pflicht)</legend>
         <select
           v-model="accountId"
           class="select select-bordered w-full"
@@ -266,7 +315,9 @@ const submitForm = () => {
         </select>
       </fieldset>
       <fieldset class="fieldset">
-        <legend class="fieldset-legend">Transfer-Konto</legend>
+        <legend class="fieldset-legend">
+          Transfer-Konto (Pflicht bei Transfer)
+        </legend>
         <select
           v-model="toAccountId"
           class="select select-bordered w-full"
@@ -312,6 +363,8 @@ const submitForm = () => {
         :options="tags"
         label="Tags"
         multiple
+        placeholder="Tippe zum Suchen..."
+        create-option-label="Neues Tag erstellen: {value}"
         @create="emit('createTag', $event)"
       />
     </div>
