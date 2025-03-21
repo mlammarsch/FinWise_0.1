@@ -1,4 +1,3 @@
-<!-- TransactionView.vue -->
 <script setup lang="ts">
 import { ref, computed } from "vue";
 import { useTransactionStore } from "../stores/transactionStore";
@@ -10,6 +9,7 @@ import TransactionList from "../components/transaction/TransactionList.vue";
 import TransactionDetailModal from "../components/transaction/TransactionDetailModal.vue";
 import TransactionForm from "../components/transaction/TransactionForm.vue";
 import PagingComponent from "../components/ui/PagingComponent.vue";
+import MonthSelector from "../components/ui/MonthSelector.vue";
 import { Transaction } from "../types";
 import SearchGroup from "../components/ui/SearchGroup.vue";
 import { formatCurrency, formatDate } from "../utils/formatters";
@@ -29,35 +29,6 @@ const recipientStore = useRecipientStore();
 const showTransactionFormModal = ref(false);
 const showTransactionDetailModal = ref(false);
 
-// Monatliche Selektion
-const currentDate = ref(new Date());
-const formattedMonthYear = computed(() =>
-  currentDate.value.toLocaleDateString("de-DE", {
-    year: "numeric",
-    month: "long",
-  })
-);
-const previousMonth = () => {
-  currentDate.value = new Date(
-    currentDate.value.getFullYear(),
-    currentDate.value.getMonth() - 1,
-    1
-  );
-};
-const nextMonth = () => {
-  currentDate.value = new Date(
-    currentDate.value.getFullYear(),
-    currentDate.value.getMonth() + 1,
-    1
-  );
-};
-
-// Date Range Picker
-const dateRange = ref<{ start: string; end: string }>({
-  start: new Date().toISOString().split("T")[0],
-  end: new Date().toISOString().split("T")[0],
-});
-
 // Filter- und UI-Status
 const selectedTransaction = ref<Transaction | null>(null);
 const selectedAccountId = ref("");
@@ -66,6 +37,16 @@ const searchQuery = ref("");
 const currentPage = ref(1);
 const itemsPerPage = ref(25);
 const itemsPerPageOptions = [10, 20, 25, 50, 100, "all"];
+
+// Daterange aus MonthSelector (Filterpriorität)
+const dateRange = ref<{ start: string; end: string }>({
+  start: new Date().toISOString().split("T")[0],
+  end: new Date().toISOString().split("T")[0],
+});
+function handleDateRangeUpdate(payload: { start: string; end: string }) {
+  dateRange.value = payload;
+  refreshKey.value++;
+}
 
 // Sortiervariablen
 const sortKey = ref<keyof Transaction | "">("date");
@@ -84,10 +65,19 @@ function handleSortChange(key: keyof Transaction) {
   sortBy(key);
 }
 
-// Filterung der Transaktionen
+// Filterung der Transaktionen (Filter hat Priorität)
 const filteredTransactions = computed(() => {
   refreshKey.value;
   let transactions = transactionStore.transactions;
+
+  // Filter nach Datum (Daterange)
+  transactions = transactions.filter((tx) => {
+    const txDate = new Date(tx.date).getTime();
+    const start = new Date(dateRange.value.start).getTime();
+    const end = new Date(dateRange.value.end).getTime();
+    return txDate >= start && txDate <= end;
+  });
+
   if (selectedAccountId.value) {
     transactions = transactions.filter(
       (tx) => tx.accountId === selectedAccountId.value
@@ -117,7 +107,6 @@ const filteredTransactions = computed(() => {
       : "";
     const accountName =
       accountStore.getAccountById(transaction.accountId)?.name || "";
-    // Bei Transfer: Verwende den Namen des Gegenkontos statt Empfänger
     const toAccountName =
       transaction.type === "TRANSFER"
         ? accountStore.getAccountById(transaction.transferToAccountId)?.name ||
@@ -140,7 +129,7 @@ const filteredTransactions = computed(() => {
   });
 });
 
-// Computed Property für sortierte Transaktionen
+// Sortierung auf gefilterte Daten
 const sortedTransactions = computed(() => {
   const txs = [...filteredTransactions.value];
   if (sortKey.value) {
@@ -152,7 +141,6 @@ const sortedTransactions = computed(() => {
           bVal = accountStore.getAccountById(b.accountId)?.name || "";
           break;
         case "recipientId":
-          // Für Transfer: Name des Gegenkontos, sonst Empfängername
           aVal =
             a.type === "TRANSFER"
               ? accountStore.getAccountById(a.transferToAccountId)?.name || ""
@@ -285,66 +273,9 @@ const deleteTransaction = (transaction: Transaction) => {
       <!-- FilterCard -->
       <div class="card w-2/3 bg-base-100 shadow-md border border-base-300">
         <div class="rounded-md bg-base-200/50 backdrop-blur-lg p-2">
-          <div class="flex flex-wrap items-center justify-left gap-2">
-            <!-- Monatsauswahl -->
-            <div class="join">
-              <button
-                class="btn join-item rounded-l-full btn-sm btn-soft border border-base-300 w-10"
-                @click="previousMonth"
-              >
-                <Icon
-                  icon="mdi:chevron-left"
-                  class="text-lg"
-                />
-              </button>
-              <button class="btn join-item btn-sm border border-base-300 w-30">
-                {{ formattedMonthYear }}
-              </button>
-              <button
-                class="btn join-item rounded-r-full btn-sm btn-soft border border-base-300 w-10"
-                @click="nextMonth"
-              >
-                <Icon
-                  icon="mdi:chevron-right"
-                  class="text-lg"
-                />
-              </button>
-            </div>
-            <!-- Konto Dropdown -->
-            <select
-              v-model="selectedAccountId"
-              class="select select-sm select-bordered border-base-300 w-40"
-            >
-              <option
-                disabled
-                value=""
-              >
-                Konto wählen
-              </option>
-              <option
-                v-for="acc in accountStore.activeAccounts"
-                :key="acc.id"
-                :value="acc.id"
-              >
-                {{ acc.name }}
-              </option>
-            </select>
-            <!-- Transaktionstyp Dropdown -->
-            <select
-              v-model="selectedTransactionType"
-              class="select select-sm select-bordered border-base-300 w-40"
-            >
-              <option
-                disabled
-                value=""
-              >
-                Typ wählen
-              </option>
-              <option value="ausgabe">Ausgabe</option>
-              <option value="einnahme">Einnahme</option>
-              <option value="transfer">Transfer</option>
-            </select>
-          </div>
+          <!-- Monatliche Selektion via MonthSelector -->
+          <MonthSelector @update-daterange="handleDateRangeUpdate" />
+          <!-- Weitere Filter (z. B. Dropdowns) können hier folgen -->
         </div>
       </div>
       <!-- Suchgruppe -->
