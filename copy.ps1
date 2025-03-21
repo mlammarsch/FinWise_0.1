@@ -5,20 +5,20 @@
 # --------------------------------------------------------------------------
 
 # Basisverzeichnis definieren
-$baseDirectory = "D:\_localData\dev\FinWise"
+$baseDirectory = "C:\00_mldata\programming\FinWise\FinWise_0.1"
 $baseDirectoryFull = [System.IO.Path]::GetFullPath($baseDirectory)
 
 # --------------------------------------------------------------------------
 # Konfiguration der Verzeichnisse
 # --------------------------------------------------------------------------
 $excludedDirectories = @(
-    "FinWise_0.1\node_modules",
+    "node_modules",
     "dist",
-    "FinWise_0.1\src"
+    "src"
 )
 
 $includeDirectories = @(
-    "FinWise_0.1\src\components\transaction"
+    "./src/components/transaction"
 
 )
 
@@ -33,8 +33,9 @@ $excludeFiles = @(
 )
 
 $searchFiles = @(
-    "FinWise_0.1\src\views\TransactionsView.vue",
-    "FinWise_0.1\src\components\transaction\*.vue"
+    "./src/views/TransactionsView.vue",
+    "./src/components/transaction/*.vue",
+    "./src/stores/transactionStore.ts"
 
 )
 

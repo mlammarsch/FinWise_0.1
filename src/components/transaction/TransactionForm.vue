@@ -74,22 +74,6 @@ const focusModalAndAmount = () => {
   });
 };
 
-// **Formular absenden**
-const submitForm = () => {
-  emit("save", {
-    date: date.value,
-    valueDate: valueDate.value,
-    accountId: accountId.value,
-    categoryId: categoryId.value,
-    tagIds: tagIds.value,
-    amount: amount.value,
-    note: note.value,
-    recipientId: recipientId.value,
-    type: transactionType.value,
-    transferToAccountId: isTransfer.value ? toAccountId.value : null,
-  });
-};
-
 onMounted(() => {
   recipientsLoaded.value = true;
 
@@ -118,10 +102,83 @@ onMounted(() => {
 
   focusModalAndAmount();
 });
+
+watch(
+  () => props.isEdit,
+  (newValue) => newValue && focusModalAndAmount()
+);
+
+watch(date, (newDate) => {
+  // Synchronisiere valueDate nur, wenn valueDate zuvor gleich dem alten date war
+  if (!props.transaction || valueDate.value === props.transaction.date) {
+    valueDate.value = newDate;
+  }
+});
+
+watch(amount, (newAmount) => {
+  if (locked.value) return;
+  transactionType.value = toAccountId.value
+    ? TransactionType.TRANSFER
+    : newAmount < 0
+    ? TransactionType.EXPENSE
+    : newAmount > 0
+    ? TransactionType.INCOME
+    : transactionType.value;
+});
+
+watch(transactionType, (newType) => {
+  if (!locked.value && newType !== TransactionType.TRANSFER) {
+    toAccountId.value = "";
+  }
+});
+
+watch(toAccountId, (newToAccountId) => {
+  if (!locked.value && newToAccountId) {
+    transactionType.value = TransactionType.TRANSFER;
+  }
+});
+
+const saveTransaction = () => {
+  const payload =
+    transactionType.value === TransactionType.TRANSFER
+      ? {
+          type: transactionType.value,
+          fromAccountId: accountId.value,
+          toAccountId: toAccountId.value,
+          amount: Math.abs(amount.value),
+          date: date.value,
+          valueDate: valueDate.value || date.value,
+          note: note.value,
+        }
+      : {
+          type: transactionType.value,
+          transaction: {
+            date: date.value,
+            valueDate: valueDate.value || date.value,
+            accountId: accountId.value,
+            categoryId: categoryId.value,
+            tagIds: tagIds.value,
+            amount: amount.value,
+            note: note.value,
+            recipientId: recipientId.value || undefined,
+          },
+        };
+
+  emit("save", payload);
+};
+
+const submitForm = () => {
+  saveTransaction();
+};
 </script>
 
 <template>
-  <div v-if="!recipientsLoaded" class="text-center p-4">Lade Empfänger...</div>
+  <div
+    v-if="!recipientsLoaded"
+    class="text-center p-4"
+  >
+    Lade Empfänger...
+  </div>
   <form
     ref="formModalRef"
     tabindex="-1"
@@ -131,7 +188,7 @@ onMounted(() => {
     class="space-y-4 max-w-[calc(100%-80px)] mx-auto"
   >
     <!-- Transaktionstyp Auswahl -->
-    <div class="flex justify-center gap-4">
+    <div class="flex justify-center gap-4 pt-4">
       <label class="flex items-center gap-2">
         <input
           type="radio"
@@ -167,9 +224,19 @@ onMounted(() => {
 
     <!-- Grid für Datumsauswahl und Betrag -->
     <div class="grid grid-cols-3 gap-4 items-end">
-      <DatePicker v-model="date" label="Buchungsdatum" required />
-      <DatePicker v-model="valueDate" label="Wertstellung" required />
-      <div class="flex justify-end items-center gap-2">
+      <DatePicker
+        v-model="date"
+        label="Buchungsdatum"
+        required
+        class="self-end fieldset"
+      />
+      <DatePicker
+        v-model="valueDate"
+        label="Wertstellung"
+        required
+        class="self-end fieldset"
+      />
+      <div class="flex justify-end items-center gap-2 self-end">
         <CurrencyInput
           ref="amountInputRef"
           v-model="amount"
@@ -185,8 +252,15 @@ onMounted(() => {
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <fieldset class="fieldset">
         <legend class="fieldset-legend">Konto</legend>
-        <select v-model="accountId" class="select select-bordered w-full">
-          <option v-for="a in accounts" :key="a.id" :value="a.id">
+        <select
+          v-model="accountId"
+          class="select select-bordered w-full"
+        >
+          <option
+            v-for="a in accounts"
+            :key="a.id"
+            :value="a.id"
+          >
             {{ a.name }}
           </option>
         </select>
@@ -198,7 +272,11 @@ onMounted(() => {
           class="select select-bordered w-full"
           :disabled="!isTransfer"
         >
-          <option v-for="a in filteredAccounts" :key="a.id" :value="a.id">
+          <option
+            v-for="a in filteredAccounts"
+            :key="a.id"
+            :value="a.id"
+          >
             {{ a.name }}
           </option>
         </select>
@@ -209,6 +287,7 @@ onMounted(() => {
 
     <!-- Empfänger -->
     <SearchableSelect
+      class="fieldset"
       v-model="recipientId"
       :options="recipients"
       label="Empfänger"
@@ -221,12 +300,14 @@ onMounted(() => {
       class="grid grid-cols-1 md:grid-cols-2 gap-4"
     >
       <SearchableSelect
+        class="fieldset"
         v-model="categoryId"
         :options="categories"
         label="Kategorie"
         @create="emit('createCategory', $event)"
       />
       <SearchableSelect
+        class="fieldset"
         v-model="tagIds"
         :options="tags"
         label="Tags"
@@ -238,7 +319,7 @@ onMounted(() => {
     <!-- Notizfeld -->
     <textarea
       v-model="note"
-      class="textarea textarea-bordered w-full min-h-[3rem]"
+      class="textarea textarea-bordered w-full min-h-[3rem] fieldset"
       placeholder="Notiz"
     ></textarea>
 

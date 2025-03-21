@@ -12,17 +12,6 @@ import SearchGroup from "../components/ui/SearchGroup.vue";
 import { formatCurrency } from "../utils/formatters";
 import { Icon } from "@iconify/vue";
 
-/**
- * Pfad zur Komponente: src/views/TransactionsView.vue
- * Verwaltung und Anzeige der Transaktionen mit Suchfunktion und Paginierung.
- *
- * Komponenten-Props:
- * - Keine Props vorhanden
- *
- * Emits:
- * - Keine Emits vorhanden
- */
-
 // Stores
 const transactionStore = useTransactionStore();
 const categoryStore = useCategoryStore();
@@ -40,11 +29,7 @@ const currentPage = ref(1);
 const itemsPerPage = ref(20);
 const itemsPerPageOptions = [10, 20, 50, 100, "All"];
 
-/**
- * **Optimierte Suche mit Paginierung**:
- * - Berücksichtigt verknüpfte Daten (Category, Tags, Recipient).
- * - Beträge sind mit Punkt und Komma durchsuchbar.
- */
+// Filter und Pagination
 const filteredTransactions = computed(() => {
   if (!searchQuery.value.trim()) return transactionStore.transactions;
 
@@ -59,23 +44,27 @@ const filteredTransactions = computed(() => {
     const tagNames = transaction.tagIds
       .map((tagId) => tagStore.getTagById(tagId)?.name || "")
       .join(" ");
-
     const formattedAmount = formatCurrency(transaction.amount)
       .replace(/\./g, "")
       .replace(/,/g, ".");
+    const accountName =
+      accountStore.getAccountById(transaction.accountId)?.name || "";
+    const toAccountName = transaction.transferToAccountId
+      ? accountStore.getAccountById(transaction.transferToAccountId)?.name || ""
+      : "";
 
     return (
-      transaction.note?.toLowerCase().includes(searchLower) ||
+      (transaction.note || "").toLowerCase().includes(searchLower) ||
       categoryName.toLowerCase().includes(searchLower) ||
       recipientName.toLowerCase().includes(searchLower) ||
+      tagNames.toLowerCase().includes(searchLower) ||
       formattedAmount.includes(searchNumeric) ||
-      transaction.account?.toLowerCase().includes(searchLower) ||
-      tagNames.toLowerCase().includes(searchLower)
+      accountName.toLowerCase().includes(searchLower) ||
+      toAccountName.toLowerCase().includes(searchLower)
     );
   });
 });
 
-// **Paginierte Transaktionen**
 const paginatedTransactions = computed(() => {
   if (itemsPerPage.value === "All") return filteredTransactions.value;
   const start = (currentPage.value - 1) * itemsPerPage.value;
@@ -88,14 +77,12 @@ const totalPages = computed(() =>
     : Math.ceil(filteredTransactions.value.length / itemsPerPage.value)
 );
 
-// **Fehler behobene Funktion für Seitenzahlen**
 const getPageNumbers = computed(() => {
   if (totalPages.value <= 5) {
     return Array.from({ length: totalPages.value }, (_, i) => i + 1);
   }
 
   const pages: (number | string)[] = [1];
-
   if (currentPage.value > 3) pages.push("...");
   if (currentPage.value > 2) pages.push(currentPage.value - 1);
   pages.push(currentPage.value);
@@ -116,26 +103,73 @@ const changeItemsPerPage = (value: number | "All") => {
   currentPage.value = 1;
 };
 
-// **Transaktion anzeigen**
+// Anzeigen, Bearbeiten, Erstellen
 const viewTransaction = (transaction: Transaction) => {
   selectedTransaction.value = transaction;
   showTransactionDetailModal.value = true;
 };
 
-// **Transaktion bearbeiten**
 const editTransaction = (transaction: Transaction) => {
   selectedTransaction.value = transaction;
   showTransactionFormModal.value = true;
   showTransactionDetailModal.value = false;
 };
 
-// **Neue Transaktion erstellen**
 const createTransaction = () => {
   selectedTransaction.value = null;
   showTransactionFormModal.value = true;
 };
 
-// **Transaktion löschen**
+// Speichern von Transaktionen (neu oder bearbeiten)
+const handleSave = (payload: any) => {
+  if (payload.type === "TRANSFER") {
+    if (
+      selectedTransaction.value &&
+      selectedTransaction.value.counterTransactionId
+    ) {
+      transactionStore.updateTransferTransaction(selectedTransaction.value.id, {
+        fromAccountId: payload.fromAccountId,
+        toAccountId: payload.toAccountId,
+        amount: payload.amount,
+        date: payload.date,
+        valueDate: payload.valueDate,
+        note: payload.note,
+      });
+    } else {
+      transactionStore.addTransferTransaction(
+        payload.fromAccountId,
+        payload.toAccountId,
+        payload.amount,
+        payload.date,
+        payload.valueDate,
+        payload.note
+      );
+    }
+  } else {
+    const tx = {
+      ...payload.transaction,
+      type: payload.type,
+      payee:
+        recipientStore.getRecipientById(payload.transaction.recipientId)
+          ?.name || "",
+      counterTransactionId: null,
+      planningTransactionId: null,
+      isReconciliation: false,
+      runningBalance: 0,
+    };
+
+    if (selectedTransaction.value) {
+      transactionStore.updateTransaction(selectedTransaction.value.id, tx);
+    } else {
+      transactionStore.addTransaction(tx);
+    }
+  }
+
+  showTransactionFormModal.value = false;
+  selectedTransaction.value = null;
+};
+
+// Löschen
 const deleteTransaction = (transaction: Transaction) => {
   if (confirm("Möchten Sie diese Transaktion wirklich löschen?")) {
     transactionStore.deleteTransaction(transaction.id);
@@ -146,7 +180,6 @@ const deleteTransaction = (transaction: Transaction) => {
 
 <template>
   <div class="space-y-6">
-    <!-- Header mit Suche und Button -->
     <div class="flex justify-between items-center mb-6">
       <h2 class="text-xl font-bold">Transaktionen</h2>
       <SearchGroup
@@ -157,7 +190,6 @@ const deleteTransaction = (transaction: Transaction) => {
       />
     </div>
 
-    <!-- Transaktionsliste -->
     <div class="card bg-base-100 shadow">
       <div class="card-body">
         <TransactionList
@@ -167,14 +199,17 @@ const deleteTransaction = (transaction: Transaction) => {
           @delete="deleteTransaction"
         />
 
-        <!-- Paginierung -->
         <div class="divider"></div>
 
         <div class="flex justify-between items-center">
-          <!-- Dropdown für Anzahl der Einträge pro Seite -->
           <select
             class="select select-bordered select-sm w-20"
-            @change="(e) => changeItemsPerPage((e.target as HTMLSelectElement).value === 'All' ? 'All' : parseInt((e.target as HTMLSelectElement).value))"
+            @change="(e) =>
+              changeItemsPerPage(
+                (e.target as HTMLSelectElement).value === 'All'
+                  ? 'All'
+                  : parseInt((e.target as HTMLSelectElement).value)
+              )"
           >
             <option
               v-for="option in itemsPerPageOptions"
@@ -188,7 +223,7 @@ const deleteTransaction = (transaction: Transaction) => {
       </div>
     </div>
 
-    <!-- Detailansicht Modal -->
+    <!-- Detail-Modal -->
     <Teleport to="body">
       <TransactionDetailModal
         v-if="showTransactionDetailModal"
@@ -197,20 +232,20 @@ const deleteTransaction = (transaction: Transaction) => {
       />
     </Teleport>
 
-    <!-- Transaktionsformular Modal -->
+    <!-- Formular-Modal -->
     <Teleport to="body">
-      <div
-        v-if="showTransactionFormModal"
-        class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center"
+      <dialog
+        open
+        class="modal"
       >
-        <div class="bg-base-100 p-6 rounded-lg shadow-lg w-full max-w-2xl">
+        <div class="modal-box w-full max-w-2xl">
           <TransactionForm
             :transaction="selectedTransaction"
-            @close="showTransactionFormModal = false"
-            @save="showTransactionFormModal = false"
+            @cancel="showTransactionFormModal = false"
+            @save="handleSave"
           />
         </div>
-      </div>
+      </dialog>
     </Teleport>
   </div>
 </template>
