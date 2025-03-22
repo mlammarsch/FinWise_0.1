@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { defineProps, defineEmits, ref, computed } from "vue";
+import { defineProps, defineEmits, ref, computed, defineExpose } from "vue";
 import { Transaction, TransactionType } from "../../types";
 import { useAccountStore } from "../../stores/accountStore";
 import { useCategoryStore } from "../../stores/categoryStore";
@@ -66,7 +66,8 @@ function handleCheckboxClick(
         if (pos !== -1) selectedIds.value.splice(pos, 1);
       }
     }
-  } else if (event.ctrlKey || event.metaKey) {
+  } else {
+    // Einfaches Toggle: Bei Klick wird der Eintrag hinzugefügt oder entfernt, ohne die anderen zu beeinflussen.
     if (isChecked) {
       if (!selectedIds.value.includes(transactionId)) {
         selectedIds.value.push(transactionId);
@@ -75,15 +76,15 @@ function handleCheckboxClick(
       const pos = selectedIds.value.indexOf(transactionId);
       if (pos !== -1) selectedIds.value.splice(pos, 1);
     }
-  } else {
-    if (isChecked) {
-      selectedIds.value = [transactionId];
-    } else {
-      selectedIds.value = [];
-    }
   }
   lastSelectedIndex.value = index;
 }
+
+function getSelectedTransactions(): Transaction[] {
+  return props.transactions.filter((tx) => selectedIds.value.includes(tx.id));
+}
+
+defineExpose({ getSelectedTransactions });
 </script>
 
 <template>

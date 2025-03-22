@@ -28,6 +28,11 @@ const recipientStore = useRecipientStore();
 const showTransactionFormModal = ref(false);
 const showTransactionDetailModal = ref(false);
 
+// Ref auf TransactionList, um auf ausgewählte Transaktionen zuzugreifen
+const transactionListRef = ref<InstanceType<typeof TransactionList> | null>(
+  null
+);
+
 // Filter- und UI-Status
 const selectedTransaction = ref<Transaction | null>(null);
 const selectedAccountId = ref("");
@@ -265,14 +270,38 @@ const deleteTransaction = (tx: Transaction) => {
     showTransactionDetailModal.value = false;
   }
 };
-</script>
 
+function handleBatchDeleteFromList() {
+  const selectedTransactions =
+    transactionListRef.value?.getSelectedTransactions();
+  if (!selectedTransactions || selectedTransactions.length === 0) {
+    alert("Keine Buchungen ausgewählt.");
+    return;
+  }
+  if (!confirm("Möchtest Du die ausgewählten Buchungen löschen?")) {
+    return;
+  }
+  const idsToDelete = new Set<string>();
+  selectedTransactions.forEach((tx) => {
+    idsToDelete.add(tx.id);
+    if (tx.type === TransactionType.TRANSFER && tx.counterTransactionId) {
+      idsToDelete.add(tx.counterTransactionId);
+    }
+  });
+  idsToDelete.forEach((id) => {
+    transactionStore.deleteTransaction(id);
+  });
+  refreshKey.value++;
+  // Schließe Dropdown durch Entfernen des Fokus
+  document.activeElement instanceof HTMLElement &&
+    document.activeElement.blur();
+}
+</script>
 
 <template>
   <div class="space-y-6">
     <!-- Filterleiste -->
     <div class="flex flex-wrap items-center justify-between gap-1">
-      <!-- FilterCard -->
       <div class="card w-2/3 bg-base-100 shadow-md">
         <div
           class="rounded-lg glass-effect backdrop-blur-lg pb-1 flex items-center justify-start mx-2 gap-2"
@@ -286,7 +315,6 @@ const deleteTransaction = (tx: Transaction) => {
               class="mx-2"
             />
           </fieldset>
-
           <fieldset class="fieldset pt-0">
             <legend class="fieldset-legend text-center opacity-50">
               Konto
@@ -305,7 +333,6 @@ const deleteTransaction = (tx: Transaction) => {
               </option>
             </select>
           </fieldset>
-
           <fieldset class="fieldset pt-0">
             <legend class="fieldset-legend text-center opacity-50">
               Transaktion
@@ -320,7 +347,6 @@ const deleteTransaction = (tx: Transaction) => {
               <option value="transfer">Transfer</option>
             </select>
           </fieldset>
-
           <fieldset class="fieldset pt-0">
             <legend class="fieldset-legend text-center opacity-50">
               Abgeglichen
@@ -336,7 +362,6 @@ const deleteTransaction = (tx: Transaction) => {
           </fieldset>
         </div>
       </div>
-      <!-- Suchgruppe -->
       <SearchGroup
         btnRight="Neue Transaktion"
         btnRightIcon="mdi:plus"
@@ -344,10 +369,27 @@ const deleteTransaction = (tx: Transaction) => {
         @btn-right-click="createTransaction"
       />
     </div>
-    <!-- Transaktionsliste -->
-    <div class="card bg-base-100 shadow-md border border-base-300">
+    <!-- Transaktionsliste Card -->
+    <div class="card bg-base-100 shadow-md border border-base-300 relative">
+      <!-- Batch-Dropdown in der Card, absolut positioniert und im Hover-Modus -->
+      <div
+        class="dropdown dropdown-start dropdown-hover"
+        style="position: absolute; top: 2rem; left: 0.25rem; margin: 0rem"
+      >
+        <label class="btn btn-ghost btn-xs">⋮</label>
+        <ul
+          class="dropdown-content menu p-2 shadow bg-base-100 border border-base-300 rounded-box w-52"
+        >
+          <li class="">
+            <a class="text-error" @click="handleBatchDeleteFromList"
+              >Batch Delete</a
+            >
+          </li>
+        </ul>
+      </div>
       <div class="card-body">
         <TransactionList
+          ref="transactionListRef"
           :transactions="paginatedTransactions"
           :show-account="true"
           :sort-key="sortKey"

@@ -64,22 +64,18 @@ function nextMonth() {
       class="btn join-item rounded-l-full btn-sm btn-soft border border-base-300 w-10"
       @click="previousMonth"
     >
-      <Icon
-        icon="mdi:chevron-left"
-        class="text-lg"
-      />
+      <Icon icon="mdi:chevron-left" class="text-lg" />
     </button>
-    <button class="btn join-item btn-sm border border-base-300 w-30">
+    <button
+      class="btn join-item btn-sm bg-base-100 border border-base-300 w-30"
+    >
       {{ formattedMonthYear }}
     </button>
     <button
       class="btn join-item rounded-r-full btn-sm btn-soft border border-base-300 w-10"
       @click="nextMonth"
     >
-      <Icon
-        icon="mdi:chevron-right"
-        class="text-lg"
-      />
+      <Icon icon="mdi:chevron-right" class="text-lg" />
     </button>
   </div>
 </template>
