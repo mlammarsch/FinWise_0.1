@@ -83,15 +83,11 @@ function removeTag(tagId: string) {
   selectedTags.value = selectedTags.value.filter((id) => id !== tagId);
 }
 
-// Erstellt eine neue Option und fügt sie sofort zur Auswahl hinzu
+// Erstellt eine neue Option und gibt sie an den Parent weiter
 function createOption() {
   const val = searchTerm.value.trim();
   if (!val) return;
-  const newId = uuidv4();
-  // Emit als Objekt, sodass Parent den neuen Tag in den Store aufnehmen kann
-  emit("create", { id: newId, name: val });
-  // Direkt hinzufügen
-  selectedTags.value = [...selectedTags.value, newId];
+  emit("create", { name: val });
   searchTerm.value = "";
   isOpen.value = false;
 }

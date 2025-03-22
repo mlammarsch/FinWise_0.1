@@ -77,20 +77,14 @@ const toggleOption = (id: string) => {
   searchTerm.value = "";
 };
 
-// Erstellt eine neue Option und fügt sie sofort hinzu
-const createOption = () => {
+// Erstellt eine neue Option und gibt sie an den Parent weiter
+function createOption() {
   if (!searchTerm.value.trim() || !props.allowCreate) return;
-  const newId = uuidv4();
-  const newOption = { id: newId, name: searchTerm.value.trim() };
+  const newOption = { name: searchTerm.value.trim() };
   emit("create", newOption);
-  if (props.multiple) {
-    selectedValue.value = [...(selectedValue.value as string[]), newId];
-  } else {
-    selectedValue.value = newId;
-    isOpen.value = false;
-  }
   searchTerm.value = "";
-};
+  isOpen.value = false;
+}
 
 // Wird beim Drücken der Enter-Taste ausgelöst
 function onEnter() {
@@ -179,7 +173,12 @@ watch(isOpen, (newValue) => {
 
         <!-- Liste der Optionen -->
         <ul class="max-h-60 overflow-y-auto p-2">
-          <li v-for="option in filteredOptions" :key="option.id" class="">
+          <li
+            v-for="option in filteredOptions"
+            :key="option.id"
+            class=""
+            @click="toggleOption(option.id)"
+          >
             <label
               class="flex items-center space-x-2 cursor-pointer hover:bg-base-200 rounded-lg p-1"
             >

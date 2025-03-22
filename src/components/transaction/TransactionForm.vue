@@ -77,7 +77,7 @@ const tags = computed(() =>
   tagStore.tags.map((t) => ({
     id: t.id,
     name: t.name,
-    color: t.color, // Farbe wird mitgegeben
+    color: t.color,
   }))
 );
 
@@ -183,7 +183,7 @@ const validationErrors = computed(() => {
   return errors;
 });
 
-// Funktionen zur Erstellung neuer Kategorie und Tags
+// Funktionen zur Erstellung neuer Kategorie, Tags und Empfänger
 function onCreateCategory(newCategory: { id: string; name: string }) {
   const created = categoryStore.addCategory({
     name: newCategory.name,
@@ -199,6 +199,13 @@ function onCreateTag(newTag: { id: string; name: string }) {
     parentTagId: null,
   });
   tagIds.value = [...tagIds.value, created.id];
+}
+
+function onCreateRecipient(newRecipient: { id: string; name: string }) {
+  const created = recipientStore.addRecipient({
+    name: newRecipient.name,
+  });
+  recipientId.value = created.id;
 }
 
 // Unterscheidung zwischen Transfer und normaler Transaktion
@@ -391,6 +398,8 @@ const submitForm = () => {
       :options="recipients"
       label="Empfänger"
       :disabled="isTransfer"
+      :allowCreate="true"
+      @create="onCreateRecipient($event)"
     />
 
     <!-- Kategorie & Tags -->
