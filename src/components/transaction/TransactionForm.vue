@@ -1,3 +1,5 @@
+**TransactionForm.vue (aktualisiert)**
+```vue
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, nextTick } from "vue";
 import { Transaction, TransactionType } from "../../types";
@@ -5,11 +7,12 @@ import { useAccountStore } from "../../stores/accountStore";
 import { useRecipientStore } from "../../stores/recipientStore";
 import { useCategoryStore } from "../../stores/categoryStore";
 import { useTagStore } from "../../stores/tagStore";
-import { useTransactionStore } from "../../stores/transactionStore"; // Neu hinzugefügt
+import { useTransactionStore } from "../../stores/transactionStore";
 import DatePicker from "../ui/DatePicker.vue";
 import SearchableSelect from "../ui/SearchableSelect.vue";
 import CurrencyInput from "../ui/CurrencyInput.vue";
 import ButtonGroup from "../ui/ButtonGroup.vue";
+import TagSearchableDropdown from "../ui/TagSearchableDropdown.vue";
 
 /**
  * Pfad zur Komponente: components/transaction/TransactionForm.vue
@@ -40,7 +43,7 @@ const accountStore = useAccountStore();
 const recipientStore = useRecipientStore();
 const categoryStore = useCategoryStore();
 const tagStore = useTagStore();
-const transactionStore = useTransactionStore(); // Neu definiert
+const transactionStore = useTransactionStore();
 
 const date = ref(new Date().toISOString().split("T")[0]);
 const valueDate = ref(date.value);
@@ -144,11 +147,10 @@ watch(amount, (newAmount) => {
     ? TransactionType.INCOME
     : transactionType.value;
 });
-watch(transactionType, (newType, oldType) => {
+watch(transactionType, (newType) => {
   if (!locked.value && newType !== TransactionType.TRANSFER) {
     toAccountId.value = "";
   }
-  // Bei Änderung des Transaktionstyps Betrag anpassen:
   if (newType === TransactionType.EXPENSE && amount.value > 0) {
     amount.value = -Math.abs(amount.value);
   } else if (newType === TransactionType.INCOME && amount.value < 0) {
@@ -181,8 +183,8 @@ const validationErrors = computed(() => {
   return errors;
 });
 
+// Unterscheidung zwischen Transfer und normaler Transaktion
 const saveTransaction = () => {
-  // Unterscheidung zwischen Transfer und normaler Transaktion
   if (transactionType.value === TransactionType.TRANSFER) {
     return {
       type: transactionType.value,
@@ -226,7 +228,6 @@ const submitForm = () => {
     isSubmitting.value = false;
     return;
   }
-  // Erzeuge das Transaktions-Payload und emittiere es
   const transactionPayload = saveTransaction();
   emit("save", transactionPayload);
   isSubmitting.value = false;
@@ -244,8 +245,8 @@ const submitForm = () => {
     @keydown.esc.prevent="emit('cancel')"
     class="space-y-4 max-w-[calc(100%-80px)] mx-auto"
   >
+    <!-- Transaktionstyp und Abgleich-Checkbox -->
     <div class="flex flex-row justify-between items-center">
-      <!-- Transaktionstyp Auswahl -->
       <div class="flex justify-center gap-4 pt-4">
         <label class="flex items-center gap-2">
           <input
@@ -287,7 +288,7 @@ const submitForm = () => {
       </label>
     </div>
 
-    <!-- Fehlermeldungsanzeige (nur nach Speichern) -->
+    <!-- Fehlermeldungen -->
     <div
       v-if="submitAttempted && validationErrors.length > 0"
       class="alert alert-error p-2"
@@ -301,7 +302,7 @@ const submitForm = () => {
 
     <div class="divider" />
 
-    <!-- Grid für Datumsauswahl und Betrag -->
+    <!-- Datum und Betrag -->
     <div class="grid grid-cols-3 gap-4 items-end">
       <DatePicker
         v-model="date"
@@ -327,7 +328,7 @@ const submitForm = () => {
 
     <div class="divider pt-5" />
 
-    <!-- Konto Auswahl -->
+    <!-- Konto und Transfer-Konto -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <fieldset class="fieldset">
         <legend class="fieldset-legend">Konto (Pflicht)</legend>
@@ -364,7 +365,7 @@ const submitForm = () => {
       :disabled="isTransfer"
     />
 
-    <!-- Kategorien & Tags -->
+    <!-- Kategorie & Tags -->
     <div
       v-if="transactionType !== TransactionType.TRANSFER"
       class="grid grid-cols-1 md:grid-cols-2 gap-4"
@@ -376,19 +377,17 @@ const submitForm = () => {
         label="Kategorie"
         @create="emit('createCategory', $event)"
       />
-      <SearchableSelect
+      <!-- Neue Tag-Komponente -->
+      <TagSearchableDropdown
         class="fieldset"
         v-model="tagIds"
         :options="tags"
         label="Tags"
-        multiple
-        placeholder="Tippe zum Suchen..."
-        create-option-label="Neues Tag erstellen: {value}"
         @create="emit('createTag', $event)"
       />
     </div>
 
-    <!-- Notizfeld -->
+    <!-- Notiz -->
     <textarea
       v-model="note"
       class="textarea textarea-bordered w-full min-h-[3rem] fieldset"

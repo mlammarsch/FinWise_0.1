@@ -123,16 +123,16 @@ watch(isOpen, (val) => {
     </label>
 
     <!-- Ausgewählte Tags als Badges -->
-    <div class="flex flex-wrap items-center gap-2 mb-2">
+    <div class="flex flex-wrap items-center gap-1 mb-1 border rounded-lg p-2">
       <div
         v-for="tagId in selectedTags"
         :key="tagId"
-        class="badge badge-soft flex items-center gap-1"
+        class="badge badge-soft badge-sm flex items-center gap-1"
       >
         <span>{{ options.find((o) => o.id === tagId)?.name || tagId }}</span>
         <button
           type="button"
-          class="btn btn-ghost btn-xs text-error"
+          class="btn btn-ghost btn-xs text-neutral p-0"
           @click="removeTag(tagId)"
         >
           <Icon icon="mdi:close" class="text-sm" />
@@ -145,20 +145,20 @@ watch(isOpen, (val) => {
         :class="{ 'opacity-50': disabled }"
         @click.stop="toggleDropdown"
       >
-        <Icon icon="mdi:plus-circle" class="text-lg mr-1" />
-        <span>{{ placeholder || "Tag hinzufügen..." }}</span>
+        <span>{{ placeholder || "" }}</span
+        ><Icon icon="mdi:plus-circle" class="text-lg" />
       </div>
     </div>
 
     <!-- Dropdown-Liste -->
     <div
       v-if="isOpen"
-      class="absolute z-50 bg-base-100 border border-base-300 rounded-box shadow-lg p-2 w-72"
+      class="bg-base-100 border border-base-300 rounded-box shadow-lg p-2 w-72"
     >
       <!-- Suchfeld -->
       <input
         id="tag-search-input"
-        class="input input-sm input-bordered w-full mb-2"
+        class="input input-sm border-base-300 w-full mb-1"
         type="text"
         v-model="searchTerm"
         placeholder="Suchen oder neu anlegen..."
@@ -180,11 +180,11 @@ watch(isOpen, (val) => {
       <!-- Neue Option erstellen -->
       <div
         v-if="canCreate"
-        class="py-1 px-2 hover:bg-base-200 rounded-lg cursor-pointer"
+        class="py-1 px-2 hover:bg-base-300 bg-base-200 rounded-lg cursor-pointer flex items-center justify-left"
         @click.stop="createOption"
       >
-        <Icon icon="mdi:plus-circle" class="text-lg mr-1" />
-        "{{ searchTerm }}" neu anlegen
+        <Icon icon="mdi:plus" class="text-md mr-1" />
+        <div>"{{ searchTerm }}" neu anlegen</div>
       </div>
     </div>
   </div>
