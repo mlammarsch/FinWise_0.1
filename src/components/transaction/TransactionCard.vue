@@ -8,7 +8,6 @@ import { useTransactionStore } from "../../stores/transactionStore";
 import CurrencyDisplay from "../ui/CurrencyDisplay.vue";
 import { formatDate } from "../../utils/formatters";
 
-// Beschreibung der Komponente
 /**
  * Pfad zur Komponente: components/transaction/TransactionCard.vue
  * Diese Komponente stellt eine einzelne Transaktionskarte im horizontalen Layout dar.
@@ -42,7 +41,6 @@ const recipientName = computed(() =>
 
 const getTagName = (tagId: string) => tagStore.getTagById(tagId)?.name || "";
 
-// Computed Property für das Icon vor dem Betrag
 const transactionIcon = computed(() => {
   if (props.transaction.type === TransactionType.TRANSFER)
     return "mdi:bank-transfer";
@@ -52,7 +50,6 @@ const transactionIcon = computed(() => {
   return "mdi:cash";
 });
 
-// Toggle für Abgleich
 const toggleReconciled = () => {
   transactionStore.updateTransaction(props.transaction.id, {
     reconciled: !props.transaction.reconciled,
@@ -66,7 +63,7 @@ const toggleReconciled = () => {
   >
     <div class="flex items-stretch px-2 p-2 space-x-2">
       <!-- Checkbox für Batchverarbeitung -->
-      <div class="flex flex-col justify-center pt-1">
+      <div class="flex flex-col justify-center p-2">
         <input type="checkbox" class="checkbox checkbox-sm" />
       </div>
 
@@ -76,7 +73,6 @@ const toggleReconciled = () => {
         <div class="flex justify-between items-start">
           <div class="font-semibold text-base">{{ recipientName }}</div>
           <div class="flex items-center space-x-1">
-            <!-- Checkbox für Abgleich -->
             <div class="flex items-center">
               <input
                 type="checkbox"
@@ -87,7 +83,7 @@ const toggleReconciled = () => {
             </div>
             <Icon
               :icon="transactionIcon"
-              class="text-base mx-1 text-neutral/70"
+              class="text-xl mx-1 text-neutral/70 mx-2"
             />
             <CurrencyDisplay
               :amount="transaction.amount"
@@ -100,7 +96,7 @@ const toggleReconciled = () => {
           </div>
         </div>
 
-        <!-- Notiz und Laufender Kontosaldo-->
+        <!-- Entweder Notiz oder Datum/Kategorie -->
         <div class="flex justify-between items-start">
           <div class="flex-1">
             <div
@@ -109,6 +105,36 @@ const toggleReconciled = () => {
             >
               {{ transaction.note }}
             </div>
+            <div
+              v-else
+              class="text-xs text-neutral flex items-center flex-wrap"
+            >
+              <!-- Gruppe 1 -->
+              <div class="flex items-center">
+                <Icon icon="mdi:calendar-import" class="pr-1 text-lg" />
+                <div class="text-sm">
+                  {{ formatDate(transaction.date) }}
+                </div>
+              </div>
+
+              <Icon icon="mdi:square-medium" class="text-base mx-1" />
+
+              <!-- Gruppe 2 -->
+              <div class="flex items-center">
+                <Icon icon="mdi:calendar-check" class="pr-1 text-lg" />
+                <div class="text-sm">
+                  {{ formatDate(transaction.valueDate) }}
+                </div>
+              </div>
+
+              <Icon icon="mdi:square-medium" class="text-base mx-1" />
+
+              <!-- Gruppe 3 -->
+              <div class="flex items-center">
+                <Icon icon="mdi:category" class="pr-1 text-lg" />
+                <div class="text-sm">{{ categoryName }}</div>
+              </div>
+            </div>
           </div>
           <div
             class="flex items-center justify-end"
@@ -116,18 +142,21 @@ const toggleReconciled = () => {
           >
             <Icon
               icon="mdi:scale-balance"
-              class="text-base mx-1 text-neutral/70"
+              class="text-base mx-2 text-neutral/70"
             />
             <CurrencyDisplay
               :amount="1000.5"
-              class="text-sm text-right text-gray-500 whitespace-nowrap"
+              class="text-xs text-right text-gray-500 whitespace-nowrap"
               :show-zero="true"
             />
           </div>
         </div>
 
-        <!-- Datum, Wertstellung, Kategorie -->
-        <div class="text-xs text-neutral mt-1 flex items-center flex-wrap">
+        <!-- Datum + Kategorie Block nur bei vorhandener Notiz -->
+        <div
+          v-if="transaction.note"
+          class="text-xs text-neutral mt-1 flex items-center flex-wrap"
+        >
           <!-- Gruppe 1 -->
           <div class="flex items-center">
             <Icon icon="mdi:calendar-import" class="pr-1 text-lg" />
@@ -151,7 +180,7 @@ const toggleReconciled = () => {
           </div>
         </div>
 
-        <!-- Tags -->
+        <!-- Tags (immer ganz unten) -->
         <div
           v-if="transaction.tagIds.length > 0"
           class="flex flex-wrap gap-1 mt-1"
@@ -160,7 +189,7 @@ const toggleReconciled = () => {
             v-for="tagId in transaction.tagIds"
             :key="tagId"
             :class="[
-              'badge',
+              'badge badge-sm',
               'rounded-full',
               'text-xs',
               { 'badge-secondary': !tagStore.getTagById(tagId)?.color },
