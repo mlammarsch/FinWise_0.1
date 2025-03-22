@@ -275,28 +275,22 @@ const deleteTransaction = (tx: Transaction) => {
       <!-- FilterCard -->
       <div class="card w-2/3 bg-base-100 shadow-md">
         <div
-          class="rounded-md backdrop-blur-lg p-2 flex items-center justify-start mx-2 gap-2"
+          class="rounded-lg glass-effect backdrop-blur-lg pb-1 flex items-center justify-start mx-2 gap-2"
         >
-          <MonthSelector
-            @update-daterange="handleDateRangeUpdate"
-            class="mx-2"
-          />
-
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Typ</legend>
-            <select
-              v-model="selectedTransactionType"
-              class="select select-sm select-bordered border-base-300 w-40 mx-2 rounded-full"
-            >
-              <option value="">Alle Typen</option>
-              <option value="ausgabe">Ausgabe</option>
-              <option value="einnahme">Einnahme</option>
-              <option value="transfer">Transfer</option>
-            </select>
+          <fieldset class="fieldset pt-0">
+            <legend class="fieldset-legend text-center opacity-50">
+              Monatswahl
+            </legend>
+            <MonthSelector
+              @update-daterange="handleDateRangeUpdate"
+              class="mx-2"
+            />
           </fieldset>
 
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Konto</legend>
+          <fieldset class="fieldset pt-0">
+            <legend class="fieldset-legend text-center opacity-50">
+              Konto
+            </legend>
             <select
               v-model="selectedAccountId"
               class="select select-sm select-bordered border-base-300 w-40 mx-2 rounded-full"
@@ -312,8 +306,25 @@ const deleteTransaction = (tx: Transaction) => {
             </select>
           </fieldset>
 
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend">Abgeglichen</legend>
+          <fieldset class="fieldset pt-0">
+            <legend class="fieldset-legend text-center opacity-50">
+              Transaktion
+            </legend>
+            <select
+              v-model="selectedTransactionType"
+              class="select select-sm select-bordered border-base-300 w-40 mx-2 rounded-full"
+            >
+              <option value="">Alle Typen</option>
+              <option value="ausgabe">Ausgabe</option>
+              <option value="einnahme">Einnahme</option>
+              <option value="transfer">Transfer</option>
+            </select>
+          </fieldset>
+
+          <fieldset class="fieldset pt-0">
+            <legend class="fieldset-legend text-center opacity-50">
+              Abgeglichen
+            </legend>
             <select
               v-model="selectedReconciledFilter"
               class="select select-sm select-bordered border-base-300 w-40 mx-2 rounded-full"
