@@ -67,7 +67,7 @@ function handleCheckboxClick(
       }
     }
   } else {
-    // Einfaches Toggle: Bei Klick wird der Eintrag hinzugefügt oder entfernt, ohne die anderen zu beeinflussen.
+    // Einfaches Toggle: Bei Klick wird der Eintrag hinzugefügt oder entfernt.
     if (isChecked) {
       if (!selectedIds.value.includes(transactionId)) {
         selectedIds.value.push(transactionId);
@@ -162,6 +162,12 @@ defineExpose({ getSelectedTransactions });
               />
             </div>
           </th>
+          <!-- Neues Notiz-Feld -->
+          <div class="flex items-center justify-end">
+            <th class="text-center cursor-pointer">
+              <Icon icon="mdi:note-text-outline" class="text-lg" />
+            </th>
+          </div>
           <th
             @click="emit('sort-change', 'reconciled')"
             class="text-center cursor-pointer"
@@ -227,6 +233,14 @@ defineExpose({ getSelectedTransactions });
               :show-zero="true"
               :class="{ 'text-warning': tx.type === TransactionType.TRANSFER }"
             />
+          </td>
+          <!-- Neues Notiz-Feld in der Zeile -->
+          <td class="text-right">
+            <template v-if="tx.note && tx.note.trim()">
+              <div class="tooltip" :data-tip="tx.note">
+                <Icon icon="mdi:note-text-outline" class="text-lg opacity-50" />
+              </div>
+            </template>
           </td>
           <td class="text-center">
             <input
