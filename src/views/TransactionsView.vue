@@ -280,6 +280,11 @@ const deleteTransaction = (tx: Transaction) => {
         <div
           class="rounded-md backdrop-blur-lg p-2 flex items-center justify-start mx-2 gap-2"
         >
+          <!-- Monatliche Selektion via MonthSelector -->
+          <MonthSelector
+            @update-daterange="handleDateRangeUpdate"
+            class="mx-2"
+          />
           <!-- Transaktionstyp Dropdown -->
           <select
             v-model="selectedTransactionType"
@@ -305,11 +310,6 @@ const deleteTransaction = (tx: Transaction) => {
               {{ acc.name }}
             </option>
           </select>
-          <!-- Monatliche Selektion via MonthSelector -->
-          <MonthSelector
-            @update-daterange="handleDateRangeUpdate"
-            class="mx-2"
-          />
         </div>
       </div>
       <!-- Suchgruppe -->
@@ -358,10 +358,7 @@ const deleteTransaction = (tx: Transaction) => {
     </Teleport>
     <!-- Formular-Modal -->
     <Teleport to="body">
-      <div
-        v-if="showTransactionFormModal"
-        class="modal modal-open"
-      >
+      <div v-if="showTransactionFormModal" class="modal modal-open">
         <div class="modal-box w-full max-w-2xl">
           <TransactionForm
             :transaction="selectedTransaction"

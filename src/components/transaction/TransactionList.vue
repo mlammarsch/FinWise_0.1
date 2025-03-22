@@ -100,10 +100,7 @@ function handleCheckboxClick(
               @change="handleHeaderCheckboxChange"
             />
           </th>
-          <th
-            @click="emit('sort-change', 'date')"
-            class="cursor-pointer"
-          >
+          <th @click="emit('sort-change', 'date')" class="cursor-pointer">
             <div class="flex items-center">
               Datum
               <Icon
@@ -140,10 +137,7 @@ function handleCheckboxClick(
               />
             </div>
           </th>
-          <th
-            @click="emit('sort-change', 'categoryId')"
-            class="cursor-pointer"
-          >
+          <th @click="emit('sort-change', 'categoryId')" class="cursor-pointer">
             <div class="flex items-center">
               Kategorie
               <Icon
@@ -171,8 +165,8 @@ function handleCheckboxClick(
             @click="emit('sort-change', 'reconciled')"
             class="text-center cursor-pointer"
           >
-            <div class="flex items-center">
-              Abgleich
+            <div class="flex items-center justify-center">
+              <Icon icon="mdi:check-circle-outline" class="text-lg" />
               <Icon
                 v-if="sortKey === 'reconciled'"
                 :icon="sortOrder === 'asc' ? 'mdi:arrow-up' : 'mdi:arrow-down'"
@@ -184,10 +178,7 @@ function handleCheckboxClick(
         </tr>
       </thead>
       <tbody>
-        <tr
-          v-for="(tx, index) in transactions"
-          :key="tx.id"
-        >
+        <tr v-for="(tx, index) in transactions" :key="tx.id">
           <!-- Auswahl-Checkbox in jeder Zeile -->
           <td>
             <input
@@ -250,19 +241,13 @@ function handleCheckboxClick(
                 class="btn btn-ghost btn-xs border-none"
                 @click="$emit('edit', tx)"
               >
-                <Icon
-                  icon="mdi:pencil"
-                  class="text-base/75"
-                />
+                <Icon icon="mdi:pencil" class="text-base/75" />
               </button>
               <button
                 class="btn btn-ghost btn-xs border-none text-error/75"
                 @click="$emit('delete', tx)"
               >
-                <Icon
-                  icon="mdi:trash-can"
-                  class="text-base"
-                />
+                <Icon icon="mdi:trash-can" class="text-base" />
               </button>
             </div>
           </td>

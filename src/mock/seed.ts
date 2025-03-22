@@ -1,3 +1,4 @@
+// Datei: src/mock/seed.ts
 import { useAccountStore } from "../stores/accountStore";
 import { useTransactionStore } from "../stores/transactionStore";
 import { useTagStore } from "../stores/tagStore";
@@ -6,9 +7,10 @@ import { useRecipientStore } from "../stores/recipientStore";
 import { usePlanningStore } from "../stores/planningStore";
 import { useStatisticsStore } from "../stores/statisticsStore";
 import { useThemeStore } from "../stores/themeStore";
-import { createPinia } from 'pinia';
+import { createPinia } from "pinia";
 
 import dayjs from "dayjs";
+import { TransactionType } from "../types";
 
 const pinia = createPinia();
 
@@ -20,37 +22,32 @@ export function seedData() {
   const recipientStore = useRecipientStore(pinia);
 
   if (recipientStore.recipients.length === 0) {
-    recipientStore.addRecipient({ name: "Rewe" });
-    recipientStore.addRecipient({ name: "Freizeitindustrie" });
-    recipientStore.addRecipient({ name: "Autowerkstatt Halmich" });
-    recipientStore.addRecipient({ name: "Amazon" });
-    recipientStore.addRecipient({ name: "Tankstelle" });
-    recipientStore.addRecipient({ name: "Klaus Wilhelm" });
+    [
+      "Rewe", "Aldi", "Lidl", "Bäcker", "Arbeitgeber GmbH", "Finanzamt",
+      "Autowerkstatt Halmich", "Amazon", "Tankstelle", "Klaus Wilhelm"
+    ].forEach((name) => recipientStore.addRecipient({ name }));
   }
 
   if (tagStore.tags.length === 0) {
-    tagStore.addTag({ name: "HaushaltTag", parentTagId: null });
-    tagStore.addTag({ name: "FreizeitTag", parentTagId: null });
-    tagStore.addTag({ name: "LebensmittelTag", parentTagId: null });
-    tagStore.addTag({ name: "ReisenTag", parentTagId: null });
-    tagStore.addTag({ name: "RücklageTag", parentTagId: null });
-    tagStore.addTag({ name: "WerkstattTag", parentTagId: null });
-    tagStore.addTag({ name: "WohnungTag", parentTagId: null });
-    tagStore.addTag({ name: "VersicherungTag", parentTagId: null });
+    [
+      "Lebensmittel", "Freizeit", "Auto", "Wohnen", "Haushalt",
+      "Versicherung", "Gesundheit", "Urlaub", "Internet", "Telefon"
+    ].forEach((name) => tagStore.addTag({ name, parentTagId: null }));
   }
 
   if (categoryStore.categories.length === 0) {
-    categoryStore.addCategory({ name: "HaushaltCat", parentCategoryId: null });
-    categoryStore.addCategory({ name: "FreizeitCat", parentCategoryId: null });
-    categoryStore.addCategory({ name: "SpartopfCat", parentCategoryId: null });
-    categoryStore.addCategory({ name: "SondertilgungCat", parentCategoryId: null });
-    categoryStore.addCategory({ name: "WerkstattCat", parentCategoryId: null });
-    categoryStore.addCategory({ name: "SportCat", parentCategoryId: null });
+    [
+      "Lebensmittel", "Freizeit", "Reparaturen", "Miete", "Versicherung",
+      "Gesundheit", "Sparen", "Gehalt", "Nebenjob", "Bargeld"
+    ].forEach((name) =>
+      categoryStore.addCategory({ name, parentCategoryId: null })
+    );
   }
 
   if (accountStore.accounts.length === 0) {
     const defaultGroupId = accountStore.accountGroups[0]?.id || "";
     const secondGroupId = accountStore.accountGroups[1]?.id || defaultGroupId;
+
     accountStore.addAccount({
       name: "Geldbeutel",
       description: "Bargeld",
@@ -59,20 +56,22 @@ export function seedData() {
       isOfflineBudget: false,
       accountGroupId: defaultGroupId
     });
+
     accountStore.addAccount({
       name: "Gehaltskonto",
-      description: "IngDiba Giro 86",
-      iban: "DE12345678901234567890",
-      balance: 1377.15,
+      description: "Girokonto ING",
+      iban: "DE89123456780123456789",
+      balance: 1200,
       isActive: true,
       isOfflineBudget: false,
       accountGroupId: secondGroupId
     });
+
     accountStore.addAccount({
-      name: "Tagesgeld 70",
-      description: "Sparkonto freie Verfügung",
-      iban: "DE12345678901234567890",
-      balance: 0,
+      name: "Tagesgeldkonto",
+      description: "Sparkonto",
+      iban: "DE89123456780987654321",
+      balance: 3500,
       isActive: true,
       isOfflineBudget: false,
       accountGroupId: secondGroupId
@@ -85,58 +84,88 @@ export function seedData() {
     const tags = tagStore.tags;
     const recipients = recipientStore.recipients;
 
-    for (let i = 0; i < 120; i++) {
-      const randomAccount = accounts[Math.floor(Math.random() * accounts.length)];
-      const randomCategory = categories[Math.floor(Math.random() * categories.length)];
+    const today = dayjs();
+    const total = 180;
 
-      let randomTags: string[] = [];
-      if (tags.length > 0) {
-        const firstTag = tags[Math.floor(Math.random() * tags.length)];
-        randomTags.push(firstTag.id);
-        if (tags.length > 1 && Math.random() > 0.5) {
-          let secondTag;
-          do {
-            secondTag = tags[Math.floor(Math.random() * tags.length)];
-          } while (secondTag.id === firstTag.id);
-          randomTags.push(secondTag.id);
+    for (let i = 0; i < total; i++) {
+      const date = today.subtract(Math.floor(Math.random() * 120), "day").format("YYYY-MM-DD");
+      const isTransfer = Math.random() < 0.15;
+
+      if (isTransfer && accounts.length > 1) {
+        let from, to;
+        do {
+          from = accounts[Math.floor(Math.random() * accounts.length)];
+          to = accounts[Math.floor(Math.random() * accounts.length)];
+        } while (from.id === to.id);
+
+        const amount = Math.round(Math.random() * 30000) / 100;
+
+        transactionStore.addTransferTransaction(
+          from.id,
+          to.id,
+          amount,
+          date,
+          date,
+          `Seed Transfer ${i + 1}`
+        );
+      } else {
+        const account = accounts[Math.floor(Math.random() * accounts.length)];
+        const category = categories[Math.floor(Math.random() * categories.length)];
+        const recipient = recipients[Math.floor(Math.random() * recipients.length)];
+
+        const rand = Math.random();
+        let amount = 0;
+        let type: TransactionType;
+
+        if (rand < 0.65) {
+          // Ausgabe
+          amount = -Math.round((Math.random() * 150 + 10) * 100) / 100;
+          type = TransactionType.EXPENSE;
+        } else {
+          // Einnahme
+          amount = Math.round((Math.random() * 1000 + 500) * 100) / 100;
+          type = TransactionType.INCOME;
         }
+
+        const tagCount = Math.floor(Math.random() * 2) + 1;
+        const tagIds = [];
+        while (tagIds.length < tagCount) {
+          const tag = tags[Math.floor(Math.random() * tags.length)];
+          if (!tagIds.includes(tag.id)) tagIds.push(tag.id);
+        }
+
+        transactionStore.addTransaction({
+          date,
+          valueDate: date,
+          accountId: account.id,
+          categoryId: category.id,
+          tagIds,
+          amount,
+          note: "Seeded Buchung",
+          recipientId: recipient.id,
+          type,
+          counterTransactionId: null,
+          planningTransactionId: null,
+          isReconciliation: false,
+          runningBalance: 0,
+          payee: recipient.name,
+          transferToAccountId: null
+        });
       }
-
-      const randomRecipient = recipients[Math.floor(Math.random() * recipients.length)];
-      const amount = Math.round((Math.random() * 200 - 100) * 100) / 100;
-      const date = dayjs().subtract(i, "day").format("YYYY-MM-DD");
-
-      const transaction = {
-        date,
-        valueDate: date,
-        accountId: randomAccount.id,
-        categoryId: randomCategory ? randomCategory.id : null,
-        tagIds: randomTags,
-        recipientId: randomRecipient ? randomRecipient.id : null,
-        payee: randomCategory ? randomCategory.name : "Unbekannt",
-        description: `Buchung ${i + 1} -desc`,
-        amount,
-        note: "auto-generated-note",
-        counterTransactionId: null,
-        planningTransactionId: null,
-        isReconciliation: false
-      };
-
-      transactionStore.addTransaction(transaction);
     }
   }
 }
 
 export function clearData() {
-  localStorage.removeItem('finwise_accounts');
-  localStorage.removeItem('finwise_account_groups');
-  localStorage.removeItem('finwise_transactions');
-  localStorage.removeItem('finwise_categories');
-  localStorage.removeItem('finwise_recipients');
-  localStorage.removeItem('finwise_tags');
-  localStorage.removeItem('finwise_planning');
-  localStorage.removeItem('finwise_statistics');
-  localStorage.removeItem('finwise_theme');
+  localStorage.removeItem("finwise_accounts");
+  localStorage.removeItem("finwise_account_groups");
+  localStorage.removeItem("finwise_transactions");
+  localStorage.removeItem("finwise_categories");
+  localStorage.removeItem("finwise_recipients");
+  localStorage.removeItem("finwise_tags");
+  localStorage.removeItem("finwise_planning");
+  localStorage.removeItem("finwise_statistics");
+  localStorage.removeItem("finwise_theme");
 
   const stores = [
     useAccountStore(pinia),
@@ -146,10 +175,10 @@ export function clearData() {
     useRecipientStore(pinia),
     usePlanningStore(pinia),
     useStatisticsStore(pinia),
-    useThemeStore(pinia),
+    useThemeStore(pinia)
   ];
 
-  stores.forEach(store => {
-    if (typeof store.reset === 'function') store.reset();
+  stores.forEach((store) => {
+    if (typeof store.reset === "function") store.reset();
   });
 }
