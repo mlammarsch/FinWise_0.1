@@ -1,19 +1,19 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import { AccountGroup } from '../../types';
-import { useAccountStore } from '../../stores/accountStore';
+import { ref, onMounted } from "vue";
+import { AccountGroup } from "../../types";
+import { useAccountStore } from "../../stores/accountStore";
 
 const props = defineProps<{
   group?: AccountGroup;
   isEdit?: boolean;
 }>();
 
-const emit = defineEmits(['save', 'cancel']);
+const emit = defineEmits(["save", "cancel"]);
 
 const accountStore = useAccountStore();
 
 // Formularfelder
-const name = ref('');
+const name = ref("");
 const sortOrder = ref(0);
 const image = ref<string | null>(null); // Bild-URL
 
@@ -38,12 +38,12 @@ const handleImageUpload = (event: Event) => {
 };
 
 const saveGroup = () => {
-  const groupData: Omit<AccountGroup, 'id'> = {
+  const groupData: Omit<AccountGroup, "id"> = {
     name: name.value,
     sortOrder: sortOrder.value,
     image: image.value || undefined, // Sende Bild-URL (oder undefined, wenn kein Bild)
   };
-  emit('save', groupData);
+  emit("save", groupData);
 };
 </script>
 
@@ -86,12 +86,18 @@ const saveGroup = () => {
         @change="handleImageUpload"
       />
       <div v-if="image" class="mt-2">
-        <img :src="image" alt="Gruppen Bild Vorschau" class="rounded-md max-h-32" />
+        <img
+          :src="image"
+          alt="Gruppen Bild Vorschau"
+          class="rounded-md max-h-32"
+        />
       </div>
     </div>
 
     <div class="flex justify-end space-x-2 pt-4">
-      <button type="button" class="btn" @click="$emit('cancel')">Abbrechen</button>
+      <button type="button" class="btn" @click="emit('cancel')">
+        Abbrechen
+      </button>
       <button type="submit" class="btn btn-primary">Speichern</button>
     </div>
   </form>

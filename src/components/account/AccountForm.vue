@@ -1,87 +1,65 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { Account, AccountType } from '../../types'
-import { useAccountStore } from '../../stores/accountStore'
+import { ref, computed, onMounted } from "vue";
+import { Account, AccountType } from "../../types";
+import { useAccountStore } from "../../stores/accountStore";
 
 const props = defineProps<{
-  account?: Account
-  isEdit?: boolean
-}>()
+  account?: Account;
+  isEdit?: boolean;
+}>();
 
-const emit = defineEmits(['save', 'cancel'])
+const emit = defineEmits(["save", "cancel"]);
 
-const accountStore = useAccountStore()
+const accountStore = useAccountStore();
 
 // Formularfelder
-const name = ref('')
-const description = ref('')
-const note = ref('')
-const accountType = ref<AccountType>(AccountType.CHECKING)
-const isActive = ref(true)
-const isOfflineBudget = ref(false)
-const accountGroupId = ref('')
-const sortOrder = ref(0)
-const iban = ref('')
-const balance = ref(0)
-const creditLimit = ref(0)
-const offset = ref(0)
-const image = ref<string | null>(null) // Neu: Bild-URL
+const name = ref("");
+const description = ref("");
+const note = ref("");
+const accountType = ref<AccountType>(AccountType.CHECKING);
+const isActive = ref(true);
+const isOfflineBudget = ref(false);
+const accountGroupId = ref("");
+const sortOrder = ref(0);
+const iban = ref("");
+const balance = ref(0);
+const creditLimit = ref(0);
+const offset = ref(0);
+const image = ref<string | null>(null); // Neu: Bild-URL
 
 // Lade die Daten, wenn ein Konto zum Bearbeiten übergeben wurde
 onMounted(() => {
   if (props.account) {
-    name.value = props.account.name
-    description.value = props.account.description
-    note.value = props.account.note
-    accountType.value = props.account.accountType
-    isActive.value = props.account.isActive
-    isOfflineBudget.value = props.account.isOfflineBudget
-    accountGroupId.value = props.account.accountGroupId
-    sortOrder.value = props.account.sortOrder
-    iban.value = props.account.iban
-    balance.value = props.account.balance
-    creditLimit.value = props.account.creditLimit
-    offset.value = props.account.offset
-    image.value = props.account.image || null // Lade Bild-URL
+    name.value = props.account.name;
+    description.value = props.account.description;
+    note.value = props.account.note;
+    accountType.value = props.account.accountType;
+    isActive.value = props.account.isActive;
+    isOfflineBudget.value = props.account.isOfflineBudget;
+    accountGroupId.value = props.account.accountGroupId;
+    sortOrder.value = props.account.sortOrder;
+    iban.value = props.account.iban;
+    balance.value = props.account.balance;
+    creditLimit.value = props.account.creditLimit;
+    offset.value = props.account.offset;
+    image.value = props.account.image || null; // Lade Bild-URL
   } else {
-    // Setze Standardwerte für ein neues Konto
+    // Standardwerte für ein neues Konto
     if (accountStore.accountGroups.length > 0) {
-      accountGroupId.value = accountStore.accountGroups[0].id
+      accountGroupId.value = accountStore.accountGroups[0].id;
     }
   }
-})
+});
 
 // Konvertiere einen String in eine Zahl
 const parseNumber = (value: string): number => {
-  // Ersetze Komma durch Punkt für die Konvertierung
-  const normalized = value.replace(/\./g, '').replace(',', '.')
-  return parseFloat(normalized) || 0
-}
-
-// Formatiere eine Zahl für die Anzeige
-const formatNumber = (value: number | undefined): string => {
-  if (value === undefined) {
-    return '0,00' // oder eine andere Standarddarstellung
-  }
-  return value.toString().replace('.', ',')
-}
-
-// Funktion zum Hochladen des Bildes
-const handleImageUpload = (event: Event) => {
-  const file = (event.target as HTMLInputElement).files?.[0]
-  if (file) {
-    const reader = new FileReader()
-    reader.onloadend = () => {
-      image.value = reader.result as string // Speichere Base64-kodierte URL
-    }
-    reader.readAsDataURL(file)
-  }
-}
-
+  const normalized = value.replace(/\./g, "").replace(",", ".");
+  return parseFloat(normalized) || 0;
+};
 
 // Speichere das Konto
 const saveAccount = () => {
-  const accountData: Omit<Account, 'id'> = {
+  const accountData: Omit<Account, "id"> = {
     name: name.value,
     description: description.value,
     note: note.value,
@@ -94,24 +72,25 @@ const saveAccount = () => {
     balance: balance.value,
     creditLimit: creditLimit.value,
     offset: offset.value,
-    image: image.value || undefined // Sende Bild-URL (oder undefined, wenn kein Bild)
-  }
+    image: image.value || undefined,
+  };
 
-  emit('save', accountData)
-}
+  console.log("Daten zum Speichern:", accountData); // Debugging
+  emit("save", accountData);
+};
 
 // Kontogruppen für das Dropdown
 const accountGroups = computed(() => {
-  return accountStore.accountGroups
-})
+  return accountStore.accountGroups;
+});
 
 // Kontotypen für das Dropdown
 const accountTypes = [
-  { value: AccountType.CHECKING, label: 'Girokonto' },
-  { value: AccountType.SAVINGS, label: 'Sparkonto' },
-  { value: AccountType.CREDIT, label: 'Kreditkarte' },
-  { value: AccountType.CASH, label: 'Bargeld' }
-]
+  { value: AccountType.CHECKING, label: "Girokonto" },
+  { value: AccountType.SAVINGS, label: "Sparkonto" },
+  { value: AccountType.CREDIT, label: "Kreditkarte" },
+  { value: AccountType.CASH, label: "Bargeld" },
+];
 </script>
 
 <template>
@@ -149,7 +128,11 @@ const accountTypes = [
           <span class="text-error">*</span>
         </label>
         <select v-model="accountType" class="select select-bordered w-full">
-          <option v-for="type in accountTypes" :key="type.value" :value="type.value">
+          <option
+            v-for="type in accountTypes"
+            :key="type.value"
+            :value="type.value"
+          >
             {{ type.label }}
           </option>
         </select>
@@ -159,8 +142,16 @@ const accountTypes = [
         <label class="label">
           <span class="label-text">Kontogruppe</span>
         </label>
-        <select v-model="accountGroupId" class="select select-bordered w-full" required>
-          <option v-for="group in accountGroups" :key="group.id" :value="group.id">
+        <select
+          v-model="accountGroupId"
+          class="select select-bordered w-full"
+          required
+        >
+          <option
+            v-for="group in accountGroups"
+            :key="group.id"
+            :value="group.id"
+          >
             {{ group.name }}
           </option>
         </select>
@@ -197,14 +188,14 @@ const accountTypes = [
       <div class="form-control">
         <label class="label">
           <span class="label-text">Kontostand</span>
-          <span v-if="!isEdit" class="text-error">*</span>
+          <span v-if="!props.isEdit" class="text-error">*</span>
         </label>
         <input
           type="text"
           :value="formatNumber(balance)"
           @input="balance = parseNumber(($event.target as HTMLInputElement).value)"
           class="input input-bordered"
-          :required="!isEdit"
+          :required="!props.isEdit"
           placeholder="0,00"
         />
       </div>
@@ -258,28 +249,42 @@ const accountTypes = [
         @change="handleImageUpload"
       />
       <div v-if="image" class="mt-2">
-        <img :src="image" alt="Konto Bild Vorschau" class="rounded-md max-h-32" />
+        <img
+          :src="image"
+          alt="Konto Bild Vorschau"
+          class="rounded-md max-h-32"
+        />
       </div>
     </div>
 
-    <div class="flex flex-col sm:flex-row gap-4">
+    <div class="flex flex-col sm:flex-row gap-4 pt-4">
       <div class="form-control">
         <label class="label cursor-pointer">
           <span class="label-text mr-4">Aktiv</span>
-          <input type="checkbox" v-model="isActive" class="toggle toggle-primary" />
+          <input
+            type="checkbox"
+            v-model="isActive"
+            class="toggle toggle-primary"
+          />
         </label>
       </div>
 
       <div class="form-control">
         <label class="label cursor-pointer">
           <span class="label-text mr-4">Nicht im Budget berücksichtigen</span>
-          <input type="checkbox" v-model="isOfflineBudget" class="toggle toggle-primary" />
+          <input
+            type="checkbox"
+            v-model="isOfflineBudget"
+            class="toggle toggle-primary"
+          />
         </label>
       </div>
     </div>
 
     <div class="flex justify-end space-x-2 pt-4">
-      <button type="button" class="btn" @click="$emit('cancel')">Abbrechen</button>
+      <button type="button" class="btn" @click="emit('cancel')">
+        Abbrechen
+      </button>
       <button type="submit" class="btn btn-primary">Speichern</button>
     </div>
   </form>
