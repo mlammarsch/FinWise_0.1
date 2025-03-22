@@ -95,6 +95,8 @@ export interface Category {
 export interface Tag {
   id: string
   name: string
+  parentTagId?: string | null
+  color: string
 }
 
 export interface PlanningItem {

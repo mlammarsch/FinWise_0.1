@@ -1,6 +1,6 @@
 <!-- src/views/admin/AdminTagsView.vue -->
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { ref, computed, nextTick } from "vue";
 import { useTagStore } from "../../stores/tagStore";
 import { useTransactionStore } from "../../stores/transactionStore";
 import type { Tag } from "../../types";
@@ -63,9 +63,53 @@ const getParentTagName = (parentId: string | null): string => {
 };
 
 const createTag = () => {
-  selectedTag.value = null;
+  selectedTag.value = { id: "", name: "", parentTagId: null, color: "#1a161d" };
   isEditMode.value = false;
   showTagModal.value = true;
+};
+
+const editTag = (tag: Tag) => {
+  selectedTag.value = { ...tag };
+  isEditMode.value = true;
+  showTagModal.value = true;
+};
+
+const saveTag = () => {
+  if (!selectedTag.value) return;
+
+  if (isEditMode.value) {
+    tagStore.updateTag(selectedTag.value);
+  } else {
+    tagStore.addTag({ ...selectedTag.value });
+  }
+
+  showTagModal.value = false;
+};
+
+const closeModal = () => {
+  showTagModal.value = false;
+};
+
+const deleteTag = (tag: Tag) => {
+  if (confirm(`Möchten Sie das Tag "${tag.name}" wirklich löschen?`)) {
+    tagStore.deleteTag(tag.id);
+  }
+};
+
+const openColorPicker = async (tagId: string) => {
+  await nextTick();
+  const input = document.querySelector(
+    `input[type="color"][data-tag-id="${tagId}"]`
+  ) as HTMLInputElement;
+  input?.click();
+};
+
+const onColorPicked = (e: Event, tagId: string) => {
+  const color = (e.target as HTMLInputElement).value;
+  const tag = tagStore.getTagById(tagId);
+  if (tag) {
+    tagStore.updateTag({ ...tag, color });
+  }
 };
 </script>
 
@@ -79,7 +123,7 @@ const createTag = () => {
       <SearchGroup
         btnRight="Neu"
         btnRightIcon="mdi:plus"
-        @search="(query) => (searchQuery = query)"
+        @search="(query) => (searchQuery.value = query)"
         @btn-right-click="createTag"
       />
     </div>
@@ -92,6 +136,7 @@ const createTag = () => {
             <thead>
               <tr>
                 <th>Name</th>
+                <th class="text-center hidden md:table-cell">Farbe</th>
                 <th class="text-center hidden md:table-cell">
                   Übergeordnetes Tag
                 </th>
@@ -105,11 +150,30 @@ const createTag = () => {
               </tr>
             </thead>
             <tbody>
-              <tr
-                v-for="tag in paginatedTags"
-                :key="tag.id"
-              >
+              <tr v-for="tag in paginatedTags" :key="tag.id">
                 <td>{{ tag.name }}</td>
+                <td class="text-center hidden md:table-cell">
+                  <span
+                    v-if="tag.color"
+                    class="badge badge-sm text-white"
+                    :style="{ backgroundColor: tag.color }"
+                  >
+                    {{ tag.color }}
+                  </span>
+                  <span v-else class="relative inline-block">
+                    <Icon
+                      icon="mdi:brush-variant"
+                      class="opacity-50 text-lg cursor-pointer"
+                      @click="openColorPicker(tag.id)"
+                    />
+                    <input
+                      type="color"
+                      class="sr-only absolute"
+                      :data-tag-id="tag.id"
+                      @change="(e) => onColorPicked(e, tag.id)"
+                    />
+                  </span>
+                </td>
                 <td class="text-center hidden md:table-cell">
                   {{ getParentTagName(tag.parentTagId) }}
                 </td>
@@ -122,20 +186,16 @@ const createTag = () => {
                 <td class="text-right">
                   <div class="flex justify-end space-x-1">
                     <button
-                      class="btn btn-ghost btn-sm text-secondary flex items-center justify-center"
+                      class="btn btn-ghost btn-sm text-secondary"
+                      @click="editTag(tag)"
                     >
-                      <Icon
-                        icon="mdi:pencil"
-                        class="text-base"
-                      />
+                      <Icon icon="mdi:pencil" class="text-base" />
                     </button>
                     <button
-                      class="btn btn-ghost btn-sm text-error flex items-center justify-center"
+                      class="btn btn-ghost btn-sm text-error"
+                      @click="deleteTag(tag)"
                     >
-                      <Icon
-                        icon="mdi:trash-can"
-                        class="text-base"
-                      />
+                      <Icon icon="mdi:trash-can" class="text-base" />
                     </button>
                   </div>
                 </td>
@@ -144,14 +204,75 @@ const createTag = () => {
           </table>
         </div>
 
-        <!-- Paginierungskomponente -->
         <PagingComponent
           :currentPage="currentPage"
           :totalPages="totalPages"
           :itemsPerPage="itemsPerPage"
-          @update:currentPage="(val) => (currentPage = val)"
-          @update:itemsPerPage="(val) => (itemsPerPage = val)"
+          @update:currentPage="(val) => (currentPage.value = val)"
+          @update:itemsPerPage="(val) => (itemsPerPage.value = val)"
         />
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal für Tag bearbeiten/erstellen -->
+  <div
+    v-if="showTagModal"
+    class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+  >
+    <div
+      class="bg-base-100 p-6 rounded-md w-full max-w-md shadow-lg border border-base-300"
+    >
+      <h3 class="text-lg font-bold mb-4">
+        {{ isEditMode ? "Tag bearbeiten" : "Neues Tag erstellen" }}
+      </h3>
+      <div class="form-control mb-4">
+        <label class="label"><span class="label-text">Name</span></label>
+        <input
+          v-model="selectedTag.name"
+          type="text"
+          class="input input-bordered w-full"
+        />
+      </div>
+
+      <div class="form-control mb-4">
+        <label class="label"><span class="label-text">Farbe</span></label>
+        <input
+          v-model="selectedTag.color"
+          type="color"
+          class="input input-bordered w-full h-12 p-1"
+        />
+        <div class="flex flex-wrap mt-2 gap-1">
+          <button
+            v-for="c in tagStore.colorHistory"
+            :key="c"
+            class="w-6 h-6 rounded border border-base-300"
+            :style="{ backgroundColor: c }"
+            @click="selectedTag.color = c"
+          />
+        </div>
+      </div>
+
+      <div class="form-control mb-4">
+        <label class="label"
+          ><span class="label-text">Übergeordnetes Tag</span></label
+        >
+        <select
+          v-model="selectedTag.parentTagId"
+          class="select select-bordered"
+        >
+          <option :value="null">Keines</option>
+          <option v-for="tag in tagStore.tags" :key="tag.id" :value="tag.id">
+            {{ tag.name }}
+          </option>
+        </select>
+      </div>
+
+      <div class="flex justify-end space-x-2">
+        <button class="btn btn-outline" @click="closeModal">Abbrechen</button>
+        <button class="btn btn-primary" @click="saveTag">
+          {{ isEditMode ? "Speichern" : "Erstellen" }}
+        </button>
       </div>
     </div>
   </div>

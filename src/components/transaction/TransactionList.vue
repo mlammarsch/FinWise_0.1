@@ -67,7 +67,6 @@ function handleCheckboxClick(
       }
     }
   } else {
-    // Einfaches Toggle: Bei Klick wird der Eintrag hinzugefügt oder entfernt.
     if (isChecked) {
       if (!selectedIds.value.includes(transactionId)) {
         selectedIds.value.push(transactionId);
@@ -221,7 +220,18 @@ defineExpose({ getSelectedTransactions });
               <span
                 v-for="tagId in tx.tagIds"
                 :key="tagId"
-                class="badge badge-soft badge-secondary rounded-2xl"
+                class="badge badge-soft badge-sm rounded-full"
+                :class="{
+                  'badge-secondary': !tagStore.getTagById(tagId)?.color,
+                }"
+                :style="
+                  tagStore.getTagById(tagId)?.color
+                    ? {
+                        backgroundColor: tagStore.getTagById(tagId).color,
+                        color: '#fff',
+                      }
+                    : {}
+                "
               >
                 {{ tagStore.getTagById(tagId)?.name || "Unbekanntes Tag" }}
               </span>

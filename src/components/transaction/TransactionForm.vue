@@ -1,19 +1,4 @@
-**TransactionForm.vue (aktualisiert)**
-```vue
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, nextTick } from "vue";
-import { Transaction, TransactionType } from "../../types";
-import { useAccountStore } from "../../stores/accountStore";
-import { useRecipientStore } from "../../stores/recipientStore";
-import { useCategoryStore } from "../../stores/categoryStore";
-import { useTagStore } from "../../stores/tagStore";
-import { useTransactionStore } from "../../stores/transactionStore";
-import DatePicker from "../ui/DatePicker.vue";
-import SearchableSelect from "../ui/SearchableSelect.vue";
-import CurrencyInput from "../ui/CurrencyInput.vue";
-import ButtonGroup from "../ui/ButtonGroup.vue";
-import TagSearchableDropdown from "../ui/TagSearchableDropdown.vue";
-
 /**
  * Pfad zur Komponente: components/transaction/TransactionForm.vue
  * Diese Komponente dient zur Erstellung und Bearbeitung einer Transaktion.
@@ -27,9 +12,20 @@ import TagSearchableDropdown from "../ui/TagSearchableDropdown.vue";
  * Emits:
  * - save - Gibt die eingegebene Transaktion zurück.
  * - cancel - Bricht die Bearbeitung ab.
- * - createCategory - Erzeugt eine neue Kategorie.
- * - createTag - Erzeugt ein neues Tag.
  */
+import { ref, computed, onMounted, watch, nextTick } from "vue";
+import { Transaction, TransactionType } from "../../types";
+import { useAccountStore } from "../../stores/accountStore";
+import { useRecipientStore } from "../../stores/recipientStore";
+import { useCategoryStore } from "../../stores/categoryStore";
+import { useTagStore } from "../../stores/tagStore";
+import { useTransactionStore } from "../../stores/transactionStore";
+import DatePicker from "../ui/DatePicker.vue";
+import SearchableSelect from "../ui/SearchableSelect.vue";
+import CurrencyInput from "../ui/CurrencyInput.vue";
+import ButtonGroup from "../ui/ButtonGroup.vue";
+import TagSearchableDropdown from "../ui/TagSearchableDropdown.vue";
+
 const props = defineProps<{
   transaction?: Transaction;
   isEdit?: boolean;
@@ -37,7 +33,7 @@ const props = defineProps<{
   initialTransactionType?: TransactionType;
 }>();
 
-const emit = defineEmits(["save", "cancel", "createCategory", "createTag"]);
+const emit = defineEmits(["save", "cancel"]);
 
 const accountStore = useAccountStore();
 const recipientStore = useRecipientStore();
@@ -78,7 +74,11 @@ const categories = computed(() =>
 );
 
 const tags = computed(() =>
-  tagStore.tags.map((t) => ({ id: t.id, name: t.name }))
+  tagStore.tags.map((t) => ({
+    id: t.id,
+    name: t.name,
+    color: t.color, // Farbe wird mitgegeben
+  }))
 );
 
 const isTransfer = computed(
@@ -182,6 +182,24 @@ const validationErrors = computed(() => {
   }
   return errors;
 });
+
+// Funktionen zur Erstellung neuer Kategorie und Tags
+function onCreateCategory(newCategory: { id: string; name: string }) {
+  const created = categoryStore.addCategory({
+    name: newCategory.name,
+    parentCategoryId: null,
+    sortOrder: categoryStore.categories.length,
+  });
+  categoryId.value = created.id;
+}
+
+function onCreateTag(newTag: { id: string; name: string }) {
+  const created = tagStore.addTag({
+    name: newTag.name,
+    parentTagId: null,
+  });
+  tagIds.value = [...tagIds.value, created.id];
+}
 
 // Unterscheidung zwischen Transfer und normaler Transaktion
 const saveTransaction = () => {
@@ -375,15 +393,15 @@ const submitForm = () => {
         v-model="categoryId"
         :options="categories"
         label="Kategorie"
-        @create="emit('createCategory', $event)"
+        :allowCreate="true"
+        @create="onCreateCategory($event)"
       />
-      <!-- Neue Tag-Komponente -->
       <TagSearchableDropdown
         class="fieldset"
         v-model="tagIds"
         :options="tags"
         label="Tags"
-        @create="emit('createTag', $event)"
+        @create="onCreateTag($event)"
       />
     </div>
 

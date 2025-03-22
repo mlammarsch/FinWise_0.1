@@ -1,26 +1,7 @@
-/**
- * Pfad zur Komponente: src/components/ui/SearchableSelect.vue
- *
- * Suchbare und auswählbare Dropdown-Komponente.
- *
- * Komponenten-Props:
- * - modelValue: string | string[] - Der aktuell ausgewählte Wert oder Werte.
- * - options: Array<{ id: string, name: string }> - Verfügbare Auswahloptionen.
- * - label?: string - Optional: Beschriftung des Dropdowns.
- * - placeholder?: string - Optional: Platzhaltertext, wenn keine Auswahl getroffen wurde.
- * - multiple?: boolean - Optional: Ermöglicht Mehrfachauswahl.
- * - allowCreate?: boolean - Optional: Erlaubt das Erstellen neuer Optionen.
- * - required?: boolean - Optional: Markiert das Feld als erforderlich.
- * - disabled?: boolean - Optional: Deaktiviert die Auswahl.
- *
- * Emits:
- * - update:modelValue - Wird ausgelöst, wenn eine Auswahl geändert wird.
- * - create - Wird ausgelöst, wenn eine neue Option erstellt wird.
- */
-
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
 import { Icon } from "@iconify/vue";
+import { v4 as uuidv4 } from "uuid";
 
 const props = defineProps<{
   modelValue: string | string[] | null;
@@ -45,13 +26,29 @@ const selectedValue = computed({
   set: (val) => emit("update:modelValue", val),
 });
 
-// Berechne die gefilterten Optionen basierend auf dem Suchbegriff
+// Gefilterte Optionen: bereits ausgewählte Werte werden ausgeblendet und alphabetisch sortiert.
 const filteredOptions = computed(() => {
-  if (!searchTerm.value) return props.options;
-  const term = searchTerm.value.toLowerCase();
-  return props.options.filter((option) =>
-    option.name.toLowerCase().includes(term)
-  );
+  let base = props.options;
+  if (props.multiple) {
+    base = base.filter(
+      (option) => !(selectedValue.value as string[]).includes(option.id)
+    );
+  } else if (selectedValue.value) {
+    base = base.filter((option) => option.id !== selectedValue.value);
+  }
+  if (searchTerm.value) {
+    const term = searchTerm.value.toLowerCase();
+    base = base.filter((option) => option.name.toLowerCase().includes(term));
+  }
+  return base.sort((a, b) => a.name.localeCompare(b.name));
+});
+
+// Computed: Prüfe, ob eine neue Option erstellt werden kann
+const canCreate = computed(() => {
+  if (!props.allowCreate) return false;
+  const term = searchTerm.value.trim().toLowerCase();
+  if (!term) return false;
+  return !props.options.some((option) => option.name.toLowerCase() === term);
 });
 
 // Prüfe, ob eine Option ausgewählt ist
@@ -64,38 +61,53 @@ const isSelected = (id: string) => {
 // Wähle eine Option aus oder entferne sie
 const toggleOption = (id: string) => {
   if (props.disabled) return;
-
   if (props.multiple) {
-    const currentValue = [...(selectedValue.value as string[])];
-    const index = currentValue.indexOf(id);
-
-    index === -1 ? currentValue.push(id) : currentValue.splice(index, 1);
-    selectedValue.value = currentValue;
+    const current = [...(selectedValue.value as string[])];
+    const idx = current.indexOf(id);
+    if (idx === -1) {
+      current.push(id);
+    } else {
+      current.splice(idx, 1);
+    }
+    selectedValue.value = current;
   } else {
     selectedValue.value = id;
     isOpen.value = false;
   }
-
   searchTerm.value = "";
 };
 
-// Erstelle eine neue Option
+// Erstellt eine neue Option und fügt sie sofort hinzu
 const createOption = () => {
   if (!searchTerm.value.trim() || !props.allowCreate) return;
-  emit("create", searchTerm.value.trim());
+  const newId = uuidv4();
+  const newOption = { id: newId, name: searchTerm.value.trim() };
+  emit("create", newOption);
+  if (props.multiple) {
+    selectedValue.value = [...(selectedValue.value as string[]), newId];
+  } else {
+    selectedValue.value = newId;
+    isOpen.value = false;
+  }
   searchTerm.value = "";
 };
 
-// Zeige den Namen der ausgewählten Option(en) an
+// Wird beim Drücken der Enter-Taste ausgelöst
+function onEnter() {
+  if (canCreate.value) {
+    createOption();
+  }
+}
+
+// Zeige den Namen der ausgewählten Option(en)
 const selectedDisplay = computed(() => {
   if (props.multiple) {
-    const selectedOptions = props.options.filter((option) =>
+    const selectedOpts = props.options.filter((option) =>
       (selectedValue.value as string[]).includes(option.id)
     );
-
-    if (selectedOptions.length === 0) return "";
-    if (selectedOptions.length === 1) return selectedOptions[0].name;
-    return `${selectedOptions.length} ausgewählt`;
+    if (selectedOpts.length === 0) return "";
+    if (selectedOpts.length === 1) return selectedOpts[0].name;
+    return `${selectedOpts.length} ausgewählt`;
   } else {
     return (
       props.options.find((option) => option.id === selectedValue.value)?.name ||
@@ -104,7 +116,7 @@ const selectedDisplay = computed(() => {
   }
 });
 
-// Schließe das Dropdown, wenn außerhalb geklickt wird
+// Schließt das Dropdown, wenn außerhalb geklickt wird
 const closeDropdown = (event: MouseEvent) => {
   const target = event.target as HTMLElement;
   if (!target.closest(".custom-select")) {
@@ -112,7 +124,7 @@ const closeDropdown = (event: MouseEvent) => {
   }
 };
 
-// Füge den Event-Listener hinzu, wenn die Komponente geöffnet wird
+// Event-Listener an/abmelden
 watch(isOpen, (newValue) => {
   if (newValue) {
     setTimeout(() => {
@@ -151,44 +163,39 @@ watch(isOpen, (newValue) => {
       <!-- Dropdown mit Optionen -->
       <div
         v-if="isOpen"
-        class="absolute z-30 mt-1 w-full bg-base-100 rounded-box shadow-lg border border-base-300"
+        class="z-30 mt-1 w-full bg-base-100 rounded-box shadow-lg border border-base-300"
       >
         <!-- Suchfeld -->
-        <div class="p-2">
+        <div class="px-2 pt-2">
           <input
             type="text"
             class="input input-sm input-bordered w-full"
             v-model="searchTerm"
             placeholder="Suchen..."
             @click.stop
+            @keydown.enter="onEnter"
           />
         </div>
 
         <!-- Liste der Optionen -->
-        <ul class="max-h-60 overflow-y-auto p-2">
-          <li v-for="option in filteredOptions" :key="option.id" class="py-1">
+        <ul class="max-h-60 overflow-y-auto">
+          <li v-for="option in filteredOptions" :key="option.id" class="">
             <label
-              class="flex items-center space-x-2 cursor-pointer p-2 hover:bg-base-200 rounded-lg"
+              class="flex items-center space-x-2 cursor-pointer hover:bg-base-200 rounded-lg"
             >
-              <input
-                :type="multiple ? 'checkbox' : 'radio'"
-                :checked="isSelected(option.id)"
-                class="checkbox checkbox-sm"
-                @change="toggleOption(option.id)"
-                @click.stop
-              />
               <span>{{ option.name }}</span>
             </label>
           </li>
-
           <!-- Keine Ergebnisse oder Option erstellen -->
-          <li v-if="filteredOptions.length === 0 && searchTerm" class="py-1">
+          <li v-if="filteredOptions.length === 0 && searchTerm" class="">
             <div
               v-if="allowCreate"
               class="p-2 hover:bg-base-200 rounded-lg cursor-pointer"
               @click="createOption"
             >
-              <span class="flex items-center">
+              <span
+                class="flex items-center hover:bg-base-300 bg-base-200 rounded-lg p-1"
+              >
                 <Icon icon="mdi:plus-circle" class="mr-2 text-lg" />
                 "{{ searchTerm }}" erstellen
               </span>
