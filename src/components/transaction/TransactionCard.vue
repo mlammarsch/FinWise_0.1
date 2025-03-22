@@ -71,7 +71,11 @@ const toggleReconciled = () => {
       <div class="flex flex-col flex-grow space-y-1">
         <!-- Empfänger + Betrag -->
         <div class="flex justify-between items-start">
-          <div class="font-semibold text-base">{{ recipientName }}</div>
+          <div class="flex items-center">
+            <Icon icon="mdi:account" class="pr-1 text-xl opacity-50" />
+            <div class="font-semibold text-base">{{ recipientName }}</div>
+          </div>
+
           <div class="flex items-center space-x-1">
             <div class="flex items-center">
               <input
@@ -101,17 +105,30 @@ const toggleReconciled = () => {
           <div class="flex-1">
             <div
               v-if="transaction.note"
-              class="text-sm text-gray-500 whitespace-pre-wrap"
+              class="whitespace-pre-wrap flex items-start bg-base-200 rounded-md p-1"
             >
-              {{ transaction.note }}
+              <div class="flex items-center">
+                <div>
+                  <Icon
+                    icon="mdi:speaker-notes"
+                    class="text-sm ml-1 opacity-50"
+                  />
+                </div>
+                <div class="text-sm text-gray-500 ml-2">
+                  {{ transaction.note }}
+                </div>
+              </div>
             </div>
             <div
               v-else
-              class="text-xs text-neutral flex items-center flex-wrap"
+              class="text-xs neutral-content flex items-center flex-wrap"
             >
               <!-- Gruppe 1 -->
               <div class="flex items-center">
-                <Icon icon="mdi:calendar-import" class="pr-1 text-lg" />
+                <Icon
+                  icon="mdi:calendar-import"
+                  class="pr-1 text-lg opacity-50"
+                />
                 <div class="text-sm">
                   {{ formatDate(transaction.date) }}
                 </div>
@@ -121,7 +138,10 @@ const toggleReconciled = () => {
 
               <!-- Gruppe 2 -->
               <div class="flex items-center">
-                <Icon icon="mdi:calendar-check" class="pr-1 text-lg" />
+                <Icon
+                  icon="mdi:calendar-check"
+                  class="pr-1 text-lg opacity-50"
+                />
                 <div class="text-sm">
                   {{ formatDate(transaction.valueDate) }}
                 </div>
@@ -131,18 +151,19 @@ const toggleReconciled = () => {
 
               <!-- Gruppe 3 -->
               <div class="flex items-center">
-                <Icon icon="mdi:category" class="pr-1 text-lg" />
+                <Icon icon="mdi:category" class="pr-1 text-lg opacity-50" />
                 <div class="text-sm">{{ categoryName }}</div>
               </div>
             </div>
           </div>
+
           <div
             class="flex items-center justify-end"
             :class="{ 'ml-auto': !transaction.note }"
           >
             <Icon
               icon="mdi:scale-balance"
-              class="text-base mx-2 text-neutral/70"
+              class="text-base mx-2 text-neutral opacity-50"
             />
             <CurrencyDisplay
               :amount="1000.5"
@@ -155,11 +176,11 @@ const toggleReconciled = () => {
         <!-- Datum + Kategorie Block nur bei vorhandener Notiz -->
         <div
           v-if="transaction.note"
-          class="text-xs text-neutral mt-1 flex items-center flex-wrap"
+          class="text-xs neutral-content mt-1 flex items-center flex-wrap"
         >
           <!-- Gruppe 1 -->
           <div class="flex items-center">
-            <Icon icon="mdi:calendar-import" class="pr-1 text-lg" />
+            <Icon icon="mdi:calendar-import" class="pr-1 text-lg opacity-50" />
             <div class="text-sm">{{ formatDate(transaction.date) }}</div>
           </div>
 
@@ -167,7 +188,7 @@ const toggleReconciled = () => {
 
           <!-- Gruppe 2 -->
           <div class="flex items-center">
-            <Icon icon="mdi:calendar-check" class="pr-1 text-lg" />
+            <Icon icon="mdi:calendar-check" class="pr-1 text-lg opacity-50" />
             <div class="text-sm">{{ formatDate(transaction.valueDate) }}</div>
           </div>
 
@@ -175,7 +196,7 @@ const toggleReconciled = () => {
 
           <!-- Gruppe 3 -->
           <div class="flex items-center">
-            <Icon icon="mdi:category" class="pr-1 text-lg" />
+            <Icon icon="mdi:category" class="pr-1 text-lg opacity-50" />
             <div class="text-sm">{{ categoryName }}</div>
           </div>
         </div>
