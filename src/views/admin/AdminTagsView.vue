@@ -6,17 +6,7 @@ import { useTransactionStore } from "../../stores/transactionStore";
 import type { Tag } from "../../types";
 import SearchGroup from "../../components/ui/SearchGroup.vue";
 import PagingComponent from "../../components/ui/PagingComponent.vue";
-
-/**
- * Pfad zur Komponente: src/views/admin/AdminTagsView.vue
- * Verwaltung der Tags.
- *
- * Komponenten-Props:
- * - Keine Props vorhanden
- *
- * Emits:
- * - Keine Emits vorhanden
- */
+import SearchableSelect from "../../components/ui/SearchableSelect.vue";
 
 const tagStore = useTagStore();
 const transactionStore = useTransactionStore();
@@ -90,9 +80,46 @@ const closeModal = () => {
   showTagModal.value = false;
 };
 
+// Neue Variablen für Ersatz-Tag Dialog
+const showReplaceTagModal = ref(false);
+const selectedTagToDelete = ref<Tag | null>(null);
+const replacementTagId = ref<string>(""); // "" entspricht "Kein Tag"
+
+// Computed: Optionen für Ersatz-Tags (alle außer dem zu löschenden Tag)
+const replacementOptions = computed(() => {
+  const options = tagStore.tags
+    .filter(
+      (tag) =>
+        selectedTagToDelete.value && tag.id !== selectedTagToDelete.value.id
+    )
+    .map((tag) => ({ id: tag.id, name: tag.name }));
+  // Füge als erste Option "Kein Tag" (leerer Wert) hinzu.
+  return [{ id: "", name: "Kein Tag" }, ...options];
+});
+
+// Funktion, um in allen Buchungen das zu löschende Tag zu ersetzen
+const replaceTagInTransactions = (oldTag: Tag, newTagId: string | "") => {
+  transactionStore.transactions.forEach((tx) => {
+    if (tx.tagIds.includes(oldTag.id)) {
+      const newTags = tx.tagIds.filter((id) => id !== oldTag.id);
+      if (newTagId) {
+        if (!newTags.includes(newTagId)) newTags.push(newTagId);
+      }
+      transactionStore.updateTransaction(tx.id, { tagIds: newTags });
+    }
+  });
+};
+
 const deleteTag = (tag: Tag) => {
-  if (confirm(`Möchten Sie das Tag "${tag.name}" wirklich löschen?`)) {
-    tagStore.deleteTag(tag.id);
+  if (tagUsage.value(tag.id) > 0) {
+    // Tag wird in Buchungen verwendet – öffne Ersatz-Dialog
+    selectedTagToDelete.value = tag;
+    replacementTagId.value = "";
+    showReplaceTagModal.value = true;
+  } else {
+    if (confirm(`Möchten Sie das Tag "${tag.name}" wirklich löschen?`)) {
+      tagStore.deleteTag(tag.id);
+    }
   }
 };
 
@@ -272,6 +299,50 @@ const onColorPicked = (e: Event, tagId: string) => {
         <button class="btn btn-outline" @click="closeModal">Abbrechen</button>
         <button class="btn btn-primary" @click="saveTag">
           {{ isEditMode ? "Speichern" : "Erstellen" }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal für Ersatz-Tag auswählen bei Löschung -->
+  <div
+    v-if="showReplaceTagModal"
+    class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+  >
+    <div
+      class="bg-base-100 p-6 rounded-md w-full max-w-md shadow-lg border border-base-300"
+    >
+      <h3 class="text-lg font-bold mb-4">
+        Tag ersetzen – Buchungen übertragen
+      </h3>
+      <p class="mb-4">
+        Das Tag "{{ selectedTagToDelete?.name }}" wird in
+        {{ tagUsage(selectedTagToDelete?.id || "") }} Buchungen verwendet. Bitte
+        wählen Sie einen Ersatz-Tag oder „Kein Tag“.
+      </p>
+      <SearchableSelect
+        v-model="replacementTagId"
+        :options="replacementOptions"
+        label="Ersatz-Tag"
+        placeholder="Ersatz auswählen..."
+      />
+      <div class="flex justify-end space-x-2 mt-4">
+        <button class="btn btn-outline" @click="showReplaceTagModal = false">
+          Abbrechen
+        </button>
+        <button
+          class="btn btn-primary"
+          @click="
+            () => {
+              if (selectedTagToDelete) {
+                replaceTagInTransactions(selectedTagToDelete, replacementTagId);
+                tagStore.deleteTag(selectedTagToDelete.id);
+              }
+              showReplaceTagModal = false;
+            }
+          "
+        >
+          Übernehmen
         </button>
       </div>
     </div>
