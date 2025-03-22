@@ -56,6 +56,9 @@ const reconciled = ref(false);
 const recipientsLoaded = ref(false);
 const submitAttempted = ref(false);
 
+// Flag zur Vermeidung doppelter Submits
+const isSubmitting = ref(false);
+
 const amountInputRef = ref<InstanceType<typeof CurrencyInput> | null>(null);
 const formModalRef = ref<HTMLFormElement | null>(null);
 
@@ -189,6 +192,7 @@ const saveTransaction = () => {
       date: date.value,
       valueDate: valueDate.value || date.value,
       note: note.value,
+      reconciled: reconciled.value,
     };
   } else {
     return {
@@ -211,57 +215,26 @@ const saveTransaction = () => {
 };
 
 const submitForm = () => {
+  if (isSubmitting.value) return;
+  isSubmitting.value = true;
+
   submitAttempted.value = true;
   if (validationErrors.value.length > 0) {
     alert(
       "Bitte fülle alle Pflichtfelder aus: " + validationErrors.value.join(", ")
     );
+    isSubmitting.value = false;
     return;
   }
-  // Verwende die Formulardaten aus den State-Variablen
+  // Erzeuge das Transaktions-Payload und emittiere es
   const transactionPayload = saveTransaction();
-  if (transactionType.value === TransactionType.TRANSFER) {
-    if (props.transaction && (props.transaction as any).counterTransactionId) {
-      transactionStore.updateTransferTransaction(props.transaction.id, {
-        fromAccountId: accountId.value,
-        toAccountId: toAccountId.value,
-        amount: Math.abs(amount.value),
-        date: date.value,
-        valueDate: valueDate.value,
-        note: note.value,
-        reconciled: reconciled.value,
-      });
-    } else {
-      transactionStore.addTransferTransaction(
-        accountId.value,
-        toAccountId.value,
-        Math.abs(amount.value),
-        date.value,
-        valueDate.value,
-        note.value
-      );
-    }
-  } else {
-    if (props.transaction) {
-      transactionStore.updateTransaction(
-        props.transaction.id,
-        transactionPayload
-      );
-    } else {
-      transactionStore.addTransaction(transactionPayload);
-    }
-  }
   emit("save", transactionPayload);
+  isSubmitting.value = false;
 };
 </script>
 
 <template>
-  <div
-    class="text-center p-4"
-    v-if="!recipientsLoaded"
-  >
-    Lade Empfänger...
-  </div>
+  <div class="text-center p-4" v-if="!recipientsLoaded">Lade Empfänger...</div>
   <form
     ref="formModalRef"
     novalidate
@@ -320,10 +293,7 @@ const submitForm = () => {
       class="alert alert-error p-2"
     >
       <ul class="list-disc list-inside">
-        <li
-          v-for="(err, index) in validationErrors"
-          :key="index"
-        >
+        <li v-for="(err, index) in validationErrors" :key="index">
           {{ err }}
         </li>
       </ul>
@@ -361,15 +331,8 @@ const submitForm = () => {
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <fieldset class="fieldset">
         <legend class="fieldset-legend">Konto (Pflicht)</legend>
-        <select
-          v-model="accountId"
-          class="select select-bordered w-full"
-        >
-          <option
-            v-for="a in accounts"
-            :key="a.id"
-            :value="a.id"
-          >
+        <select v-model="accountId" class="select select-bordered w-full">
+          <option v-for="a in accounts" :key="a.id" :value="a.id">
             {{ a.name }}
           </option>
         </select>
@@ -383,11 +346,7 @@ const submitForm = () => {
           class="select select-bordered w-full"
           :disabled="!isTransfer"
         >
-          <option
-            v-for="a in filteredAccounts"
-            :key="a.id"
-            :value="a.id"
-          >
+          <option v-for="a in filteredAccounts" :key="a.id" :value="a.id">
             {{ a.name }}
           </option>
         </select>

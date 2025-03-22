@@ -12,7 +12,7 @@ import PagingComponent from "../components/ui/PagingComponent.vue";
 import MonthSelector from "../components/ui/MonthSelector.vue";
 import { Transaction, TransactionType } from "../types";
 import SearchGroup from "../components/ui/SearchGroup.vue";
-import { formatCurrency, formatDate } from "../utils/formatters";
+import { formatCurrency } from "../utils/formatters";
 import { Icon } from "@iconify/vue";
 
 const refreshKey = ref(0);
@@ -30,18 +30,19 @@ const showTransactionDetailModal = ref(false);
 
 // Filter- und UI-Status
 const selectedTransaction = ref<Transaction | null>(null);
-const selectedAccountId = ref(""); // Leerer Wert => kein Filter
-const selectedTransactionType = ref(""); // Leerer Wert => kein Filter
+const selectedAccountId = ref("");
+const selectedTransactionType = ref("");
+const selectedReconciledFilter = ref("");
 const searchQuery = ref("");
 const currentPage = ref(1);
 const itemsPerPage = ref(25);
 const itemsPerPageOptions = [10, 20, 25, 50, 100, "all"];
 
-// Filterpriorität: Zuerst Typ, dann Konto, dann Datumsbereich
 const dateRange = ref<{ start: string; end: string }>({
   start: new Date().toISOString().split("T")[0],
   end: new Date().toISOString().split("T")[0],
 });
+
 function handleDateRangeUpdate(payload: { start: string; end: string }) {
   dateRange.value = payload;
   refreshKey.value++;
@@ -59,86 +60,92 @@ function sortBy(key: keyof Transaction) {
   }
   currentPage.value = 1;
 }
+
 function handleSortChange(key: keyof Transaction) {
   sortBy(key);
 }
 
-// Filterung der Transaktionen – Filterreihenfolge: Typ, Konto, Datum, Suchbegriff
 const filteredTransactions = computed(() => {
   refreshKey.value;
-  let transactions = transactionStore.transactions;
+  let txs = transactionStore.transactions;
 
-  // Filter nach Transaktionstyp
   if (selectedTransactionType.value) {
-    const typeMapping: Record<string, TransactionType> = {
+    const typeMap: Record<string, TransactionType> = {
       ausgabe: TransactionType.EXPENSE,
       einnahme: TransactionType.INCOME,
       transfer: TransactionType.TRANSFER,
     };
-    const desiredType = typeMapping[selectedTransactionType.value];
-    if (desiredType) {
-      transactions = transactions.filter((tx) => tx.type === desiredType);
-    }
+    const desired = typeMap[selectedTransactionType.value];
+    if (desired) txs = txs.filter((tx) => tx.type === desired);
   }
 
-  // Filter nach Konto
   if (selectedAccountId.value) {
-    transactions = transactions.filter(
-      (tx) => tx.accountId === selectedAccountId.value
+    txs = txs.filter((tx) => tx.accountId === selectedAccountId.value);
+  }
+
+  if (selectedReconciledFilter.value) {
+    txs = txs.filter((tx) =>
+      selectedReconciledFilter.value === "abgeglichen"
+        ? tx.reconciled
+        : !tx.reconciled
     );
   }
 
-  // Filter nach Datum
-  transactions = transactions.filter((tx) => {
+  const start = new Date(dateRange.value.start).getTime();
+  const end = new Date(dateRange.value.end).getTime();
+  txs = txs.filter((tx) => {
     const txDate = new Date(tx.date).getTime();
-    const start = new Date(dateRange.value.start).getTime();
-    const end = new Date(dateRange.value.end).getTime();
     return txDate >= start && txDate <= end;
   });
 
-  // Suchfilter
-  if (!searchQuery.value.trim()) return transactions;
-  const searchLower = searchQuery.value.toLowerCase();
-  const searchNumeric = searchLower.replace(",", ".");
-  return transactions.filter((tx) => {
-    const categoryName =
-      (tx.categoryId && categoryStore.getCategoryById(tx.categoryId)?.name) ||
-      "";
-    const recipientName =
-      (tx.recipientId &&
-        recipientStore.getRecipientById(tx.recipientId)?.name) ||
-      "";
-    const tagNames = Array.isArray(tx.tagIds)
+  if (!searchQuery.value.trim()) return txs;
+  const lower = searchQuery.value.toLowerCase();
+  const numeric = lower.replace(",", ".");
+
+  return txs.filter((tx) => {
+    const categoryName = tx.categoryId
+      ? categoryStore.getCategoryById(tx.categoryId)?.name?.toLowerCase() || ""
+      : "";
+    const recipientName = tx.recipientId
+      ? recipientStore.getRecipientById(tx.recipientId)?.name?.toLowerCase() ||
+        ""
+      : "";
+    const tags = Array.isArray(tx.tagIds)
       ? tx.tagIds
-          .map((tagId) => tagStore.getTagById(tagId)?.name || "")
+          .map((id) => tagStore.getTagById(id)?.name?.toLowerCase() || "")
           .join(" ")
       : "";
-    const accountName = accountStore.getAccountById(tx.accountId)?.name || "";
+    const accountName =
+      accountStore.getAccountById(tx.accountId)?.name.toLowerCase() || "";
     const toAccountName =
-      tx.type === "TRANSFER"
-        ? accountStore.getAccountById(tx.transferToAccountId)?.name || ""
+      tx.type === TransactionType.TRANSFER
+        ? accountStore
+            .getAccountById(tx.transferToAccountId)
+            ?.name.toLowerCase() || ""
         : "";
-    const payee = tx.payee || "";
+    const payee = tx.payee?.toLowerCase() || "";
     const formattedAmount = formatCurrency(tx.amount)
       .replace(/\./g, "")
       .replace(/,/g, ".");
-    return (
-      categoryName.toLowerCase().includes(searchLower) ||
-      recipientName.toLowerCase().includes(searchLower) ||
-      tagNames.toLowerCase().includes(searchLower) ||
-      accountName.toLowerCase().includes(searchLower) ||
-      toAccountName.toLowerCase().includes(searchLower) ||
-      payee.toLowerCase().includes(searchLower) ||
-      formattedAmount.includes(searchNumeric) ||
-      (tx.note || "").toLowerCase().includes(searchLower)
-    );
+    const note = tx.note?.toLowerCase() || "";
+
+    return [
+      categoryName,
+      recipientName,
+      tags,
+      accountName,
+      toAccountName,
+      payee,
+      formattedAmount,
+      note,
+    ].some((field) => field.includes(lower) || field.includes(numeric));
   });
 });
 
 const sortedTransactions = computed(() => {
-  const txs = [...filteredTransactions.value];
+  const list = [...filteredTransactions.value];
   if (sortKey.value) {
-    txs.sort((a, b) => {
+    list.sort((a, b) => {
       let aVal: any, bVal: any;
       switch (sortKey.value) {
         case "accountId":
@@ -186,7 +193,7 @@ const sortedTransactions = computed(() => {
       return 0;
     });
   }
-  return txs;
+  return list;
 });
 
 const paginatedTransactions = computed(() => {
@@ -198,28 +205,25 @@ const paginatedTransactions = computed(() => {
   );
 });
 
-// Aktionen: Anzeigen, Bearbeiten, Erstellen
 const viewTransaction = (tx: Transaction) => {
   selectedTransaction.value = tx;
   showTransactionDetailModal.value = true;
 };
+
 const editTransaction = (tx: Transaction) => {
   selectedTransaction.value = tx;
   showTransactionFormModal.value = true;
   showTransactionDetailModal.value = false;
 };
+
 const createTransaction = () => {
   selectedTransaction.value = null;
   showTransactionFormModal.value = true;
 };
 
-// Speichern
 const handleSave = (payload: any) => {
-  if (payload.type === "TRANSFER") {
-    if (
-      selectedTransaction.value &&
-      selectedTransaction.value.counterTransactionId
-    ) {
+  if (payload.type === TransactionType.TRANSFER) {
+    if (selectedTransaction.value?.counterTransactionId) {
       transactionStore.updateTransferTransaction(selectedTransaction.value.id, {
         fromAccountId: payload.fromAccountId,
         toAccountId: payload.toAccountId,
@@ -227,6 +231,7 @@ const handleSave = (payload: any) => {
         date: payload.date,
         valueDate: payload.valueDate,
         note: payload.note,
+        reconciled: payload.reconciled,
       });
     } else {
       transactionStore.addTransferTransaction(
@@ -240,15 +245,8 @@ const handleSave = (payload: any) => {
     }
   } else {
     const tx = {
-      ...payload.transaction,
-      type: payload.type,
-      payee:
-        recipientStore.getRecipientById(payload.transaction.recipientId)
-          ?.name || "",
-      counterTransactionId: null,
-      planningTransactionId: null,
-      isReconciliation: false,
-      runningBalance: 0,
+      ...payload,
+      payee: recipientStore.getRecipientById(payload.recipientId)?.name || "",
     };
     if (selectedTransaction.value) {
       transactionStore.updateTransaction(selectedTransaction.value.id, tx);
@@ -261,7 +259,6 @@ const handleSave = (payload: any) => {
   refreshKey.value++;
 };
 
-// Löschen
 const deleteTransaction = (tx: Transaction) => {
   if (confirm("Möchten Sie diese Transaktion wirklich löschen?")) {
     transactionStore.deleteTransaction(tx.id);
@@ -270,46 +267,62 @@ const deleteTransaction = (tx: Transaction) => {
 };
 </script>
 
+
 <template>
   <div class="space-y-6">
     <!-- Filterleiste -->
     <div class="flex flex-wrap items-center justify-between gap-1">
       <!-- FilterCard -->
       <div class="card w-2/3 bg-base-100 shadow-md">
-        <!-- Container für Filter mit flex, items-center, justify-start und mx-2 -->
         <div
           class="rounded-md backdrop-blur-lg p-2 flex items-center justify-start mx-2 gap-2"
         >
-          <!-- Monatliche Selektion via MonthSelector -->
           <MonthSelector
             @update-daterange="handleDateRangeUpdate"
             class="mx-2"
           />
-          <!-- Transaktionstyp Dropdown -->
-          <select
-            v-model="selectedTransactionType"
-            class="select select-sm select-bordered border-base-300 w-40 mx-2"
-          >
-            <option value="">Alle Typen</option>
-            <option value="ausgabe">Ausgabe</option>
-            <option value="einnahme">Einnahme</option>
-            <option value="transfer">Transfer</option>
-          </select>
-          <!-- Konto Dropdown -->
-          <select
-            v-model="selectedAccountId"
-            class="select select-sm select-bordered border-base-300 w-40 mx-2"
-          >
-            <option value="">Alle Konten</option>
-            <option
-              v-for="acc in accountStore.activeAccounts"
-              :key="acc.id"
-              :value="acc.id"
-              class="mx-2"
+
+          <fieldset class="fieldset">
+            <legend class="fieldset-legend">Typ</legend>
+            <select
+              v-model="selectedTransactionType"
+              class="select select-sm select-bordered border-base-300 w-40 mx-2 rounded-full"
             >
-              {{ acc.name }}
-            </option>
-          </select>
+              <option value="">Alle Typen</option>
+              <option value="ausgabe">Ausgabe</option>
+              <option value="einnahme">Einnahme</option>
+              <option value="transfer">Transfer</option>
+            </select>
+          </fieldset>
+
+          <fieldset class="fieldset">
+            <legend class="fieldset-legend">Konto</legend>
+            <select
+              v-model="selectedAccountId"
+              class="select select-sm select-bordered border-base-300 w-40 mx-2 rounded-full"
+            >
+              <option value="">Alle Konten</option>
+              <option
+                v-for="acc in accountStore.activeAccounts"
+                :key="acc.id"
+                :value="acc.id"
+              >
+                {{ acc.name }}
+              </option>
+            </select>
+          </fieldset>
+
+          <fieldset class="fieldset">
+            <legend class="fieldset-legend">Abgeglichen</legend>
+            <select
+              v-model="selectedReconciledFilter"
+              class="select select-sm select-bordered border-base-300 w-40 mx-2 rounded-full"
+            >
+              <option value="">Alle</option>
+              <option value="abgeglichen">Abgeglichen</option>
+              <option value="nicht abgeglichen">Nicht abgeglichen</option>
+            </select>
+          </fieldset>
         </div>
       </div>
       <!-- Suchgruppe -->
