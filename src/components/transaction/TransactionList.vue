@@ -248,7 +248,7 @@ defineExpose({ getSelectedTransactions });
           <td class="text-right flex justify-end items-center mt-1">
             <template v-if="tx.note && tx.note.trim()">
               <div class="tooltip" :data-tip="tx.note">
-                <Icon icon="mdi:note-text-outline" class="text-lg opacity-50" />
+                <Icon icon="mdi:speaker-notes" class="text-lg opacity-50" />
               </div>
             </template>
           </td>

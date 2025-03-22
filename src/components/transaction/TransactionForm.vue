@@ -264,7 +264,7 @@ const submitForm = () => {
     class="space-y-4 max-w-[calc(100%-80px)] mx-auto"
   >
     <!-- Transaktionstyp und Abgleich-Checkbox -->
-    <div class="flex flex-row justify-between items-center">
+    <div class="flex flex-row justify-between items-start">
       <div class="flex justify-center gap-4 pt-4">
         <label class="flex items-center gap-2">
           <input
@@ -296,11 +296,11 @@ const submitForm = () => {
           <span class="text-sm">Transfer</span>
         </label>
       </div>
-      <label class="flex items-center gap-2">
+      <label class="flex items-center gap-2 text-sm">
         <input
           type="checkbox"
           v-model="reconciled"
-          class="checkbox checkbox-sm"
+          class="checkbox checkbox-xs"
         />
         abgeglichen?
       </label>
@@ -342,6 +342,16 @@ const submitForm = () => {
         />
         <span class="text-3xl">€</span>
       </div>
+    </div>
+
+    <!-- Notiz -->
+    <div class="flex items-start justify-between gap-2 mt-5">
+      <Icon icon="mdi:speaker-notes" />
+      <textarea
+        v-model="note"
+        class="textarea textarea-bordered w-full min-h-[3rem] fieldset"
+        placeholder="Notiz"
+      ></textarea>
     </div>
 
     <div class="divider pt-5" />
@@ -404,13 +414,6 @@ const submitForm = () => {
         @create="onCreateTag($event)"
       />
     </div>
-
-    <!-- Notiz -->
-    <textarea
-      v-model="note"
-      class="textarea textarea-bordered w-full min-h-[3rem] fieldset"
-      placeholder="Notiz"
-    ></textarea>
 
     <!-- Buttons -->
     <div class="flex justify-end pt-5">

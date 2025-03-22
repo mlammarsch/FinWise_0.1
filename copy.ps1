@@ -40,6 +40,8 @@ $searchFiles = @(
     "./src/stores/*.ts"
     #"./src/components/ui/PagingComponent.vue",
     "prompt\sytemprompt.md"
+    "src\components\ui\SearchableSelect.vue",
+    "src\components\ui\TagSearchableDropdown.vue"
 
 )
 

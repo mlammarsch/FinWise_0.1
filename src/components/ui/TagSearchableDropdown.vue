@@ -202,7 +202,7 @@ watch(isOpen, (val) => {
         <li
           v-for="option in filteredOptions"
           :key="option.id"
-          class="py-1 px-2 hover:bg-base-200 rounded-lg cursor-pointer"
+          class="p-1 px-2 hover:bg-base-200 rounded-lg cursor-pointer"
           @click.stop="addTag(option.id)"
         >
           {{ option.name }}

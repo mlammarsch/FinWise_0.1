@@ -169,19 +169,19 @@ watch(isOpen, (newValue) => {
         <div class="px-2 pt-2">
           <input
             type="text"
-            class="input input-sm input-bordered w-full"
+            class="input input-sm input-bordered border-base-300 w-full"
             v-model="searchTerm"
-            placeholder="Suchen..."
+            placeholder="Suchen oder neu anlegen..."
             @click.stop
             @keydown.enter="onEnter"
           />
         </div>
 
         <!-- Liste der Optionen -->
-        <ul class="max-h-60 overflow-y-auto">
+        <ul class="max-h-60 overflow-y-auto p-2">
           <li v-for="option in filteredOptions" :key="option.id" class="">
             <label
-              class="flex items-center space-x-2 cursor-pointer hover:bg-base-200 rounded-lg"
+              class="flex items-center space-x-2 cursor-pointer hover:bg-base-200 rounded-lg p-1"
             >
               <span>{{ option.name }}</span>
             </label>
