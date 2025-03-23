@@ -210,7 +210,7 @@ const toggleReconciled = () => {
             v-for="tagId in transaction.tagIds"
             :key="tagId"
             :class="[
-              'badge badge-sm',
+              'badge badge-sm opacity-70',
               'rounded-full',
               'text-xs',
               { 'badge-secondary': !tagStore.getTagById(tagId)?.color },
