@@ -27,13 +27,13 @@ const routes = [
 ];
 
 const adminRoutes = [
-  { path: "/admin/accounts", name: "Konten verwalten", icon: "mdi:bank" },
+  { path: "/admin/accounts", name: "Konten verwalten", icon: "mdi:cash-edit" },
   {
     path: "/admin/categories",
     name: "Kategorien verwalten",
-    icon: "mdi:tag-multiple",
+    icon: "mdi:category",
   },
-  { path: "/admin/tags", name: "Tags verwalten", icon: "mdi:label" },
+  { path: "/admin/tags", name: "Tags verwalten", icon: "mdi:tag-edit" },
   { path: "/admin/recipients", name: "Empfänger", icon: "mdi:person-edit" },
   {
     path: "/admin/planning",
