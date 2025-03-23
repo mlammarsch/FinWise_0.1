@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { ref, computed, onMounted, watch } from "vue";
 import { useTransactionStore } from "../stores/transactionStore";
 import { useAccountStore } from "../stores/accountStore";
 import { useCategoryStore } from "../stores/categoryStore";
@@ -10,10 +10,10 @@ import TransactionDetailModal from "../components/transaction/TransactionDetailM
 import TransactionForm from "../components/transaction/TransactionForm.vue";
 import PagingComponent from "../components/ui/PagingComponent.vue";
 import MonthSelector from "../components/ui/MonthSelector.vue";
-import { Transaction, TransactionType } from "../types";
 import SearchGroup from "../components/ui/SearchGroup.vue";
+import SearchableSelectLite from "../components/ui/SearchableSelectLite.vue";
+import { Transaction, TransactionType } from "../types";
 import { formatCurrency } from "../utils/formatters";
-import { Icon } from "@iconify/vue";
 
 const refreshKey = ref(0);
 
@@ -27,8 +27,6 @@ const recipientStore = useRecipientStore();
 // Modals
 const showTransactionFormModal = ref(false);
 const showTransactionDetailModal = ref(false);
-
-// Ref auf TransactionList, um auf ausgewählte Transaktionen zuzugreifen
 const transactionListRef = ref<InstanceType<typeof TransactionList> | null>(
   null
 );
@@ -38,6 +36,8 @@ const selectedTransaction = ref<Transaction | null>(null);
 const selectedAccountId = ref("");
 const selectedTransactionType = ref("");
 const selectedReconciledFilter = ref("");
+const selectedTagId = ref("");
+const selectedCategoryId = ref("");
 const searchQuery = ref("");
 const currentPage = ref(1);
 const itemsPerPage = ref(25);
@@ -47,15 +47,14 @@ const dateRange = ref<{ start: string; end: string }>({
   start: new Date().toISOString().split("T")[0],
   end: new Date().toISOString().split("T")[0],
 });
-
 function handleDateRangeUpdate(payload: { start: string; end: string }) {
   dateRange.value = payload;
   refreshKey.value++;
 }
 
+// Sortierung
 const sortKey = ref<keyof Transaction | "">("date");
 const sortOrder = ref<"asc" | "desc">("desc");
-
 function sortBy(key: keyof Transaction) {
   if (sortKey.value === key) {
     sortOrder.value = sortOrder.value === "asc" ? "desc" : "asc";
@@ -65,15 +64,14 @@ function sortBy(key: keyof Transaction) {
   }
   currentPage.value = 1;
 }
-
 function handleSortChange(key: keyof Transaction) {
   sortBy(key);
 }
 
+// Filterung
 const filteredTransactions = computed(() => {
   refreshKey.value;
   let txs = transactionStore.transactions;
-
   if (selectedTransactionType.value) {
     const typeMap: Record<string, TransactionType> = {
       ausgabe: TransactionType.EXPENSE,
@@ -83,11 +81,9 @@ const filteredTransactions = computed(() => {
     const desired = typeMap[selectedTransactionType.value];
     if (desired) txs = txs.filter((tx) => tx.type === desired);
   }
-
   if (selectedAccountId.value) {
     txs = txs.filter((tx) => tx.accountId === selectedAccountId.value);
   }
-
   if (selectedReconciledFilter.value) {
     txs = txs.filter((tx) =>
       selectedReconciledFilter.value === "abgeglichen"
@@ -95,18 +91,24 @@ const filteredTransactions = computed(() => {
         : !tx.reconciled
     );
   }
-
+  if (selectedTagId.value) {
+    txs = txs.filter(
+      (tx) =>
+        Array.isArray(tx.tagIds) && tx.tagIds.includes(selectedTagId.value)
+    );
+  }
+  if (selectedCategoryId.value) {
+    txs = txs.filter((tx) => tx.categoryId === selectedCategoryId.value);
+  }
   const start = new Date(dateRange.value.start).getTime();
   const end = new Date(dateRange.value.end).getTime();
   txs = txs.filter((tx) => {
     const txDate = new Date(tx.date).getTime();
     return txDate >= start && txDate <= end;
   });
-
   if (!searchQuery.value.trim()) return txs;
   const lower = searchQuery.value.toLowerCase();
   const numeric = lower.replace(",", ".");
-
   return txs.filter((tx) => {
     const categoryName = tx.categoryId
       ? categoryStore.getCategoryById(tx.categoryId)?.name?.toLowerCase() || ""
@@ -133,7 +135,6 @@ const filteredTransactions = computed(() => {
       .replace(/\./g, "")
       .replace(/,/g, ".");
     const note = tx.note?.toLowerCase() || "";
-
     return [
       categoryName,
       recipientName,
@@ -146,7 +147,6 @@ const filteredTransactions = computed(() => {
     ].some((field) => field.includes(lower) || field.includes(numeric));
   });
 });
-
 const sortedTransactions = computed(() => {
   const list = [...filteredTransactions.value];
   if (sortKey.value) {
@@ -200,7 +200,6 @@ const sortedTransactions = computed(() => {
   }
   return list;
 });
-
 const paginatedTransactions = computed(() => {
   if (itemsPerPage.value === "all") return sortedTransactions.value;
   const start = (currentPage.value - 1) * Number(itemsPerPage.value);
@@ -271,40 +270,39 @@ const deleteTransaction = (tx: Transaction) => {
   }
 };
 
-function handleBatchDeleteFromList() {
-  const selectedTransactions =
-    transactionListRef.value?.getSelectedTransactions();
-  if (!selectedTransactions || selectedTransactions.length === 0) {
-    alert("Keine Buchungen ausgewählt.");
-    return;
-  }
-  if (!confirm("Möchtest Du die ausgewählten Buchungen löschen?")) {
-    return;
-  }
-  const idsToDelete = new Set<string>();
-  selectedTransactions.forEach((tx) => {
-    idsToDelete.add(tx.id);
-    if (tx.type === TransactionType.TRANSFER && tx.counterTransactionId) {
-      idsToDelete.add(tx.counterTransactionId);
-    }
-  });
-  idsToDelete.forEach((id) => {
-    transactionStore.deleteTransaction(id);
-  });
-  refreshKey.value++;
-  // Schließe Dropdown durch Entfernen des Fokus
-  document.activeElement instanceof HTMLElement &&
-    document.activeElement.blur();
-}
+const clearFilters = () => {
+  selectedAccountId.value = "";
+  selectedTransactionType.value = "";
+  selectedReconciledFilter.value = "";
+  selectedTagId.value = "";
+  selectedCategoryId.value = "";
+  searchQuery.value = "";
+};
+
+// Filter-Persistenz laden
+onMounted(() => {
+  const savedTag = localStorage.getItem("transactionsView_selectedTagId");
+  if (savedTag !== null) selectedTagId.value = savedTag;
+  const savedCat = localStorage.getItem("transactionsView_selectedCategoryId");
+  if (savedCat !== null) selectedCategoryId.value = savedCat;
+});
+watch(selectedTagId, (newVal) => {
+  localStorage.setItem("transactionsView_selectedTagId", newVal);
+});
+watch(selectedCategoryId, (newVal) => {
+  localStorage.setItem("transactionsView_selectedCategoryId", newVal);
+});
 </script>
 
 <template>
   <div class="space-y-6">
     <!-- Filterleiste -->
     <div class="flex flex-wrap items-center justify-between gap-1">
-      <div class="card w-2/3 bg-base-100 shadow-md">
+      <div
+        class="card w-2/3 bg-base-100 shadow-md flex flex-wrap items-center justify-between"
+      >
         <div
-          class="rounded-lg glass-effect backdrop-blur-lg pb-1 flex items-center justify-start mx-2 gap-2"
+          class="rounded-lg glass-effect backdrop-blur-lg pb-1 flex flex-wrap items-center justify-start mx-2 gap-2"
         >
           <fieldset class="fieldset pt-0">
             <legend class="fieldset-legend text-center opacity-50">
@@ -321,7 +319,12 @@ function handleBatchDeleteFromList() {
             </legend>
             <select
               v-model="selectedAccountId"
-              class="select select-sm select-bordered border-base-300 w-40 mx-2 rounded-full"
+              class="select select-sm select-bordered rounded-full"
+              :class="
+                selectedAccountId
+                  ? 'border-2 border-accent'
+                  : 'border border-base-300'
+              "
             >
               <option value="">Alle Konten</option>
               <option
@@ -339,7 +342,12 @@ function handleBatchDeleteFromList() {
             </legend>
             <select
               v-model="selectedTransactionType"
-              class="select select-sm select-bordered border-base-300 w-40 mx-2 rounded-full"
+              class="select select-sm select-bordered rounded-full"
+              :class="
+                selectedTransactionType
+                  ? 'border-2 border-accent'
+                  : 'border border-base-300'
+              "
             >
               <option value="">Alle Typen</option>
               <option value="ausgabe">Ausgabe</option>
@@ -353,13 +361,49 @@ function handleBatchDeleteFromList() {
             </legend>
             <select
               v-model="selectedReconciledFilter"
-              class="select select-sm select-bordered border-base-300 w-40 mx-2 rounded-full"
+              class="select select-sm select-bordered rounded-full"
+              :class="
+                selectedReconciledFilter
+                  ? 'border-2 border-accent'
+                  : 'border border-base-300'
+              "
             >
               <option value="">Alle</option>
               <option value="abgeglichen">Abgeglichen</option>
               <option value="nicht abgeglichen">Nicht abgeglichen</option>
             </select>
           </fieldset>
+
+          <fieldset class="fieldset pt-0">
+            <legend class="fieldset-legend text-center opacity-50">
+              Kategorien
+            </legend>
+            <SearchableSelectLite
+              v-model="selectedCategoryId"
+              :options="categoryStore.categories"
+              item-text="name"
+              item-value="id"
+              placeholder="Alle Kategorien"
+              class=""
+            />
+          </fieldset>
+          <fieldset class="fieldset pt-0">
+            <legend class="fieldset-legend text-center opacity-50">Tags</legend>
+            <SearchableSelectLite
+              v-model="selectedTagId"
+              :options="tagStore.tags"
+              item-text="name"
+              item-value="id"
+              placeholder="Alle Tags"
+              class=""
+            />
+          </fieldset>
+          <button
+            class="btn btn-sm btn-ghost btn-circle self-end pb-2"
+            @click="clearFilters"
+          >
+            <Icon icon="mdi:filter-off" class="text-xl" />
+          </button>
         </div>
       </div>
       <SearchGroup
@@ -370,20 +414,25 @@ function handleBatchDeleteFromList() {
       />
     </div>
     <!-- Transaktionsliste Card -->
-    <div class="card bg-base-100 shadow-md border border-base-300 relative">
-      <!-- Batch-Dropdown in der Card, absolut positioniert und im Hover-Modus -->
+    <div class="card bg-base-100 shadow-md border border-base-300">
       <div
         class="dropdown dropdown-start dropdown-hover"
-        style="position: absolute; top: 2rem; left: 0.25rem; margin: 0rem"
+        style="position: absolute; top: 1.7rem; left: 0.1rem; margin: 0rem"
       >
-        <label class="btn btn-ghost btn-xs">⋮</label>
+        <label class="btn btn-ghost btn-md btn-circle">⋮</label>
         <ul
           class="dropdown-content menu p-2 shadow bg-base-100 border border-base-300 rounded-box w-52"
         >
-          <li class="">
-            <a class="text-error" @click="handleBatchDeleteFromList"
-              >Batch Delete</a
+          <li>
+            <a
+              class="text-error"
+              @click="
+                transactionListRef.value?.getSelectedTransactions() &&
+                  handleBatchDeleteFromList
+              "
             >
+              Batch Delete
+            </a>
           </li>
         </ul>
       </div>

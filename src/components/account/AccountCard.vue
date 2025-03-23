@@ -64,7 +64,7 @@ const selectAccount = () => {
 <template>
   <div
     :class="[
-      'card rounded-md border-base-200 shadow-none relative cursor-pointer hover:bg-base-300',
+      'card rounded-md border border-base-300 shadow-none relative cursor-pointer hover:bg-base-300',
       props.active ? 'bg-primary/20' : 'bg-base-200',
     ]"
     style="width: 100%"

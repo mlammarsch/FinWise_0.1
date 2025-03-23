@@ -151,7 +151,7 @@ watch(isOpen, (newValue) => {
         <span v-else class="text-base-content/50">{{
           placeholder || "Auswählen..."
         }}</span>
-        <Icon icon="mdi:chevron-down" class="ml-2 text-lg" />
+        <Icon icon="mdi:arrow-down-drop" class="ml-2 text-lg" />
       </div>
 
       <!-- Dropdown mit Optionen -->

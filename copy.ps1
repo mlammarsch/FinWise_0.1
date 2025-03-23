@@ -28,10 +28,9 @@ $includeDirectories = @(
 # Konfiguration der Dateifilter
 # --------------------------------------------------------------------------
 $excludeFiles = @(
-    "./*.*",
+    "./*.*"
     #"main.js",
     #"app.vue",
-    "Trans*"
 )
 
 $searchFiles = @(
@@ -44,12 +43,15 @@ $searchFiles = @(
     #"src\stores\recipientStore.ts",
     "src\views\AccountsView.vue",
     #"src\stores\transactionStore.ts",
-    #"src\components\transaction\TransactionList.vue",
+    "src\components\transaction\TransactionList.vue",
     #"src\components\transaction\TransactionForm.vue",
-    "src\components\account\*.vue"
+    "src\views\TransactionsView.vue",
+    "src\components\account\*.vue",
     #"src\views\admin\AdminRecipientsView.vue"
-    #"src\components\ui\SearchableSelect.vue",
+    "src\components\ui\SearchableSelect.vue",
     #"src\components\ui\TagSearchableDropdown.vue"
+    "src\stores\categoryStore.ts",
+    "src\stores\tagStore.ts"
 
 )
 

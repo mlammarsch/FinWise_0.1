@@ -136,7 +136,7 @@ const onAccountSelect = (account) => {
         <div class="modal-box max-w-2xl">
           <h3 class="font-bold text-lg mb-4">Kontogruppe bearbeiten</h3>
           <AccountGroupForm
-            class="z-10"
+            class=""
             :group="group"
             :is-edit="true"
             @save="onGroupSaved"
