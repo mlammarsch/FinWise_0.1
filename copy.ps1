@@ -40,11 +40,11 @@ $searchFiles = @(
     #"./src/stores/*.ts"
     #"./src/components/ui/PagingComponent.vue",
     "prompt\sytemprompt.md",
-    "src\stores\tagStore.ts",
+    "src\stores\recipientStore.ts",
     #"src\stores\transactionStore.ts",
     #"src\components\transaction\TransactionList.vue",
     #"src\components\account\*.vue"
-    "src\views\admin\AdminTagsView.vue"
+    "src\views\admin\AdminRecipientsView.vue"
     #"src\components\ui\SearchableSelect.vue",
     #"src\components\ui\TagSearchableDropdown.vue"
 

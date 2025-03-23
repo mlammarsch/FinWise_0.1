@@ -1,14 +1,12 @@
 <!-- src/views/admin/AdminTagsView.vue -->
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { ref, computed, nextTick } from "vue";
 import { useTagStore } from "../../stores/tagStore";
 import { useTransactionStore } from "../../stores/transactionStore";
 import type { Tag } from "../../types";
 import SearchGroup from "../../components/ui/SearchGroup.vue";
 import PagingComponent from "../../components/ui/PagingComponent.vue";
 import SearchableSelect from "../../components/ui/SearchableSelect.vue";
-import ColorPicker from "../../components/ui/ColorPicker.vue";
-import Icon from "@iconify/vue";
 
 const tagStore = useTagStore();
 const transactionStore = useTransactionStore();
@@ -21,34 +19,32 @@ const searchQuery = ref("");
 const currentPage = ref(1);
 const itemsPerPage = ref<number | string>(25);
 
-const filteredTags = computed(() =>
-  searchQuery.value.trim() === ""
-    ? tagStore.tags
-    : tagStore.tags.filter((t) =>
-        t.name.toLowerCase().includes(searchQuery.value.toLowerCase())
-      )
-);
+const filteredTags = computed(() => {
+  if (searchQuery.value.trim() === "") {
+    return tagStore.tags;
+  }
+  return tagStore.tags.filter((tag) =>
+    tag.name.toLowerCase().includes(searchQuery.value.toLowerCase())
+  );
+});
 
-const totalPages = computed(() =>
-  itemsPerPage.value === "all"
-    ? 1
-    : Math.ceil(filteredTags.value.length / Number(itemsPerPage.value))
-);
+const totalPages = computed(() => {
+  if (itemsPerPage.value === "all") return 1;
+  return Math.ceil(filteredTags.value.length / Number(itemsPerPage.value));
+});
 
-const paginatedTags = computed(() =>
-  itemsPerPage.value === "all"
-    ? filteredTags.value
-    : filteredTags.value.slice(
-        (currentPage.value - 1) * Number(itemsPerPage.value),
-        currentPage.value * Number(itemsPerPage.value)
-      )
-);
+const paginatedTags = computed(() => {
+  if (itemsPerPage.value === "all") return filteredTags.value;
+  const start = (currentPage.value - 1) * Number(itemsPerPage.value);
+  const end = start + Number(itemsPerPage.value);
+  return filteredTags.value.slice(start, end);
+});
 
-const tagUsage = computed(
-  () => (tagId: string) =>
+const tagUsage = computed(() => {
+  return (tagId: string) =>
     transactionStore.transactions.filter((tx) => tx.tagIds.includes(tagId))
-      .length
-);
+      .length;
+});
 
 const getParentTagName = (parentId: string | null): string => {
   if (!parentId) return "-";
@@ -70,31 +66,45 @@ const editTag = (tag: Tag) => {
 
 const saveTag = () => {
   if (!selectedTag.value) return;
-  if (isEditMode.value) tagStore.updateTag(selectedTag.value);
-  else tagStore.addTag({ ...selectedTag.value });
+
+  if (isEditMode.value) {
+    tagStore.updateTag(selectedTag.value);
+  } else {
+    tagStore.addTag({ ...selectedTag.value });
+  }
+
   showTagModal.value = false;
 };
 
-const closeModal = () => (showTagModal.value = false);
+const closeModal = () => {
+  showTagModal.value = false;
+};
 
+// Neue Variablen für Ersatz-Tag Dialog
 const showReplaceTagModal = ref(false);
 const selectedTagToDelete = ref<Tag | null>(null);
-const replacementTagId = ref<string>("");
+const replacementTagId = ref<string>(""); // "" entspricht "Kein Tag"
 
-const replacementOptions = computed(() => [
-  { id: "", name: "Kein Tag" },
-  ...tagStore.tags
+// Computed: Optionen für Ersatz-Tags (alle außer dem zu löschenden Tag)
+const replacementOptions = computed(() => {
+  const options = tagStore.tags
     .filter(
-      (t) => selectedTagToDelete.value && t.id !== selectedTagToDelete.value.id
+      (tag) =>
+        selectedTagToDelete.value && tag.id !== selectedTagToDelete.value.id
     )
-    .map((t) => ({ id: t.id, name: t.name })),
-]);
+    .map((tag) => ({ id: tag.id, name: tag.name }));
+  // Füge als erste Option "Kein Tag" (leerer Wert) hinzu.
+  return [{ id: "", name: "Kein Tag" }, ...options];
+});
 
+// Funktion, um in allen Buchungen das zu löschende Tag zu ersetzen
 const replaceTagInTransactions = (oldTag: Tag, newTagId: string | "") => {
   transactionStore.transactions.forEach((tx) => {
     if (tx.tagIds.includes(oldTag.id)) {
       const newTags = tx.tagIds.filter((id) => id !== oldTag.id);
-      if (newTagId && !newTags.includes(newTagId)) newTags.push(newTagId);
+      if (newTagId) {
+        if (!newTags.includes(newTagId)) newTags.push(newTagId);
+      }
       transactionStore.updateTransaction(tx.id, { tagIds: newTags });
     }
   });
@@ -102,24 +112,41 @@ const replaceTagInTransactions = (oldTag: Tag, newTagId: string | "") => {
 
 const deleteTag = (tag: Tag) => {
   if (tagUsage.value(tag.id) > 0) {
+    // Tag wird in Buchungen verwendet – öffne Ersatz-Dialog
     selectedTagToDelete.value = tag;
     replacementTagId.value = "";
     showReplaceTagModal.value = true;
-  } else if (confirm(`Möchten Sie das Tag "${tag.name}" wirklich löschen?`)) {
-    tagStore.deleteTag(tag.id);
+  } else {
+    if (confirm(`Möchten Sie das Tag "${tag.name}" wirklich löschen?`)) {
+      tagStore.deleteTag(tag.id);
+    }
   }
 };
 
-function updateTagColor(color: string, tagId: string) {
+const openColorPicker = async (tagId: string) => {
+  await nextTick();
+  const input = document.querySelector(
+    `input[type="color"][data-tag-id="${tagId}"]`
+  ) as HTMLInputElement;
+  input?.click();
+};
+
+const onColorPicked = (e: Event, tagId: string) => {
+  const color = (e.target as HTMLInputElement).value;
   const tag = tagStore.getTagById(tagId);
-  if (tag) tagStore.updateTag({ ...tag, color });
-}
+  if (tag) {
+    tagStore.updateTag({ ...tag, color });
+  }
+};
 </script>
 
 <template>
   <div class="max-w-4xl mx-auto flex flex-col min-h-screen py-8">
-    <div class="flex justify-between items-center mb-6">
-      <h2 class="text-xl font-bold">Tags verwalten</h2>
+    <!-- Header -->
+    <div
+      class="flex w-full justify-between items-center mb-6 flex-wrap md:flex-nowrap"
+    >
+      <h2 class="text-xl font-bold flex-shrink-0">Tags verwalten</h2>
       <SearchGroup
         btnRight="Neu"
         btnRightIcon="mdi:plus"
@@ -128,61 +155,82 @@ function updateTagColor(color: string, tagId: string) {
       />
     </div>
 
+    <!-- Card -->
     <div class="card bg-base-100 shadow-md border border-base-300 w-full mt-6">
-      <div class="card-body overflow-x-auto">
-        <table class="table table-zebra w-full">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th class="text-center hidden md:table-cell">Farbe</th>
-              <th class="text-center hidden md:table-cell">
-                Übergeordnetes Tag
-              </th>
-              <th class="text-center hidden md:table-cell">
-                Anzahl Unter-Tags
-              </th>
-              <th class="text-center hidden md:table-cell">
-                Verwendet in Buchungen
-              </th>
-              <th class="text-right">Aktionen</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="tag in paginatedTags" :key="tag.id">
-              <td>{{ tag.name }}</td>
-              <td class="text-center hidden md:table-cell">
-                <ColorPicker
-                  :modelValue="tag.color"
-                  :history="tagStore.colorHistory"
-                  @update:modelValue="(color) => updateTagColor(color, tag.id)"
-                />
-              </td>
-              <td class="text-center hidden md:table-cell">
-                {{ getParentTagName(tag.parentTagId) }}
-              </td>
-              <td class="text-center hidden md:table-cell">
-                {{ tagStore.getChildTags(tag.id).length }}
-              </td>
-              <td class="text-center hidden md:table-cell">
-                {{ tagUsage(tag.id) }}
-              </td>
-              <td class="text-right space-x-1">
-                <button
-                  class="btn btn-ghost btn-sm text-secondary"
-                  @click="editTag(tag)"
-                >
-                  <Icon icon="mdi:pencil" />
-                </button>
-                <button
-                  class="btn btn-ghost btn-sm text-error"
-                  @click="deleteTag(tag)"
-                >
-                  <Icon icon="mdi:trash-can" />
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+      <div class="card-body">
+        <div class="overflow-x-auto">
+          <table class="table table-zebra w-full">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th class="text-center hidden md:table-cell">Farbe</th>
+                <th class="text-center hidden md:table-cell">
+                  Übergeordnetes Tag
+                </th>
+                <th class="text-center hidden md:table-cell">
+                  Anzahl Unter-Tags
+                </th>
+                <th class="text-center hidden md:table-cell">
+                  Verwendet in Buchungen
+                </th>
+                <th class="text-right">Aktionen</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="tag in paginatedTags" :key="tag.id">
+                <td>{{ tag.name }}</td>
+                <td class="text-center hidden md:table-cell">
+                  <span
+                    v-if="tag.color"
+                    class="badge badge-sm text-white"
+                    :style="{ backgroundColor: tag.color }"
+                  >
+                    {{ tag.color }}
+                  </span>
+                  <span v-else class="relative inline-block">
+                    <Icon
+                      icon="mdi:brush-variant"
+                      class="opacity-50 text-lg cursor-pointer"
+                      @click="openColorPicker(tag.id)"
+                    />
+                    <input
+                      type="color"
+                      class="sr-only absolute"
+                      :data-tag-id="tag.id"
+                      @change="(e) => onColorPicked(e, tag.id)"
+                    />
+                  </span>
+                </td>
+                <td class="text-center hidden md:table-cell">
+                  {{ getParentTagName(tag.parentTagId) }}
+                </td>
+                <td class="text-center hidden md:table-cell">
+                  {{ tagStore.getChildTags(tag.id).length }}
+                </td>
+                <td class="text-center hidden md:table-cell">
+                  {{ tagUsage(tag.id) }}
+                </td>
+                <td class="text-right">
+                  <div class="flex justify-end space-x-1">
+                    <button
+                      class="btn btn-ghost btn-sm text-secondary"
+                      @click="editTag(tag)"
+                    >
+                      <Icon icon="mdi:pencil" class="text-base" />
+                    </button>
+                    <button
+                      class="btn btn-ghost btn-sm text-error"
+                      @click="deleteTag(tag)"
+                    >
+                      <Icon icon="mdi:trash-can" class="text-base" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
         <PagingComponent
           :currentPage="currentPage"
           :totalPages="totalPages"
@@ -192,100 +240,110 @@ function updateTagColor(color: string, tagId: string) {
         />
       </div>
     </div>
+  </div>
 
-    <!-- Modal Tag bearbeiten/erstellen -->
+  <!-- Modal für Tag bearbeiten/erstellen -->
+  <div
+    v-if="showTagModal"
+    class="fixed modal modal-open flex items-center justify-center z-50"
+  >
     <div
-      v-if="showTagModal"
-      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      class="bg-base-100 p-6 rounded-md w-full max-w-md shadow-lg border border-base-300"
     >
-      <div
-        class="bg-base-100 p-6 rounded-md w-full max-w-md shadow-lg border border-base-300"
-      >
-        <h3 class="text-lg font-bold mb-4">
-          {{ isEditMode ? "Tag bearbeiten" : "Neues Tag erstellen" }}
-        </h3>
-        <div class="form-control mb-4">
-          <label class="label"><span class="label-text">Name</span></label>
-          <input
-            v-model="selectedTag.name"
-            type="text"
-            class="input input-bordered w-full"
+      <h3 class="text-lg font-bold mb-4">
+        {{ isEditMode ? "Tag bearbeiten" : "Neues Tag erstellen" }}
+      </h3>
+      <div class="form-control mb-4">
+        <label class="label"><span class="label-text">Name</span></label>
+        <input
+          v-model="selectedTag.name"
+          type="text"
+          class="input input-bordered w-full"
+        />
+      </div>
+
+      <div class="form-control mb-4">
+        <label class="label"><span class="label-text">Farbe</span></label>
+        <input
+          v-model="selectedTag.color"
+          type="color"
+          class="input input-bordered w-full h-12 p-1"
+        />
+        <div class="flex flex-wrap mt-2 gap-1">
+          <button
+            v-for="c in tagStore.colorHistory"
+            :key="c"
+            class="w-6 h-6 rounded border border-base-300"
+            :style="{ backgroundColor: c }"
+            @click="selectedTag.color = c"
           />
-        </div>
-        <div class="form-control mb-4">
-          <label class="label"><span class="label-text">Farbe</span></label>
-          <ColorPicker
-            v-model="selectedTag.color"
-            :history="tagStore.colorHistory"
-          />
-        </div>
-        <div class="form-control mb-4">
-          <label class="label"
-            ><span class="label-text">Übergeordnetes Tag</span></label
-          >
-          <select
-            v-model="selectedTag.parentTagId"
-            class="select select-bordered"
-          >
-            <option :value="null">Keines</option>
-            <option v-for="tag in tagStore.tags" :key="tag.id" :value="tag.id">
-              {{ tag.name }}
-            </option>
-          </select>
-        </div>
-        <div class="flex justify-end space-x-2">
-          <button class="btn btn-outline" @click="closeModal">Abbrechen</button>
-          <button class="btn btn-primary" @click="saveTag">
-            {{ isEditMode ? "Speichern" : "Erstellen" }}
-          </button>
         </div>
       </div>
-    </div>
 
-    <!-- Modal Ersatz-Tag -->
+      <div class="form-control mb-4">
+        <label class="label"
+          ><span class="label-text">Übergeordnetes Tag</span></label
+        >
+        <select
+          v-model="selectedTag.parentTagId"
+          class="select select-bordered"
+        >
+          <option :value="null">Keines</option>
+          <option v-for="tag in tagStore.tags" :key="tag.id" :value="tag.id">
+            {{ tag.name }}
+          </option>
+        </select>
+      </div>
+
+      <div class="flex justify-end space-x-2">
+        <button class="btn btn-outline" @click="closeModal">Abbrechen</button>
+        <button class="btn btn-primary" @click="saveTag">
+          {{ isEditMode ? "Speichern" : "Erstellen" }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal für Ersatz-Tag auswählen bei Löschung -->
+  <div
+    v-if="showReplaceTagModal"
+    class="fixed modal modal-open flex items-center justify-center z-50"
+  >
     <div
-      v-if="showReplaceTagModal"
-      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      class="bg-base-100 p-6 rounded-md w-full max-w-md shadow-lg border border-base-300"
     >
-      <div
-        class="bg-base-100 p-6 rounded-md w-full max-w-md shadow-lg border border-base-300"
-      >
-        <h3 class="text-lg font-bold mb-4">
-          Tag ersetzen – Buchungen übertragen
-        </h3>
-        <p class="mb-4">
-          Das Tag "{{ selectedTagToDelete?.name }}" wird in
-          {{ tagUsage(selectedTagToDelete?.id || "") }} Buchungen verwendet.
-          Bitte wählen Sie einen Ersatz-Tag oder „Kein Tag“.
-        </p>
-        <SearchableSelect
-          v-model="replacementTagId"
-          :options="replacementOptions"
-          label="Ersatz-Tag"
-          placeholder="Ersatz auswählen..."
-        />
-        <div class="flex justify-end space-x-2 mt-4">
-          <button class="btn btn-outline" @click="showReplaceTagModal = false">
-            Abbrechen
-          </button>
-          <button
-            class="btn btn-primary"
-            @click="
-              () => {
-                if (selectedTagToDelete) {
-                  replaceTagInTransactions(
-                    selectedTagToDelete,
-                    replacementTagId
-                  );
-                  tagStore.deleteTag(selectedTagToDelete.id);
-                }
-                showReplaceTagModal = false;
+      <h3 class="text-lg font-bold mb-4">
+        Tag ersetzen – Buchungen übertragen
+      </h3>
+      <p class="mb-4">
+        Das Tag "{{ selectedTagToDelete?.name }}" wird in
+        {{ tagUsage(selectedTagToDelete?.id || "") }} Buchungen verwendet. Bitte
+        wählen Sie einen Ersatz-Tag oder „Kein Tag“.
+      </p>
+      <SearchableSelect
+        v-model="replacementTagId"
+        :options="replacementOptions"
+        label="Ersatz-Tag"
+        placeholder="Ersatz auswählen..."
+      />
+      <div class="flex justify-end space-x-2 mt-4">
+        <button class="btn btn-outline" @click="showReplaceTagModal = false">
+          Abbrechen
+        </button>
+        <button
+          class="btn btn-primary"
+          @click="
+            () => {
+              if (selectedTagToDelete) {
+                replaceTagInTransactions(selectedTagToDelete, replacementTagId);
+                tagStore.deleteTag(selectedTagToDelete.id);
               }
-            "
-          >
-            Übernehmen
-          </button>
-        </div>
+              showReplaceTagModal = false;
+            }
+          "
+        >
+          Übernehmen
+        </button>
       </div>
     </div>
   </div>

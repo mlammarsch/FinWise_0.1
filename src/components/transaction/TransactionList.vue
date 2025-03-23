@@ -162,11 +162,9 @@ defineExpose({ getSelectedTransactions });
             </div>
           </th>
           <!-- Neues Notiz-Feld -->
-          <div class="flex items-center justify-end">
-            <th class="text-center cursor-pointer">
-              <Icon icon="mdi:note-text-outline" class="text-lg" />
-            </th>
-          </div>
+          <th class="text-center cursor-pointer flex items-center justify-end">
+            <Icon icon="mdi:note-text-outline" class="text-lg" />
+          </th>
           <th
             @click="emit('sort-change', 'reconciled')"
             class="text-center cursor-pointer"

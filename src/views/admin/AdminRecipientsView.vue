@@ -6,6 +6,7 @@ import { useTransactionStore } from "../../stores/transactionStore";
 import type { Recipient } from "../../stores/recipientStore";
 import SearchGroup from "../../components/ui/SearchGroup.vue";
 import PagingComponent from "../../components/ui/PagingComponent.vue";
+import ConfirmationModal from "../../components/ui/ConfirmationModal.vue";
 
 /**
  * Pfad zur Komponente: src/views/admin/AdminRecipientsView.vue
@@ -24,7 +25,11 @@ const transactionStore = useTransactionStore();
 const showRecipientModal = ref(false);
 const isEditMode = ref(false);
 const selectedRecipient = ref<Recipient | null>(null);
+const nameInput = ref("");
 const searchQuery = ref("");
+
+const showDeleteConfirm = ref(false);
+const deleteTargetId = ref<string | null>(null);
 
 const currentPage = ref(1);
 const itemsPerPage = ref<number | string>(25);
@@ -60,8 +65,45 @@ const recipientUsage = computed(() => {
 
 const createRecipient = () => {
   selectedRecipient.value = null;
+  nameInput.value = "";
   isEditMode.value = false;
   showRecipientModal.value = true;
+};
+
+const editRecipient = (recipient: Recipient) => {
+  selectedRecipient.value = recipient;
+  nameInput.value = recipient.name;
+  isEditMode.value = true;
+  showRecipientModal.value = true;
+};
+
+const saveRecipient = () => {
+  if (!nameInput.value.trim()) return;
+
+  if (isEditMode.value && selectedRecipient.value) {
+    recipientStore.updateRecipient(selectedRecipient.value.id, {
+      name: nameInput.value.trim(),
+    });
+  } else {
+    recipientStore.addRecipient({ name: nameInput.value.trim() });
+  }
+
+  showRecipientModal.value = false;
+  selectedRecipient.value = null;
+  nameInput.value = "";
+};
+
+const confirmDeleteRecipient = (recipientId: string) => {
+  deleteTargetId.value = recipientId;
+  showDeleteConfirm.value = true;
+};
+
+const deleteRecipient = () => {
+  if (deleteTargetId.value) {
+    recipientStore.deleteRecipient(deleteTargetId.value);
+    deleteTargetId.value = null;
+  }
+  showDeleteConfirm.value = false;
 };
 </script>
 
@@ -91,25 +133,14 @@ const createRecipient = () => {
               <tr>
                 <th>Name</th>
                 <th class="text-center hidden md:table-cell">
-                  Übergeordnetes Tag
-                </th>
-                <th class="text-center hidden md:table-cell">
-                  Anzahl Unter-Tags
-                </th>
-                <th class="text-center hidden md:table-cell">
                   Verwendet in Buchungen
                 </th>
                 <th class="text-right">Aktionen</th>
               </tr>
             </thead>
             <tbody>
-              <tr
-                v-for="recipient in paginatedRecipients"
-                :key="recipient.id"
-              >
+              <tr v-for="recipient in paginatedRecipients" :key="recipient.id">
                 <td>{{ recipient.name }}</td>
-                <td class="text-center hidden md:table-cell">-</td>
-                <td class="text-center hidden md:table-cell">0</td>
                 <td class="text-center hidden md:table-cell">
                   {{ recipientUsage(recipient.id) }}
                 </td>
@@ -117,19 +148,15 @@ const createRecipient = () => {
                   <div class="flex justify-end space-x-1">
                     <button
                       class="btn btn-ghost btn-sm text-secondary flex items-center justify-center"
+                      @click="editRecipient(recipient)"
                     >
-                      <Icon
-                        icon="mdi:pencil"
-                        class="text-base"
-                      />
+                      <Icon icon="mdi:pencil" class="text-base" />
                     </button>
                     <button
                       class="btn btn-ghost btn-sm text-error flex items-center justify-center"
+                      @click="confirmDeleteRecipient(recipient.id)"
                     >
-                      <Icon
-                        icon="mdi:trash-can"
-                        class="text-base"
-                      />
+                      <Icon icon="mdi:trash-can" class="text-base" />
                     </button>
                   </div>
                 </td>
@@ -148,5 +175,43 @@ const createRecipient = () => {
         />
       </div>
     </div>
+
+    <!-- Bearbeiten / Neu Modal -->
+    <dialog v-if="showRecipientModal" class="modal modal-open">
+      <div class="modal-box">
+        <h3 class="font-bold text-lg mb-4">
+          {{ isEditMode ? "Empfänger bearbeiten" : "Neuen Empfänger anlegen" }}
+        </h3>
+        <input
+          type="text"
+          v-model="nameInput"
+          placeholder="Empfängername"
+          class="input input-bordered w-full mb-4"
+        />
+        <div class="modal-action">
+          <button class="btn" @click="showRecipientModal = false">
+            Abbrechen
+          </button>
+          <button class="btn btn-primary" @click="saveRecipient">
+            Speichern
+          </button>
+        </div>
+      </div>
+      <div
+        class="modal-backdrop bg-black/30"
+        @click="showRecipientModal = false"
+      ></div>
+    </dialog>
+
+    <!-- Bestätigungsdialog zum Löschen -->
+    <ConfirmationModal
+      v-if="showDeleteConfirm"
+      title="Empfänger löschen"
+      message="Möchtest Du diesen Empfänger wirklich löschen?"
+      confirmText="Löschen"
+      cancelText="Abbrechen"
+      @confirm="deleteRecipient"
+      @cancel="showDeleteConfirm = false"
+    />
   </div>
 </template>
