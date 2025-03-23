@@ -1,7 +1,6 @@
 <!-- MonthSelector.vue -->
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
-import { Icon } from "@iconify/vue";
 
 const emit = defineEmits<{
   (e: "update-daterange", payload: { start: string; end: string }): void;

@@ -218,7 +218,7 @@ defineExpose({ getSelectedTransactions });
               <span
                 v-for="tagId in tx.tagIds"
                 :key="tagId"
-                class="badge badge-soft badge-sm rounded-full"
+                class="badge badge-soft badge-sm rounded-full opacity-70"
                 :class="{
                   'badge-secondary': !tagStore.getTagById(tagId)?.color,
                 }"
