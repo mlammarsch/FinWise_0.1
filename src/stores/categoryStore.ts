@@ -7,7 +7,7 @@ export const useCategoryStore = defineStore('category', () => {
   // State
   const categories = ref<Category[]>([])
 
-  const initialState = { // Define initial state
+  const initialState = {
     categories: []
   }
 
@@ -25,6 +25,12 @@ export const useCategoryStore = defineStore('category', () => {
   const rootCategories = computed(() => {
     return categories.value
       .filter(category => category.parentCategoryId === null)
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+  })
+
+  const savingsGoals = computed(() => {
+    return categories.value
+      .filter(category => category.isSavingsGoal)
       .sort((a, b) => a.sortOrder - b.sortOrder)
   })
 
@@ -61,14 +67,13 @@ export const useCategoryStore = defineStore('category', () => {
     const category = categories.value.find(category => category.id === id)
     if (category) {
       category.balance += amount
-      category.transactionCount = (category.transactionCount || 0) + 1 // Inkrement Transaktionszähler
-      category.averageTransactionValue = category.balance / category.transactionCount || 0 // Berechne Durchschnittswert
+      category.transactionCount = (category.transactionCount || 0) + 1
+      category.averageTransactionValue = category.balance / category.transactionCount || 0
       saveCategories()
       return true
     }
     return false
   }
-
 
   // Persistenz
   function loadCategories() {
@@ -82,11 +87,10 @@ export const useCategoryStore = defineStore('category', () => {
     localStorage.setItem('finwise_categories', JSON.stringify(categories.value))
   }
 
-  function reset() { // Implement reset function
-    categories.value = initialState.categories;
-    loadCategories(); // Optionally reload initial data from localStorage
+  function reset() {
+    categories.value = initialState.categories
+    loadCategories()
   }
-
 
   // Initialisiere beim ersten Laden
   loadCategories()
@@ -96,11 +100,12 @@ export const useCategoryStore = defineStore('category', () => {
     getCategoryById,
     getCategoriesByParentId,
     rootCategories,
+    savingsGoals,
     addCategory,
     updateCategory,
     deleteCategory,
     updateCategoryBalance,
     loadCategories,
-    reset // Expose reset function
+    reset
   }
 })
