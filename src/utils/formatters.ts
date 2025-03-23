@@ -41,10 +41,13 @@ export function roundForStats(amount: number): number {
 }
 
 /**
- * Formatiert eine Zahl mit Tausendertrennzeichen
+ * Formatiert eine Zahl mit Tausendertrennzeichen und zwei Nachkommastellen
  */
 export function formatNumber(amount: number): string {
-  return new Intl.NumberFormat('de-DE').format(amount)
+  return new Intl.NumberFormat('de-DE', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(amount)
 }
 
 /**

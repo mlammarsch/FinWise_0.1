@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from "vue";
 import { Account, AccountType } from "../../types";
 import { useAccountStore } from "../../stores/accountStore";
+import { formatNumber } from "../../utils/formatters";
 
 const props = defineProps<{
   account?: Account;
@@ -12,7 +13,6 @@ const emit = defineEmits(["save", "cancel"]);
 
 const accountStore = useAccountStore();
 
-// Formularfelder
 const name = ref("");
 const description = ref("");
 const note = ref("");
@@ -25,9 +25,9 @@ const iban = ref("");
 const balance = ref(0);
 const creditLimit = ref(0);
 const offset = ref(0);
-const image = ref<string | null>(null); // Neu: Bild-URL
+const image = ref<string | null>(null);
+const originalImage = ref<string | null>(null);
 
-// Lade die Daten, wenn ein Konto zum Bearbeiten übergeben wurde
 onMounted(() => {
   if (props.account) {
     name.value = props.account.name;
@@ -42,23 +42,47 @@ onMounted(() => {
     balance.value = props.account.balance;
     creditLimit.value = props.account.creditLimit;
     offset.value = props.account.offset;
-    image.value = props.account.image || null; // Lade Bild-URL
+    image.value = props.account.image || null;
+    originalImage.value = props.account.image || null;
   } else {
-    // Standardwerte für ein neues Konto
     if (accountStore.accountGroups.length > 0) {
       accountGroupId.value = accountStore.accountGroups[0].id;
     }
   }
 });
 
-// Konvertiere einen String in eine Zahl
 const parseNumber = (value: string): number => {
   const normalized = value.replace(/\./g, "").replace(",", ".");
   return parseFloat(normalized) || 0;
 };
 
-// Speichere das Konto
+const handleImageUpload = (event: Event) => {
+  const file = (event.target as HTMLInputElement).files?.[0];
+  if (file) {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      image.value = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+  }
+};
+
+const removeImage = () => {
+  image.value = null;
+};
+
 const saveAccount = () => {
+  // Prüfen, ob altes Bild gelöscht werden kann
+  if (originalImage.value && originalImage.value !== image.value) {
+    const isStillUsed = accountStore.accounts.some(
+      (a) => a.image === originalImage.value && a.id !== props.account?.id
+    );
+    if (!isStillUsed) {
+      // Entferne Bild aus LocalStorage-Leiche (nicht notwendig, aber vorbereitet)
+      // Kein echter Dateisystemzugriff möglich
+    }
+  }
+
   const accountData: Omit<Account, "id"> = {
     name: name.value,
     description: description.value,
@@ -75,16 +99,11 @@ const saveAccount = () => {
     image: image.value || undefined,
   };
 
-  console.log("Daten zum Speichern:", accountData); // Debugging
   emit("save", accountData);
 };
 
-// Kontogruppen für das Dropdown
-const accountGroups = computed(() => {
-  return accountStore.accountGroups;
-});
+const accountGroups = computed(() => accountStore.accountGroups);
 
-// Kontotypen für das Dropdown
 const accountTypes = [
   { value: AccountType.CHECKING, label: "Girokonto" },
   { value: AccountType.SAVINGS, label: "Sparkonto" },
@@ -254,6 +273,13 @@ const accountTypes = [
           alt="Konto Bild Vorschau"
           class="rounded-md max-h-32"
         />
+        <button
+          class="btn btn-sm btn-error mt-2"
+          type="button"
+          @click="removeImage"
+        >
+          Bild entfernen
+        </button>
       </div>
     </div>
 

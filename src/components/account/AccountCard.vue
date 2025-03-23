@@ -11,6 +11,7 @@ const emit = defineEmits(["select"]);
 
 const props = defineProps<{
   account: Account;
+  active?: boolean;
 }>();
 
 const router = useRouter();
@@ -37,7 +38,7 @@ const showTransactions = () => {
 
 const deleteAccount = async () => {
   if (
-    confirm(`Möchten Sie das Konto "${props.account.name}" wirklich löschen?`)
+    confirm(`Möchtest Du das Konto "${props.account.name}" wirklich löschen?`)
   ) {
     await accountStore.deleteAccount(props.account.id);
   }
@@ -49,9 +50,9 @@ const onReconciled = async () => {
   await accountStore.loadAccounts();
 };
 
-const onAccountSaved = async () => {
+const onAccountSaved = async (accountData) => {
   showEditModal.value = false;
-  await accountStore.loadAccounts();
+  await accountStore.updateAccount(props.account.id, accountData);
 };
 
 // Konto auswählen
@@ -62,7 +63,10 @@ const selectAccount = () => {
 
 <template>
   <div
-    class="card rounded-md border-base-200 bg-base-200 shadow-none relative cursor-pointer hover:bg-base-300"
+    :class="[
+      'card rounded-md border-base-200 shadow-none relative cursor-pointer hover:bg-base-300',
+      props.active ? 'bg-primary/20' : 'bg-base-200',
+    ]"
     style="width: 100%"
     @click="selectAccount"
   >
@@ -100,9 +104,24 @@ const selectAccount = () => {
       <!-- Kontodetails -->
       <div class="flex-grow">
         <div class="grid grid-rows-[auto_auto_auto] m-1 pl-2 py-1">
-          <h2 class="card-title m-0 p-0 text-lg">{{ account.name }}</h2>
-          <div class="text-sm m-0 p-0">{{ account.description }}</div>
-          <div class="text-sm opacity-50 m-0 pt-1">{{ formattedIban }}</div>
+          <h2
+            class="card-title m-0 p-0 text-lg"
+            :class="{ 'text-primary': props.active }"
+          >
+            {{ account.name }}
+          </h2>
+          <div
+            class="text-sm m-0 p-0"
+            :class="{ 'text-primary': props.active }"
+          >
+            {{ account.description }}
+          </div>
+          <div
+            class="text-sm opacity-50 m-0 pt-1"
+            :class="{ 'text-primary': props.active }"
+          >
+            {{ formattedIban }}
+          </div>
         </div>
       </div>
 

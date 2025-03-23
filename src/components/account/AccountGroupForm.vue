@@ -12,36 +12,49 @@ const emit = defineEmits(["save", "cancel"]);
 
 const accountStore = useAccountStore();
 
-// Formularfelder
 const name = ref("");
 const sortOrder = ref(0);
-const image = ref<string | null>(null); // Bild-URL
+const image = ref<string | null>(null);
+const originalImage = ref<string | null>(null);
 
 onMounted(() => {
   if (props.group) {
     name.value = props.group.name;
     sortOrder.value = props.group.sortOrder;
     image.value = props.group.image || null;
+    originalImage.value = props.group.image || null;
   }
 });
 
-// Funktion zum Hochladen des Bildes
 const handleImageUpload = (event: Event) => {
   const file = (event.target as HTMLInputElement).files?.[0];
   if (file) {
     const reader = new FileReader();
     reader.onloadend = () => {
-      image.value = reader.result as string; // Speichere Base64-kodierte URL
+      image.value = reader.result as string;
     };
     reader.readAsDataURL(file);
   }
 };
 
+const removeImage = () => {
+  image.value = null;
+};
+
 const saveGroup = () => {
+  if (originalImage.value && originalImage.value !== image.value) {
+    const isStillUsed = accountStore.accountGroups.some(
+      (g) => g.image === originalImage.value && g.id !== props.group?.id
+    );
+    if (!isStillUsed) {
+      // Placeholder für späteren Löschmechanismus (Server/API)
+    }
+  }
+
   const groupData: Omit<AccountGroup, "id"> = {
     name: name.value,
     sortOrder: sortOrder.value,
-    image: image.value || undefined, // Sende Bild-URL (oder undefined, wenn kein Bild)
+    image: image.value || undefined,
   };
   emit("save", groupData);
 };
@@ -91,6 +104,13 @@ const saveGroup = () => {
           alt="Gruppen Bild Vorschau"
           class="rounded-md max-h-32"
         />
+        <button
+          class="btn btn-sm btn-error mt-2"
+          type="button"
+          @click="removeImage"
+        >
+          Bild entfernen
+        </button>
       </div>
     </div>
 

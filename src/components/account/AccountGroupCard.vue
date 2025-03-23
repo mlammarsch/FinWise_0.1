@@ -10,6 +10,7 @@ const emit = defineEmits(["selectAccount"]);
 
 const props = defineProps<{
   group: AccountGroup;
+  activeAccountId?: string;
 }>();
 
 const accountStore = useAccountStore();
@@ -37,16 +38,16 @@ const accountCount = computed(() => accountsInGroup.value.length);
 // Gruppe löschen
 const deleteAccountGroup = async () => {
   if (
-    confirm(`Möchten Sie die Gruppe "${props.group.name}" wirklich löschen?`)
+    confirm(`Möchtest Du die Gruppe "${props.group.name}" wirklich löschen?`)
   ) {
     await accountStore.deleteAccountGroup(props.group.id);
   }
 };
 
 // Modal Handler
-const onGroupSaved = async () => {
+const onGroupSaved = async (groupData) => {
   showEditModal.value = false;
-  await accountStore.loadAccounts();
+  await accountStore.updateAccountGroup(props.group.id, groupData);
 };
 
 // Account Selection Handler
@@ -78,7 +79,7 @@ const onAccountSelect = (account) => {
     <!-- Titelbereich der Karte -->
     <div class="card-body flex flex-row p-3">
       <div class="p-0 w-24">
-        <div class="w-16 h-16 rounded-md overflow-hidden">
+        <div class="w-10 h-10 rounded-md overflow-hidden opacity-60">
           <img
             v-if="group.image"
             :src="group.image"
@@ -119,6 +120,7 @@ const onAccountSelect = (account) => {
           v-for="account in accountsInGroup"
           :key="account.id"
           :account="account"
+          :active="activeAccountId === account.id"
           @select="onAccountSelect"
         />
       </div>

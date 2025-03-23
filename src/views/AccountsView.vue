@@ -8,68 +8,67 @@ import AccountForm from "../components/account/AccountForm.vue";
 import AccountGroupForm from "../components/account/AccountGroupForm.vue";
 import CurrencyDisplay from "../components/ui/CurrencyDisplay.vue";
 import TransactionCard from "../components/transaction/TransactionCard.vue";
+import MonthSelector from "../components/ui/MonthSelector.vue";
+import SearchGroup from "../components/ui/SearchGroup.vue";
 
 const accountStore = useAccountStore();
 const router = useRouter();
 
-// State für Modals
 const showNewAccountModal = ref(false);
 const showNewGroupModal = ref(false);
 
-// Ausgewählte Elemente
 const selectedAccount = ref(null);
 
-// Konten nach Gruppen gruppiert
-const accountsByGroup = computed(() => {
-  return accountStore.accountsByGroup;
-});
+const accountsByGroup = computed(() => accountStore.accountsByGroup);
+const accountGroups = computed(() => accountStore.accountGroups);
+const totalBalance = computed(() => accountStore.totalBalance);
 
-// Kontogruppen
-const accountGroups = computed(() => {
-  return accountStore.accountGroups;
-});
-
-// Gesamtsaldo aller Konten
-const totalBalance = computed(() => {
-  return accountStore.totalBalance;
-});
-
-// Neues Konto erstellen
 const createAccount = () => {
+  selectedAccount.value = null;
   showNewAccountModal.value = true;
 };
 
-// Neue Kontogruppe erstellen
 const createAccountGroup = () => {
+  selectedAccount.value = null;
   showNewGroupModal.value = true;
 };
 
-// Aktionen nach dem Speichern
-const onAccountSaved = async () => {
+const onAccountSaved = async (accountData) => {
+  if (selectedAccount.value?.id) {
+    accountStore.updateAccount(selectedAccount.value.id, accountData);
+  } else {
+    accountStore.addAccount(accountData);
+  }
   showNewAccountModal.value = false;
-  await accountStore.loadAccounts();
+  selectedAccount.value = null;
 };
 
-const onGroupSaved = async () => {
+const onGroupSaved = async (groupData) => {
+  const group = accountGroups.value.find((g) => g.name === groupData.name);
+  if (group) {
+    accountStore.updateAccountGroup(group.id, groupData);
+  } else {
+    accountStore.addAccountGroup(groupData);
+  }
   showNewGroupModal.value = false;
-  await accountStore.loadAccounts();
 };
 
-// Konto auswählen
 const onSelectAccount = (account) => {
   selectedAccount.value = account;
 };
 
 const accountTransactions = computed(() => {
   if (selectedAccount.value) {
-    return accountStore.getTransactionByAccountId(selectedAccount.value.id);
+    return accountStore
+      .getTransactionByAccountId(selectedAccount.value.id)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }
   return [];
 });
 </script>
 
 <template>
-  <div class="flex gap-4">
+  <div class="flex gap-4 justify-center">
     <div class="w-full md:w-1/2 max-w-xl">
       <!-- Row für Gesamtsaldo und Buttons -->
       <div class="rounded-md bg-base-200/50 backdrop-blur-lg p-2 mb-6">
@@ -109,14 +108,60 @@ const accountTransactions = computed(() => {
 
       <div v-for="group in accountGroups" :key="group.id" class="mb-8">
         <div class="mb-4">
-          <AccountGroupCard :group="group" @selectAccount="onSelectAccount" />
+          <AccountGroupCard
+            :group="group"
+            :activeAccountId="selectedAccount ? selectedAccount.id : ''"
+            @selectAccount="onSelectAccount"
+          />
         </div>
       </div>
     </div>
 
     <div class="w-full md:w-1/2 max-w-xl">
+      <!-- Steuerungsleiste mit Filterelementen aus TransactionsView (ohne Kontenauswahl) -->
+      <div class="rounded-md bg-base-200/50 backdrop-blur-lg p-2 mb-6">
+        <div
+          id="steuerungsleiste"
+          class="flex flex-wrap items-center justify-between gap-1"
+        >
+          <div class="flex flex-wrap">
+            <fieldset class="fieldset pt-0">
+              <legend class="fieldset-legend text-center opacity-50">
+                Monatswahl
+              </legend>
+              <MonthSelector class="mx-2" />
+            </fieldset>
+            <fieldset class="fieldset pt-0">
+              <legend class="fieldset-legend text-center opacity-50">
+                Transaktion
+              </legend>
+              <select
+                class="select select-sm select-bordered border-base-300 w-38 mx-2 rounded-full"
+              >
+                <option value="">Alle Typen</option>
+                <option value="ausgabe">Ausgabe</option>
+                <option value="einnahme">Einnahme</option>
+                <option value="transfer">Transfer</option>
+              </select>
+            </fieldset>
+            <fieldset class="fieldset pt-0">
+              <legend class="fieldset-legend text-center opacity-50">
+                Abgeglichen
+              </legend>
+              <select
+                class="select select-sm select-bordered border-base-300 w-38 mx-2 rounded-full"
+              >
+                <option value="">Alle</option>
+                <option value="abgeglichen">Abgeglichen</option>
+                <option value="nicht abgeglichen">Nicht abgeglichen</option>
+              </select>
+            </fieldset>
+          </div>
+        </div>
+      </div>
+
       <h2 v-if="selectedAccount" class="text-xl font-bold mb-4">
-        Transaktionen für Konto: {{ selectedAccount.name }}
+        <SearchGroup btnRight="Neue Transaktion" btnRightIcon="mdi:plus" />
       </h2>
       <p v-else>Wähle ein Konto, um die Transaktionen anzuzeigen.</p>
       <div class="grid grid-cols-1 gap-1">
