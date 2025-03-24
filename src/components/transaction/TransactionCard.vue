@@ -91,7 +91,7 @@ const toggleReconciled = () => {
             />
             <CurrencyDisplay
               :amount="transaction.amount"
-              class="text-right text-base font-semibold whitespace-nowrap"
+              class="text-right text-base whitespace-nowrap"
               :show-zero="true"
               :class="{
                 'text-warning': transaction.type === TransactionType.TRANSFER,

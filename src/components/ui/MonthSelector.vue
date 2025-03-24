@@ -66,7 +66,7 @@ function nextMonth() {
       <Icon icon="mdi:chevron-left" class="text-lg" />
     </button>
     <button
-      class="btn join-item btn-sm bg-base-100 border border-base-300 w-30"
+      class="btn join-item btn-sm bg-base-100 border border-base-300 text-neutral w-30"
     >
       {{ formattedMonthYear }}
     </button>

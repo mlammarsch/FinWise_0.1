@@ -8,6 +8,7 @@ import { useRecipientStore } from "../../stores/recipientStore";
 import { formatDate } from "../../utils/formatters";
 import CurrencyDisplay from "../ui/CurrencyDisplay.vue";
 import { Icon } from "@iconify/vue";
+import { hexToRgba } from "../../utils/formatters";
 
 const props = defineProps<{
   transactions: Transaction[];
@@ -218,15 +219,19 @@ defineExpose({ getSelectedTransactions });
               <span
                 v-for="tagId in tx.tagIds"
                 :key="tagId"
-                class="badge badge-soft badge-sm rounded-full opacity-70"
+                class="badge badge-sm rounded-full border-none font-semibold text-[0.7rem]"
                 :class="{
                   'badge-secondary': !tagStore.getTagById(tagId)?.color,
                 }"
                 :style="
                   tagStore.getTagById(tagId)?.color
                     ? {
-                        backgroundColor: tagStore.getTagById(tagId).color,
-                        color: '#fff',
+                        backgroundColor: hexToRgba(
+                          tagStore.getTagById(tagId).color,
+                          0.2
+                        ),
+                        color: tagStore.getTagById(tagId).color,
+                        textShadow: '0 0 1px currentColor',
                       }
                     : {}
                 "

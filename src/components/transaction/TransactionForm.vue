@@ -268,7 +268,7 @@ const submitForm = () => {
     v-else
     @submit.prevent="submitForm"
     @keydown.esc.prevent="emit('cancel')"
-    class="space-y-4 max-w-[calc(100%-80px)] mx-auto"
+    class="space-y-4 max-w-[calc(100%-80px)] mx-auto relative"
   >
     <!-- Transaktionstyp und Abgleich-Checkbox -->
     <div class="flex flex-row justify-between items-start">

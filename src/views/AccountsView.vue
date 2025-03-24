@@ -194,7 +194,7 @@ const filteredTransactions = computed(() => {
     <!-- Steuerungsleiste mit Filterelementen -->
     <div
       id="FilterCard"
-      class="rounded-md border border-base-300 backdrop-blur-lg p-2 w-full max-w-5xl mb-3"
+      class="rounded-md border border-base-300 backdrop-blur-lg p-2 w-full max-w-5xl mb-3 z-10"
     >
       <div class="flex flex-wrap items-center justify-between gap-1">
         <div class="flex flex-wrap">
@@ -274,7 +274,7 @@ const filteredTransactions = computed(() => {
             </fieldset>
           </div>
           <button
-            class="btn btn-sm btn-ghost btn-circle self-end pb-2 ml-4"
+            class="btn btn-sm btn-ghost btn-circle self-end ml-4 mb-4"
             @click="clearFilters"
           >
             <Icon icon="mdi:filter-off" class="text-xl" />

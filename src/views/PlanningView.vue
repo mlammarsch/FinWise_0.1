@@ -77,7 +77,11 @@ const executePlanning = (planningId: string, date: string) => {
       <ul>
         <li v-for="transaction in upcomingTransactions" :key="transaction.id">
           {{ transaction.description }} -
-          <CurrencyDisplay :amount="transaction.amount" :show-zero="true" :asInteger="false" />
+          <CurrencyDisplay
+            :amount="transaction.amount"
+            :show-zero="true"
+            :asInteger="false"
+          />
           <button @click="executePlanning(transaction.id, transaction.date)">
             Ausführen
           </button>
@@ -96,5 +100,32 @@ const executePlanning = (planningId: string, date: string) => {
       @save="savePlanning"
       @cancel="showEditPlanningModal = false"
     />
+  </div>
+
+  <div class="dropdown relative inline-flex">
+    <button
+      id="dropdown-default"
+      type="button"
+      class="dropdown-toggle btn btn-primary"
+      aria-haspopup="menu"
+      aria-expanded="false"
+      aria-label="Dropdown"
+    >
+      Dropdown
+      <span
+        class="icon-[tabler--chevron-down] dropdown-open:rotate-180 size-4"
+      ></span>
+    </button>
+    <ul
+      class="dropdown-menu dropdown-open:opacity-100 hidden min-w-60"
+      role="menu"
+      aria-orientation="vertical"
+      aria-labelledby="dropdown-default"
+    >
+      <li><a class="dropdown-item" href="#">My Profile</a></li>
+      <li><a class="dropdown-item" href="#">Settings</a></li>
+      <li><a class="dropdown-item" href="#">Billing</a></li>
+      <li><a class="dropdown-item" href="#">FAQs</a></li>
+    </ul>
   </div>
 </template>

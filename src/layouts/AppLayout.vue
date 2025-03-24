@@ -35,7 +35,7 @@ const toggleMobileMenu = () => {
     <div class="absolute bg-base-100/95 inset-0 backdrop-blur-md"></div>
 
     <!-- Header -->
-    <header class="glass-effect sticky top-0 border-b border-base-300 z-10">
+    <header class="sticky top-0 border-b border-base-300 bg-base-100 z-40">
       <div class="navbar container mx-auto">
         <div class="navbar-start">
           <!-- Mobile Menü Button -->

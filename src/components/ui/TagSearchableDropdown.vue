@@ -134,7 +134,7 @@ watch(isOpen, (val) => {
 <template>
   <!-- Hauptcontainer -->
   <div
-    class="form-control w-full tag-search-dropdown-container"
+    class="form-control w-full tag-search-dropdown-container relative"
     style="position: relative"
   >
     <!-- Label -->
@@ -181,7 +181,7 @@ watch(isOpen, (val) => {
     <!-- Dropdown-Liste -->
     <div
       v-if="isOpen"
-      class="bg-base-100 border border-base-300 rounded-box shadow-lg p-2 w-72"
+      class="bg-base-100 border border-base-300 rounded-box shadow-lg p-2 w-72 absolute z-40"
     >
       <!-- Suchfeld -->
       <input

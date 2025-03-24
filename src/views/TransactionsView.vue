@@ -296,147 +296,143 @@ watch(selectedCategoryId, (newVal) => {
 
 <template>
   <div class="space-y-6">
-    <!-- Filterleiste -->
-    <div class="flex flex-wrap items-center justify-between gap-1">
+    <SearchGroup
+      btnRight="Neue Transaktion"
+      btnRightIcon="mdi:plus"
+      @search="(query) => (searchQuery = query)"
+      @btn-right-click="createTransaction"
+    />
+    <!-- Transaktionsliste Card -->
+
+    <div class="card bg-base-100 shadow-md border border-base-300">
+      <!-- Filterleiste -->
       <div
-        class="card w-2/3 bg-base-100 shadow-md flex flex-wrap items-center justify-between"
+        class="card-title flex flex-wrap items-end justify-start gap-3 mx-2 pt-2 relative z-10"
       >
         <div
-          class="rounded-lg glass-effect backdrop-blur-lg pb-1 flex flex-wrap items-center justify-start mx-2 gap-2"
+          class="dropdown dropdown-end dropdown-hover absolute top-1 right-1"
         >
-          <fieldset class="fieldset pt-0">
-            <legend class="fieldset-legend text-center opacity-50">
-              Monatswahl
-            </legend>
-            <MonthSelector
-              @update-daterange="handleDateRangeUpdate"
-              class="mx-2"
-            />
-          </fieldset>
-          <fieldset class="fieldset pt-0">
-            <legend class="fieldset-legend text-center opacity-50">
-              Konto
-            </legend>
-            <select
-              v-model="selectedAccountId"
-              class="select select-sm select-bordered rounded-full"
-              :class="
-                selectedAccountId
-                  ? 'border-2 border-accent'
-                  : 'border border-base-300'
-              "
-            >
-              <option value="">Alle Konten</option>
-              <option
-                v-for="acc in accountStore.activeAccounts"
-                :key="acc.id"
-                :value="acc.id"
-              >
-                {{ acc.name }}
-              </option>
-            </select>
-          </fieldset>
-          <fieldset class="fieldset pt-0">
-            <legend class="fieldset-legend text-center opacity-50">
-              Transaktion
-            </legend>
-            <select
-              v-model="selectedTransactionType"
-              class="select select-sm select-bordered rounded-full"
-              :class="
-                selectedTransactionType
-                  ? 'border-2 border-accent'
-                  : 'border border-base-300'
-              "
-            >
-              <option value="">Alle Typen</option>
-              <option value="ausgabe">Ausgabe</option>
-              <option value="einnahme">Einnahme</option>
-              <option value="transfer">Transfer</option>
-            </select>
-          </fieldset>
-          <fieldset class="fieldset pt-0">
-            <legend class="fieldset-legend text-center opacity-50">
-              Abgeglichen
-            </legend>
-            <select
-              v-model="selectedReconciledFilter"
-              class="select select-sm select-bordered rounded-full"
-              :class="
-                selectedReconciledFilter
-                  ? 'border-2 border-accent'
-                  : 'border border-base-300'
-              "
-            >
-              <option value="">Alle</option>
-              <option value="abgeglichen">Abgeglichen</option>
-              <option value="nicht abgeglichen">Nicht abgeglichen</option>
-            </select>
-          </fieldset>
-
-          <fieldset class="fieldset pt-0">
-            <legend class="fieldset-legend text-center opacity-50">
-              Kategorien
-            </legend>
-            <SearchableSelectLite
-              v-model="selectedCategoryId"
-              :options="categoryStore.categories"
-              item-text="name"
-              item-value="id"
-              placeholder="Alle Kategorien"
-              class=""
-            />
-          </fieldset>
-          <fieldset class="fieldset pt-0">
-            <legend class="fieldset-legend text-center opacity-50">Tags</legend>
-            <SearchableSelectLite
-              v-model="selectedTagId"
-              :options="tagStore.tags"
-              item-text="name"
-              item-value="id"
-              placeholder="Alle Tags"
-              class=""
-            />
-          </fieldset>
-          <button
-            class="btn btn-sm btn-ghost btn-circle self-end pb-2"
-            @click="clearFilters"
+          <label class="btn btn-ghost btn-sm btn-circle"
+            ><Icon icon="mdi:dots-horizontal"
+          /></label>
+          <ul
+            class="dropdown-content menu p-2 shadow bg-base-100 border border-base-300 rounded-box w-52 z-40"
           >
-            <Icon icon="mdi:filter-off" class="text-xl" />
-          </button>
+            <li>
+              <a
+                class="text-error text-bold"
+                @click="
+                  transactionListRef.value?.getSelectedTransactions() &&
+                    handleBatchDeleteFromList
+                "
+                ><Icon icon="mdi:trash-can-outline" class="text-lg" />
+                Batch Delete
+              </a>
+            </li>
+          </ul>
         </div>
-      </div>
-      <SearchGroup
-        btnRight="Neue Transaktion"
-        btnRightIcon="mdi:plus"
-        @search="(query) => (searchQuery = query)"
-        @btn-right-click="createTransaction"
-      />
-    </div>
-    <!-- Transaktionsliste Card -->
-    <div class="card bg-base-100 shadow-md border border-base-300">
-      <div
-        class="dropdown dropdown-start dropdown-hover"
-        style="position: absolute; top: 1.7rem; left: 0.1rem; margin: 0rem"
-      >
-        <label class="btn btn-ghost btn-md btn-circle">⋮</label>
-        <ul
-          class="dropdown-content menu p-2 shadow bg-base-100 border border-base-300 rounded-box w-52"
-        >
-          <li>
-            <a
-              class="text-error"
-              @click="
-                transactionListRef.value?.getSelectedTransactions() &&
-                  handleBatchDeleteFromList
-              "
+        <fieldset class="fieldset pt-0">
+          <legend class="fieldset-legend text-center opacity-50">
+            Monatswahl
+          </legend>
+          <MonthSelector
+            @update-daterange="handleDateRangeUpdate"
+            class="mx-2"
+          />
+        </fieldset>
+        <fieldset class="fieldset pt-0">
+          <legend class="fieldset-legend text-center opacity-50">Konto</legend>
+          <select
+            v-model="selectedAccountId"
+            class="select select-sm select-bordered rounded-full"
+            :class="
+              selectedAccountId
+                ? 'border-2 border-accent'
+                : 'border border-base-300'
+            "
+          >
+            <option value="">Alle Konten</option>
+            <option
+              v-for="acc in accountStore.activeAccounts"
+              :key="acc.id"
+              :value="acc.id"
             >
-              Batch Delete
-            </a>
-          </li>
-        </ul>
+              {{ acc.name }}
+            </option>
+          </select>
+        </fieldset>
+        <fieldset class="fieldset pt-0">
+          <legend class="fieldset-legend text-center opacity-50">
+            Transaktion
+          </legend>
+          <select
+            v-model="selectedTransactionType"
+            class="select select-sm select-bordered rounded-full"
+            :class="
+              selectedTransactionType
+                ? 'border-2 border-accent'
+                : 'border border-base-300'
+            "
+          >
+            <option value="">Alle Typen</option>
+            <option value="ausgabe">Ausgabe</option>
+            <option value="einnahme">Einnahme</option>
+            <option value="transfer">Transfer</option>
+          </select>
+        </fieldset>
+        <fieldset class="fieldset pt-0">
+          <legend class="fieldset-legend text-center opacity-50">
+            Abgeglichen
+          </legend>
+          <select
+            v-model="selectedReconciledFilter"
+            class="select select-sm select-bordered rounded-full"
+            :class="
+              selectedReconciledFilter
+                ? 'border-2 border-accent'
+                : 'border border-base-300'
+            "
+          >
+            <option value="">Alle</option>
+            <option value="abgeglichen">Abgeglichen</option>
+            <option value="nicht abgeglichen">Nicht abgeglichen</option>
+          </select>
+        </fieldset>
+
+        <fieldset class="fieldset pt-0">
+          <legend class="fieldset-legend text-center opacity-50">
+            Kategorien
+          </legend>
+          <SearchableSelectLite
+            v-model="selectedCategoryId"
+            :options="categoryStore.categories"
+            item-text="name"
+            item-value="id"
+            placeholder="Alle Kategorien"
+            class=""
+          />
+        </fieldset>
+        <fieldset class="fieldset pt-0">
+          <legend class="fieldset-legend text-center opacity-50">Tags</legend>
+          <SearchableSelectLite
+            v-model="selectedTagId"
+            :options="tagStore.tags"
+            item-text="name"
+            item-value="id"
+            placeholder="Alle Tags"
+            class=""
+          />
+        </fieldset>
+        <button
+          class="btn btn-sm btn-ghost btn-circle self-end mb-1"
+          @click="clearFilters"
+        >
+          <Icon icon="mdi:filter-off" class="text-xl" />
+        </button>
       </div>
-      <div class="card-body">
+      <div class="divider px-5 m-0" />
+
+      <div class="card-body py-0 px-1">
         <TransactionList
           ref="transactionListRef"
           :transactions="paginatedTransactions"
@@ -474,7 +470,7 @@ watch(selectedCategoryId, (newVal) => {
     <!-- Formular-Modal -->
     <Teleport to="body">
       <div v-if="showTransactionFormModal" class="modal modal-open">
-        <div class="modal-box w-full max-w-2xl">
+        <div class="modal-box overflow-visible relative w-full max-w-2xl">
           <TransactionForm
             :transaction="selectedTransaction"
             @cancel="showTransactionFormModal = false"

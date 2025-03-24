@@ -131,7 +131,7 @@ watch(isOpen, (newValue) => {
 </script>
 
 <template>
-  <div class="form-control w-full custom-select">
+  <div class="form-control w-full custom-select relative">
     <!-- Label für das Dropdown -->
     <label v-if="label" class="label">
       <span class="label-text">{{ label }}</span>
@@ -157,7 +157,7 @@ watch(isOpen, (newValue) => {
       <!-- Dropdown mit Optionen -->
       <div
         v-if="isOpen"
-        class="z-30 mt-1 w-full bg-base-100 rounded-box shadow-lg border border-base-300"
+        class="mt-1 w-full bg-base-100 rounded-box shadow-lg border border-base-300 absolute z-40"
       >
         <!-- Suchfeld -->
         <div class="px-2 pt-2">

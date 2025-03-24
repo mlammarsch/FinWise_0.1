@@ -73,7 +73,7 @@ function selectOption(value: string) {
 </script>
 
 <template>
-  <div class="form-control w-full custom-dropdown-container relative z-40">
+  <div class="form-control w-full custom-dropdown-container relative">
     <label v-if="label" class="label">
       <span class="label-text">{{ label }}</span>
       <span v-if="required" class="text-error">*</span>
@@ -97,7 +97,7 @@ function selectOption(value: string) {
     <!-- Dropdown-Liste -->
     <div
       v-if="isOpen"
-      class="mt-1 w-38 bg-base-100 rounded-box shadow-lg border border-base-300"
+      class="mt-1 w-38 bg-base-100 rounded-box shadow-lg border border-base-300 absolute z-40"
     >
       <!-- Eingabefeld im Dropdown -->
       <div class="p-2">
