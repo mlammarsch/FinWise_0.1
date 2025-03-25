@@ -4,6 +4,8 @@ import { usePlanningStore } from "../stores/planningStore";
 import PlanningTransactionForm from "../components/planning/PlanningTransactionForm.vue";
 import { PlanningTransaction } from "../types";
 import CurrencyDisplay from "../components/ui/CurrencyDisplay.vue";
+import Badge from "../components/ui/BadgeSoft.vue";
+import ColorPicker from "../components/ui/ColorPicker.vue";
 
 // Stores
 const planningStore = usePlanningStore();
@@ -63,6 +65,22 @@ const deletePlanning = (planning: PlanningTransaction) => {
 const executePlanning = (planningId: string, date: string) => {
   planningStore.executePlanningTransaction(planningId, date);
 };
+
+const showPicker = ref(false)
+const badgeColor = ref('slate-700/45') // Defaultfarbe
+
+function openPicker() {
+  showPicker.value = true
+}
+
+function updateColor(newColor) {
+  badgeColor.value = `${newColor}/45` // oder dynamisch per zusätzlicher Auswahl
+  showPicker.value = false
+}
+
+function cancelPicker() {
+  showPicker.value = false
+}
 </script>
 
 <template>
@@ -102,30 +120,24 @@ const executePlanning = (planningId: string, date: string) => {
     />
   </div>
 
-  <div class="dropdown relative inline-flex">
-    <button
-      id="dropdown-default"
-      type="button"
-      class="dropdown-toggle btn btn-primary"
-      aria-haspopup="menu"
-      aria-expanded="false"
-      aria-label="Dropdown"
-    >
-      Dropdown
-      <span
-        class="icon-[tabler--chevron-down] dropdown-open:rotate-180 size-4"
-      ></span>
-    </button>
-    <ul
-      class="dropdown-menu dropdown-open:opacity-100 hidden min-w-60"
-      role="menu"
-      aria-orientation="vertical"
-      aria-labelledby="dropdown-default"
-    >
-      <li><a class="dropdown-item" href="#">My Profile</a></li>
-      <li><a class="dropdown-item" href="#">Settings</a></li>
-      <li><a class="dropdown-item" href="#">Billing</a></li>
-      <li><a class="dropdown-item" href="#">FAQs</a></li>
-    </ul>
+  <div class="inline-block relative">
+  <!-- Overlay mit Text -->
+  <div class="absolute inset-0 flex items-center justify-center rounded-full bg-blue-400/45 text-sm font-medium pointer-events-none z-10">
+    
+  </div>
+
+  <!-- Unsichtbarer Badge zur Struktur -->
+  <div class="badge text-white badge-soft opacity-80 rounded-full ">
+    Beispiel
+  </div>
+</div>
+
+<!-- Picker -->
+<div>
+    <Badge label="Kategorie" :colorIntensity="badgeColor" @click="openPicker" class="cursor-pointer" />
+
+    <div v-if="showPicker" class="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
+      <ColorPicker @cancel="cancelPicker" @farbe-intensity="updateColor" />
+    </div>
   </div>
 </template>

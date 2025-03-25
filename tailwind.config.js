@@ -1,32 +1,21 @@
+// tailwind.config.js
 /** @type {import('tailwindcss').Config} */
-// export default {
-//   content: [
-//     "./index.html",
-//     "./src/**/*.{vue,js,ts,jsx,tsx}",
-//     "./node_modules/flyonui/dist/js/*.js"
-//   ],
-//   plugins: [
-//     require("flyonui"),
-//     require("flyonui/plugin")
-//   ]
-// }
-
-
-// export default {
-//   content: [
-//     "./index.html",
-//     "./src/**/*.{vue,js,ts,jsx,tsx}"
-//   ],
-//   theme: {
-//     extend: {
-//       fontFamily: {
-//         'sans': ['Roboto Mono', 'Segoe UI', 'Inter', 'Roboto', 'sans-serif'],
-//         'serif': ['Roboto Slab', 'serif'],
-//         'mono': ['Roboto Mono', 'monospace'],
-//         'lobster': ['Lobster', 'cursive'],
-//         'lobster-two': ['Lobster Two', 'cursive']
-//       }
-//     }
-//   },
-//   plugins: [require('@tailwindcss/vite'), require('daisyui')],
-// };
+module.exports = {
+    content: [
+      './index.html',
+      './src/**/*.{vue,js,ts,jsx,tsx}',
+    ],
+  
+    safelist: [
+      {
+        pattern: /bg-(slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-(400|500|600|700|800|900)/,
+      },
+    ],
+  
+    theme: {
+      extend: {},
+    },
+  
+    plugins: [require('daisyui')],
+  }
+  
