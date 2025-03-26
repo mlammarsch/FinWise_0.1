@@ -1,12 +1,13 @@
-<!-- src/views/admin/AdminTagsView.vue -->
 <script setup lang="ts">
-import { ref, computed, nextTick } from "vue";
+import { ref, computed } from "vue";
 import { useTagStore } from "../../stores/tagStore";
 import { useTransactionStore } from "../../stores/transactionStore";
 import type { Tag } from "../../types";
 import SearchGroup from "../../components/ui/SearchGroup.vue";
 import PagingComponent from "../../components/ui/PagingComponent.vue";
 import SearchableSelect from "../../components/ui/SearchableSelect.vue";
+import BadgeSoft from "../../components/ui/BadgeSoft.vue";
+import ColorPicker from "../../components/ui/ColorPicker.vue";
 
 const tagStore = useTagStore();
 const transactionStore = useTransactionStore();
@@ -14,15 +15,15 @@ const transactionStore = useTransactionStore();
 const showTagModal = ref(false);
 const isEditMode = ref(false);
 const selectedTag = ref<Tag | null>(null);
-const searchQuery = ref("");
+const showColorPicker = ref(false);
+const tagBeingEditedForColor = ref<Tag | null>(null); // für Liste
 
+const searchQuery = ref("");
 const currentPage = ref(1);
 const itemsPerPage = ref<number | string>(25);
 
 const filteredTags = computed(() => {
-  if (searchQuery.value.trim() === "") {
-    return tagStore.tags;
-  }
+  if (searchQuery.value.trim() === "") return tagStore.tags;
   return tagStore.tags.filter((tag) =>
     tag.name.toLowerCase().includes(searchQuery.value.toLowerCase())
   );
@@ -53,7 +54,12 @@ const getParentTagName = (parentId: string | null): string => {
 };
 
 const createTag = () => {
-  selectedTag.value = { id: "", name: "", parentTagId: null, color: "#1a161d" };
+  selectedTag.value = {
+    id: "",
+    name: "",
+    parentTagId: null,
+    color: "primary",
+  };
   isEditMode.value = false;
   showTagModal.value = true;
 };
@@ -66,13 +72,11 @@ const editTag = (tag: Tag) => {
 
 const saveTag = () => {
   if (!selectedTag.value) return;
-
   if (isEditMode.value) {
     tagStore.updateTag(selectedTag.value);
   } else {
     tagStore.addTag({ ...selectedTag.value });
   }
-
   showTagModal.value = false;
 };
 
@@ -80,12 +84,10 @@ const closeModal = () => {
   showTagModal.value = false;
 };
 
-// Neue Variablen für Ersatz-Tag Dialog
 const showReplaceTagModal = ref(false);
 const selectedTagToDelete = ref<Tag | null>(null);
-const replacementTagId = ref<string>(""); // "" entspricht "Kein Tag"
+const replacementTagId = ref<string>("");
 
-// Computed: Optionen für Ersatz-Tags (alle außer dem zu löschenden Tag)
 const replacementOptions = computed(() => {
   const options = tagStore.tags
     .filter(
@@ -93,18 +95,14 @@ const replacementOptions = computed(() => {
         selectedTagToDelete.value && tag.id !== selectedTagToDelete.value.id
     )
     .map((tag) => ({ id: tag.id, name: tag.name }));
-  // Füge als erste Option "Kein Tag" (leerer Wert) hinzu.
   return [{ id: "", name: "Kein Tag" }, ...options];
 });
 
-// Funktion, um in allen Buchungen das zu löschende Tag zu ersetzen
 const replaceTagInTransactions = (oldTag: Tag, newTagId: string | "") => {
   transactionStore.transactions.forEach((tx) => {
     if (tx.tagIds.includes(oldTag.id)) {
       const newTags = tx.tagIds.filter((id) => id !== oldTag.id);
-      if (newTagId) {
-        if (!newTags.includes(newTagId)) newTags.push(newTagId);
-      }
+      if (newTagId && !newTags.includes(newTagId)) newTags.push(newTagId);
       transactionStore.updateTransaction(tx.id, { tagIds: newTags });
     }
   });
@@ -112,7 +110,6 @@ const replaceTagInTransactions = (oldTag: Tag, newTagId: string | "") => {
 
 const deleteTag = (tag: Tag) => {
   if (tagUsage.value(tag.id) > 0) {
-    // Tag wird in Buchungen verwendet – öffne Ersatz-Dialog
     selectedTagToDelete.value = tag;
     replacementTagId.value = "";
     showReplaceTagModal.value = true;
@@ -123,26 +120,30 @@ const deleteTag = (tag: Tag) => {
   }
 };
 
-const openColorPicker = async (tagId: string) => {
-  await nextTick();
-  const input = document.querySelector(
-    `input[type="color"][data-tag-id="${tagId}"]`
-  ) as HTMLInputElement;
-  input?.click();
+const openColorPicker = (tag: Tag | null) => {
+  tagBeingEditedForColor.value = tag;
+  showColorPicker.value = true;
 };
 
-const onColorPicked = (e: Event, tagId: string) => {
-  const color = (e.target as HTMLInputElement).value;
-  const tag = tagStore.getTagById(tagId);
-  if (tag) {
-    tagStore.updateTag({ ...tag, color });
+const onColorSelected = (farbe: string) => {
+  if (tagBeingEditedForColor.value) {
+    const tag = tagBeingEditedForColor.value;
+    tagStore.updateTag({ ...tag, color: farbe });
+  } else if (selectedTag.value) {
+    selectedTag.value.color = farbe;
   }
+  showColorPicker.value = false;
+  tagBeingEditedForColor.value = null;
+};
+
+const cancelColorPicker = () => {
+  showColorPicker.value = false;
+  tagBeingEditedForColor.value = null;
 };
 </script>
 
 <template>
   <div class="max-w-4xl mx-auto flex flex-col min-h-screen py-8">
-    <!-- Header -->
     <div
       class="flex w-full justify-between items-center mb-6 flex-wrap md:flex-nowrap"
     >
@@ -155,11 +156,10 @@ const onColorPicked = (e: Event, tagId: string) => {
       />
     </div>
 
-    <!-- Card -->
     <div class="card bg-base-100 shadow-md border border-base-300 w-full mt-6">
       <div class="card-body">
         <div class="overflow-x-auto">
-          <table class="table table-zebra w-full">
+          <table class="table table-zebra w-full max-w-full">
             <thead>
               <tr>
                 <th>Name</th>
@@ -167,10 +167,14 @@ const onColorPicked = (e: Event, tagId: string) => {
                 <th class="text-center hidden md:table-cell">
                   Übergeordnetes Tag
                 </th>
-                <th class="text-center hidden md:table-cell">
+                <th
+                  class="text-center hidden md:table-cell break-words whitespace-normal"
+                >
                   Anzahl Unter-Tags
                 </th>
-                <th class="text-center hidden md:table-cell">
+                <th
+                  class="text-center hidden md:table-cell break-words whitespace-normal"
+                >
                   Verwendet in Buchungen
                 </th>
                 <th class="text-right">Aktionen</th>
@@ -180,34 +184,24 @@ const onColorPicked = (e: Event, tagId: string) => {
               <tr v-for="tag in paginatedTags" :key="tag.id">
                 <td>{{ tag.name }}</td>
                 <td class="text-center hidden md:table-cell">
-                  <span
-                    v-if="tag.color"
-                    class="badge badge-sm text-white"
-                    :style="{ backgroundColor: tag.color }"
-                  >
-                    {{ tag.color }}
-                  </span>
-                  <span v-else class="relative inline-block">
-                    <Icon
-                      icon="mdi:brush-variant"
-                      class="opacity-50 text-lg cursor-pointer"
-                      @click="openColorPicker(tag.id)"
-                    />
-                    <input
-                      type="color"
-                      class="sr-only absolute"
-                      :data-tag-id="tag.id"
-                      @change="(e) => onColorPicked(e, tag.id)"
-                    />
-                  </span>
+                  <BadgeSoft
+                    :label="tag.color"
+                    :colorIntensity="tag.color"
+                    class="cursor-pointer"
+                    @click="openColorPicker(tag)"
+                  />
                 </td>
                 <td class="text-center hidden md:table-cell">
                   {{ getParentTagName(tag.parentTagId) }}
                 </td>
-                <td class="text-center hidden md:table-cell">
+                <td
+                  class="text-center hidden md:table-cell break-words whitespace-normal"
+                >
                   {{ tagStore.getChildTags(tag.id).length }}
                 </td>
-                <td class="text-center hidden md:table-cell">
+                <td
+                  class="text-center hidden md:table-cell break-words whitespace-normal"
+                >
                   {{ tagUsage(tag.id) }}
                 </td>
                 <td class="text-right">
@@ -230,7 +224,6 @@ const onColorPicked = (e: Event, tagId: string) => {
             </tbody>
           </table>
         </div>
-
         <PagingComponent
           :currentPage="currentPage"
           :totalPages="totalPages"
@@ -262,22 +255,14 @@ const onColorPicked = (e: Event, tagId: string) => {
         />
       </div>
 
-      <div class="form-control mb-4">
+      <div class="flex flex-col form-control mb-4">
         <label class="label"><span class="label-text">Farbe</span></label>
-        <input
-          v-model="selectedTag.color"
-          type="color"
-          class="input input-bordered w-full h-12 p-1"
+        <BadgeSoft
+          label="Farbe wählen"
+          :colorIntensity="selectedTag?.color || 'primary'"
+          class="mb-2 cursor-pointer"
+          @click="openColorPicker(null)"
         />
-        <div class="flex flex-wrap mt-2 gap-1">
-          <button
-            v-for="c in tagStore.colorHistory"
-            :key="c"
-            class="w-6 h-6 rounded border border-base-300"
-            :style="{ backgroundColor: c }"
-            @click="selectedTag.color = c"
-          />
-        </div>
       </div>
 
       <div class="form-control mb-4">
@@ -304,7 +289,18 @@ const onColorPicked = (e: Event, tagId: string) => {
     </div>
   </div>
 
-  <!-- Modal für Ersatz-Tag auswählen bei Löschung -->
+  <!-- Farbwahl -->
+  <div
+    v-if="showColorPicker"
+    class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center"
+  >
+    <ColorPicker
+      @cancel="cancelColorPicker"
+      @farbe-intensity="onColorSelected"
+    />
+  </div>
+
+  <!-- Modal für Ersatz-Tag -->
   <div
     v-if="showReplaceTagModal"
     class="fixed modal modal-open flex items-center justify-center z-50"

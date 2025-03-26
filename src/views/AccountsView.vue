@@ -16,6 +16,8 @@ import SearchGroup from "../components/ui/SearchGroup.vue";
 import SearchableSelectLite from "../components/ui/SearchableSelectLite.vue";
 import { TransactionType } from "../types";
 import { formatCurrency } from "../utils/formatters";
+import { calculateRunningBalancesByDate } from "../utils/calculation";
+import { formatDate } from "../utils/formatters"; // hinzufügen
 
 const accountStore = useAccountStore();
 const router = useRouter();
@@ -110,6 +112,32 @@ const onSelectAccount = (account: any) => {
 const handleDateRangeUpdate = (payload: { start: string; end: string }) => {
   dateRange.value = payload;
 };
+
+const groupedTransactions = computed(() => {
+  if (!selectedAccount.value) return [];
+
+  const allTxs = accountStore.getTransactionByAccountId(
+    selectedAccount.value.id
+  );
+  const fullGrouped = calculateRunningBalancesByDate(
+    allTxs,
+    selectedAccount.value.balance
+  );
+
+  // Filter auf bereits gruppierte Liste anwenden (transaktionen ausblenden, saldo behalten)
+  return fullGrouped
+    .map((group) => {
+      const filtered = group.transactions.filter((tx) =>
+        filteredTransactions.value.some((f) => f.id === tx.id)
+      );
+      return {
+        date: group.date,
+        runningBalance: group.runningBalance,
+        transactions: filtered,
+      };
+    })
+    .filter((group) => group.transactions.length > 0); // Leere Gruppen verwerfen
+});
 
 const filteredTransactions = computed(() => {
   if (!selectedAccount.value) return [];
@@ -343,13 +371,45 @@ const filteredTransactions = computed(() => {
           />
         </div>
 
+        <!-- Gefilterte Transaktionsliste gruppiert nach Datum -->
         <div>
-          <div class="grid grid-cols-1 gap-1">
-            <TransactionCard
-              v-for="transaction in filteredTransactions"
-              :key="transaction.id"
-              :transaction="transaction"
-            />
+          <div
+            v-for="(group, index) in groupedTransactions"
+            :key="index"
+            class="mb-4"
+          >
+            <div class="divider">
+              <div class="flex justify-start items-center">
+                <Icon
+                  icon="mdi:calendar-import"
+                  class="mx-2 text-sm opacity-50"
+                />
+                <div class="text-xs font-normal">
+                  {{ formatDate(group.date) }}
+                </div>
+              </div>
+              <Icon icon="mdi:square-medium" class="text-base opacity-40" />
+              <div class="flex justify-end items-center">
+                <Icon
+                  icon="mdi:scale-balance"
+                  class="mr-2 opacity-50 text-sm"
+                />
+                <CurrencyDisplay
+                  class="text-xs"
+                  :amount="group.runningBalance"
+                  :show-zero="true"
+                  :asInteger="true"
+                />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 gap-1">
+              <TransactionCard
+                v-for="transaction in group.transactions"
+                :key="transaction.id"
+                :transaction="transaction"
+              />
+            </div>
           </div>
         </div>
       </div>

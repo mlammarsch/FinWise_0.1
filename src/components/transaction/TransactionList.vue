@@ -9,6 +9,7 @@ import { formatDate } from "../../utils/formatters";
 import CurrencyDisplay from "../ui/CurrencyDisplay.vue";
 import { Icon } from "@iconify/vue";
 import { hexToRgba } from "../../utils/formatters";
+import BadgeSoft from "../ui/BadgeSoft.vue";
 
 const props = defineProps<{
   transactions: Transaction[];
@@ -216,28 +217,15 @@ defineExpose({ getSelectedTransactions });
           </td>
           <td>
             <div class="flex flex-wrap gap-1">
-              <span
+              <BadgeSoft
                 v-for="tagId in tx.tagIds"
                 :key="tagId"
-                class="badge badge-sm rounded-full border-none font-semibold text-[0.7rem]"
-                :class="{
-                  'badge-secondary': !tagStore.getTagById(tagId)?.color,
-                }"
-                :style="
-                  tagStore.getTagById(tagId)?.color
-                    ? {
-                        backgroundColor: hexToRgba(
-                          tagStore.getTagById(tagId).color,
-                          0.2
-                        ),
-                        color: tagStore.getTagById(tagId).color,
-                        textShadow: '0 0 1px currentColor',
-                      }
-                    : {}
+                :label="tagStore.getTagById(tagId)?.name || 'Unbekanntes Tag'"
+                :colorIntensity="
+                  tagStore.getTagById(tagId)?.color || 'secondary'
                 "
-              >
-                {{ tagStore.getTagById(tagId)?.name || "Unbekanntes Tag" }}
-              </span>
+                size="sm"
+              />
             </div>
           </td>
           <td class="text-right">
@@ -247,7 +235,6 @@ defineExpose({ getSelectedTransactions });
               :class="{ 'text-warning': tx.type === TransactionType.TRANSFER }"
             />
           </td>
-          <!-- Neues Notiz-Feld in der Zeile -->
           <td class="text-right flex justify-end items-center mt-1">
             <template v-if="tx.note && tx.note.trim()">
               <div class="tooltip" :data-tip="tx.note">

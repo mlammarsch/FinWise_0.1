@@ -7,6 +7,7 @@ import { useRecipientStore } from "../../stores/recipientStore";
 import { useTransactionStore } from "../../stores/transactionStore";
 import CurrencyDisplay from "../ui/CurrencyDisplay.vue";
 import { formatDate } from "../../utils/formatters";
+import BadgeSoft from "../ui/BadgeSoft.vue";
 
 /**
  * Pfad zur Komponente: components/transaction/TransactionCard.vue
@@ -72,8 +73,8 @@ const toggleReconciled = () => {
         <!-- Empfänger + Betrag -->
         <div class="flex justify-between items-start">
           <div class="flex items-center">
-            <Icon icon="mdi:account" class="pr-1 text-xl opacity-50" />
-            <div class="font-semibold text-base">{{ recipientName }}</div>
+            <Icon icon="mdi:account" class="pr-1 text-lg opacity-50" />
+            <div class="text-base">{{ recipientName }}</div>
           </div>
 
           <div class="flex items-center space-x-1">
@@ -100,91 +101,30 @@ const toggleReconciled = () => {
           </div>
         </div>
 
-        <!-- Entweder Notiz oder Datum/Kategorie -->
-        <div class="flex justify-between items-start">
-          <div class="flex-1">
-            <div
-              v-if="transaction.note"
-              class="whitespace-pre-wrap flex items-start bg-base-200 rounded-md p-1"
-            >
-              <div class="flex items-center">
-                <div>
-                  <Icon
-                    icon="mdi:speaker-notes"
-                    class="text-sm ml-1 opacity-50"
-                  />
-                </div>
-                <div class="text-sm text-gray-500 ml-2">
-                  {{ transaction.note }}
-                </div>
-              </div>
+        <!-- Notiz -->
+        <div
+          v-if="transaction.note"
+          class="whitespace-pre-wrap flex items-start w-5/6 bg-base-200 rounded-md p-1"
+        >
+          <div class="flex items-center">
+            <div>
+              <Icon icon="mdi:speaker-notes" class="text-sm ml-1 opacity-50" />
             </div>
-            <div
-              v-else
-              class="text-xs neutral-content flex items-center flex-wrap"
-            >
-              <!-- Gruppe 1 -->
-              <div class="flex items-center">
-                <Icon
-                  icon="mdi:calendar-import"
-                  class="pr-1 text-lg opacity-50"
-                />
-                <div class="text-sm">
-                  {{ formatDate(transaction.date) }}
-                </div>
-              </div>
-
-              <Icon icon="mdi:square-medium" class="text-base mx-1" />
-
-              <!-- Gruppe 2 -->
-              <div class="flex items-center">
-                <Icon
-                  icon="mdi:calendar-check"
-                  class="pr-1 text-lg opacity-50"
-                />
-                <div class="text-sm">
-                  {{ formatDate(transaction.valueDate) }}
-                </div>
-              </div>
-
-              <Icon icon="mdi:square-medium" class="text-base mx-1" />
-
-              <!-- Gruppe 3 -->
-              <div class="flex items-center">
-                <Icon icon="mdi:category" class="pr-1 text-lg opacity-50" />
-                <div class="text-sm">{{ categoryName }}</div>
-              </div>
+            <div class="text-sm text-gray-500 ml-2">
+              {{ transaction.note }}
             </div>
-          </div>
-
-          <div
-            class="flex items-center justify-end"
-            :class="{ 'ml-auto': !transaction.note }"
-          >
-            <Icon
-              icon="mdi:scale-balance"
-              class="text-base mx-2 text-neutral opacity-50"
-            />
-            <CurrencyDisplay
-              :amount="1000.5"
-              class="text-xs text-right text-gray-500 whitespace-nowrap"
-              :show-zero="true"
-            />
           </div>
         </div>
 
-        <!-- Datum + Kategorie Block nur bei vorhandener Notiz -->
-        <div
-          v-if="transaction.note"
-          class="text-xs neutral-content mt-1 flex items-center flex-wrap"
-        >
+        <!-- Datum + Kategorie -->
+        <div class="text-xs neutral-content flex items-center flex-wrap">
           <!-- Gruppe 1 -->
           <div class="flex items-center">
             <Icon icon="mdi:calendar-import" class="pr-1 text-lg opacity-50" />
             <div class="text-sm">{{ formatDate(transaction.date) }}</div>
           </div>
 
-          <Icon icon="mdi:square-medium" class="text-base mx-1" />
+          <Icon icon="mdi:square-medium" class="text-base opacity-40 mx-1" />
 
           <!-- Gruppe 2 -->
           <div class="flex items-center">
@@ -192,7 +132,7 @@ const toggleReconciled = () => {
             <div class="text-sm">{{ formatDate(transaction.valueDate) }}</div>
           </div>
 
-          <Icon icon="mdi:square-medium" class="text-base mx-1" />
+          <Icon icon="mdi:square-medium" class="text-base opacity-40 mx-1" />
 
           <!-- Gruppe 3 -->
           <div class="flex items-center">
@@ -206,26 +146,13 @@ const toggleReconciled = () => {
           v-if="transaction.tagIds.length > 0"
           class="flex flex-wrap gap-1 mt-1"
         >
-          <span
+          <BadgeSoft
             v-for="tagId in transaction.tagIds"
             :key="tagId"
-            :class="[
-              'badge badge-sm opacity-70',
-              'rounded-full',
-              'text-xs',
-              { 'badge-secondary': !tagStore.getTagById(tagId)?.color },
-            ]"
-            :style="
-              tagStore.getTagById(tagId)?.color
-                ? {
-                    backgroundColor: tagStore.getTagById(tagId).color,
-                    color: '#fff',
-                  }
-                : {}
-            "
-          >
-            {{ getTagName(tagId) }}
-          </span>
+            :label="getTagName(tagId)"
+            :colorIntensity="tagStore.getTagById(tagId)?.color || 'secondary'"
+            size="sm"
+          />
         </div>
       </div>
     </div>

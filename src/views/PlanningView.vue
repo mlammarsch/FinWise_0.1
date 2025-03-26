@@ -24,7 +24,7 @@ const planningTransactions = computed(() => {
 
 // Anstehende Transaktionen für die nächsten 30 Tage
 const upcomingTransactions = computed(() => {
-  return planningStore.getUpcomingTransactions(30); // Call the function directly
+  return planningStore.getUpcomingTransactions(30);
 });
 
 // Neue Plantransaktion erstellen
@@ -66,20 +66,21 @@ const executePlanning = (planningId: string, date: string) => {
   planningStore.executePlanningTransaction(planningId, date);
 };
 
-const showPicker = ref(false)
-const badgeColor = ref('slate-700/45') // Defaultfarbe
+// Color Picker Logik
+const showPicker = ref(false);
+const badgeColor = ref("slate-700/45");
 
 function openPicker() {
-  showPicker.value = true
+  showPicker.value = true;
 }
 
-function updateColor(newColor) {
-  badgeColor.value = `${newColor}/45` // oder dynamisch per zusätzlicher Auswahl
-  showPicker.value = false
+function updateColor(newColor: string) {
+  badgeColor.value = `${newColor}/45`;
+  showPicker.value = false;
 }
 
 function cancelPicker() {
-  showPicker.value = false
+  showPicker.value = false;
 }
 </script>
 
@@ -118,25 +119,22 @@ function cancelPicker() {
       @save="savePlanning"
       @cancel="showEditPlanningModal = false"
     />
-  </div>
 
-  <div class="inline-block relative">
-  <!-- Overlay mit Text -->
-  <div class="absolute inset-0 flex items-center justify-center rounded-full bg-blue-400/45 text-sm font-medium pointer-events-none z-10">
-    
-  </div>
+    <!-- Badge mit dynamischer Farbe -->
+    <div class="mt-6">
+      <Badge
+        label="Kategorie"
+        :colorIntensity="badgeColor"
+        @click="openPicker"
+        class="cursor-pointer"
+      />
+    </div>
 
-  <!-- Unsichtbarer Badge zur Struktur -->
-  <div class="badge text-white badge-soft opacity-80 rounded-full ">
-    Beispiel
-  </div>
-</div>
-
-<!-- Picker -->
-<div>
-    <Badge label="Kategorie" :colorIntensity="badgeColor" @click="openPicker" class="cursor-pointer" />
-
-    <div v-if="showPicker" class="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
+    <!-- Color Picker Modal -->
+    <div
+      v-if="showPicker"
+      class="fixed inset-0 flex items-center justify-center bg-black/50 z-50"
+    >
       <ColorPicker @cancel="cancelPicker" @farbe-intensity="updateColor" />
     </div>
   </div>
