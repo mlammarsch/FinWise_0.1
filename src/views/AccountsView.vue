@@ -121,10 +121,9 @@ const groupedTransactions = computed(() => {
   );
   const fullGrouped = calculateRunningBalancesByDate(
     allTxs,
-    selectedAccount.value.balance
+    selectedAccount.value.id
   );
 
-  // Filter auf bereits gruppierte Liste anwenden (transaktionen ausblenden, saldo behalten)
   return fullGrouped
     .map((group) => {
       const filtered = group.transactions.filter((tx) =>
@@ -136,7 +135,7 @@ const groupedTransactions = computed(() => {
         transactions: filtered,
       };
     })
-    .filter((group) => group.transactions.length > 0); // Leere Gruppen verwerfen
+    .filter((group) => group.transactions.length > 0);
 });
 
 const filteredTransactions = computed(() => {

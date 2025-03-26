@@ -1,19 +1,23 @@
+// calculation.ts
+
 import { Transaction } from "../types";
 
 /**
- * Gruppiert Transaktionen nach Datum (YYYY-MM-DD) und berechnet den laufenden Saldo.
+ * Gruppiert Transaktionen nach Datum (YYYY-MM-DD) und berechnet den laufenden Saldo pro Konto ab 0 €.
  * Gibt eine sortierte Liste von Gruppenobjekten zurück.
  */
 export function calculateRunningBalancesByDate(
   transactions: Transaction[],
-  initialBalance: number
+  accountId: string
 ): {
   date: string;
   transactions: Transaction[];
   runningBalance: number;
 }[] {
-  const sorted = [...transactions].sort(
-    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+  const filtered = transactions.filter((tx) => tx.accountId === accountId);
+
+  const sorted = [...filtered].sort(
+    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
   );
 
   const groups: Record<string, { date: string; transactions: Transaction[] }> = {};
@@ -27,16 +31,16 @@ export function calculateRunningBalancesByDate(
   }
 
   const groupList = Object.values(groups).sort(
-    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
   );
 
-  let balance = initialBalance;
+  let balance = 0;
   for (const group of groupList) {
     for (const tx of group.transactions) {
-      balance -= tx.amount;
+      balance += tx.amount;
     }
-    group["runningBalance"] = balance;
+    (group as any)["runningBalance"] = balance;
   }
 
-  return groupList;
+  return groupList.reverse(); // nach Datum absteigend zurückgeben
 }
