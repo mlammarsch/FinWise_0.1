@@ -36,22 +36,23 @@ $excludeFiles = @(
 $searchFiles = @(
     #"./src/views/TransactionsView.vue",
     #"./src/components/transaction/TransactionCard.vue",
-    "src\stores\accountStore.ts",
+    #"src\stores\accountStore.ts",
     #"./src/stores/*.ts"
     #"./src/components/ui/PagingComponent.vue",
     "prompt\sytemprompt.md",
     #"src\stores\recipientStore.ts",
     "src\views\AccountsView.vue",
-    #"src\stores\transactionStore.ts",
+    "src\stores\transactionStore.ts",
     "src\components\transaction\TransactionList.vue",
-    #"src\components\transaction\TransactionForm.vue",
+    "src\components\transaction\TransactionForm.vue",
     "src\views\TransactionsView.vue",
     "src\components\account\*.vue",
     #"src\views\admin\AdminRecipientsView.vue"
-    "src\components\ui\SearchableSelect.vue",
+    #"src\components\ui\SearchableSelect.vue",
     #"src\components\ui\TagSearchableDropdown.vue"
-    "src\stores\categoryStore.ts",
-    "src\stores\tagStore.ts"
+    #"src\stores\categoryStore.ts",
+    #"src\stores\tagStore.ts"
+    "src\components\ui\SearchGroup.vue"
 
 )
 

@@ -1,2 +1,2 @@
-Die Filtereinstellungen in der Accountview greifen noch nicht auf die Daten. Monatswahl, Transaktion, Abgeglichen, Tags und Kategorie filtert derweil noch nicht die Liste sauber. Die Daten für die TransactionCards werden bei Auslösen des Klicks auf Accountcard ausgelöst. Danach müssen alle die eingestelten Filter greifen. Sortierung immer Datum absteigend.
-Ebenso soll die Suchkomponente nach Volltext in den gerade angezeigten Daten der Transactioncards volltext suchen.
+In der Transactionlist kann ich das Modal Transaction Form aufrufen für eine Neuanlage und eine Datensatzänderung.
+Das gleiche Form möchte ich auch in der AccountView öffnen mit "Neue Transaktion aus der Suchgroup heraus. Datensatzänderung soll durch das Klicken auf eine TransactionCard ermöglicht werden.

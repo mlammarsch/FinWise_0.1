@@ -11,30 +11,32 @@ import AccountForm from "../components/account/AccountForm.vue";
 import AccountGroupForm from "../components/account/AccountGroupForm.vue";
 import CurrencyDisplay from "../components/ui/CurrencyDisplay.vue";
 import TransactionCard from "../components/transaction/TransactionCard.vue";
+import TransactionForm from "../components/transaction/TransactionForm.vue";
 import MonthSelector from "../components/ui/MonthSelector.vue";
 import SearchGroup from "../components/ui/SearchGroup.vue";
 import SearchableSelectLite from "../components/ui/SearchableSelectLite.vue";
-import { TransactionType } from "../types";
-import { formatCurrency } from "../utils/formatters";
+import { formatCurrency, formatDate } from "../utils/formatters";
 import { calculateRunningBalancesByDate } from "../utils/calculation";
-import { formatDate } from "../utils/formatters"; // hinzufügen
+import { useTransactionStore } from "../stores/transactionStore";
 
 const accountStore = useAccountStore();
 const router = useRouter();
 const tagStore = useTagStore();
 const categoryStore = useCategoryStore();
 const recipientStore = useRecipientStore();
+const transactionStore = useTransactionStore();
 
 const showNewAccountModal = ref(false);
 const showNewGroupModal = ref(false);
+const showTransactionFormModal = ref(false);
 
 const selectedAccount = ref<any>(null);
+const selectedTransaction = ref<any>(null);
 
 const accountsByGroup = computed(() => accountStore.accountsByGroup);
 const accountGroups = computed(() => accountStore.accountGroups);
 const totalBalance = computed(() => accountStore.totalBalance);
 
-// Neue Filtervariablen
 const selectedTransactionType = ref("");
 const selectedReconciledFilter = ref("");
 const selectedTagId = ref("");
@@ -49,7 +51,6 @@ const dateRange = ref({
     .split("T")[0],
 });
 
-// Filter-Persistenz laden
 onMounted(() => {
   const savedTag = localStorage.getItem("accountsView_selectedTagId");
   if (savedTag !== null) selectedTagId.value = savedTag;
@@ -115,7 +116,6 @@ const handleDateRangeUpdate = (payload: { start: string; end: string }) => {
 
 const groupedTransactions = computed(() => {
   if (!selectedAccount.value) return [];
-
   const allTxs = accountStore.getTransactionByAccountId(
     selectedAccount.value.id
   );
@@ -123,7 +123,6 @@ const groupedTransactions = computed(() => {
     allTxs,
     selectedAccount.value.id
   );
-
   return fullGrouped
     .map((group) => {
       const filtered = group.transactions.filter((tx) =>
@@ -141,20 +140,17 @@ const groupedTransactions = computed(() => {
 const filteredTransactions = computed(() => {
   if (!selectedAccount.value) return [];
   let txs = accountStore.getTransactionByAccountId(selectedAccount.value.id);
-
-  // Filter Transaktionstyp
   if (selectedTransactionType.value) {
-    const typeMap: Record<string, TransactionType> = {
-      ausgabe: TransactionType.EXPENSE,
-      einnahme: TransactionType.INCOME,
-      transfer: TransactionType.TRANSFER,
+    const typeMap: Record<string, string> = {
+      ausgabe: "EXPENSE",
+      einnahme: "INCOME",
+      transfer: "TRANSFER",
     };
     const desired = typeMap[selectedTransactionType.value];
     if (desired) {
       txs = txs.filter((tx) => tx.type === desired);
     }
   }
-  // Filter Abgeglichen
   if (selectedReconciledFilter.value) {
     txs = txs.filter((tx) =>
       selectedReconciledFilter.value === "abgeglichen"
@@ -162,18 +158,15 @@ const filteredTransactions = computed(() => {
         : !tx.reconciled
     );
   }
-  // Filter Tags
   if (selectedTagId.value) {
     txs = txs.filter(
       (tx) =>
         Array.isArray(tx.tagIds) && tx.tagIds.includes(selectedTagId.value)
     );
   }
-  // Filter Kategorien
   if (selectedCategoryId.value) {
     txs = txs.filter((tx) => tx.categoryId === selectedCategoryId.value);
   }
-  // Filter Monatswahl (Datumsspanne)
   if (dateRange.value.start && dateRange.value.end) {
     const startTime = new Date(dateRange.value.start).getTime();
     const endTime = new Date(dateRange.value.end).getTime();
@@ -182,23 +175,23 @@ const filteredTransactions = computed(() => {
       return txTime >= startTime && txTime <= endTime;
     });
   }
-  // Volltextsuche: Empfänger, Kategorie, Tags, Betrag, Note
   if (searchQuery.value.trim()) {
     const lower = searchQuery.value.toLowerCase();
     const numeric = lower.replace(",", ".");
     txs = txs.filter((tx) => {
       const recipientName = tx.recipientId
-        ? recipientStore
-            .getRecipientById(tx.recipientId)
-            ?.name?.toLowerCase() || ""
+        ? (
+            recipientStore.getRecipientById(tx.recipientId)?.name || ""
+          ).toLowerCase()
         : "";
       const categoryName = tx.categoryId
-        ? categoryStore.getCategoryById(tx.categoryId)?.name?.toLowerCase() ||
-          ""
+        ? (
+            categoryStore.getCategoryById(tx.categoryId)?.name || ""
+          ).toLowerCase()
         : "";
       const tags = Array.isArray(tx.tagIds)
         ? tx.tagIds
-            .map((id) => tagStore.getTagById(id)?.name?.toLowerCase() || "")
+            .map((id) => (tagStore.getTagById(id)?.name || "").toLowerCase())
             .join(" ")
         : "";
       const formattedAmount = formatCurrency(tx.amount)
@@ -210,10 +203,29 @@ const filteredTransactions = computed(() => {
       );
     });
   }
-  // Sortierung: Datum absteigend
   txs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   return txs;
 });
+
+const createTransaction = () => {
+  selectedTransaction.value = null;
+  showTransactionFormModal.value = true;
+};
+
+const editTransaction = (transaction: any) => {
+  selectedTransaction.value = transaction;
+  showTransactionFormModal.value = true;
+};
+
+const handleTransactionSave = (payload: any) => {
+  if (selectedTransaction.value && selectedTransaction.value.id) {
+    transactionStore.updateTransaction(selectedTransaction.value.id, payload);
+  } else {
+    transactionStore.addTransaction(payload);
+  }
+  showTransactionFormModal.value = false;
+  selectedTransaction.value = null;
+};
 </script>
 
 <template>
@@ -367,6 +379,7 @@ const filteredTransactions = computed(() => {
             btnRight="Neue Transaktion"
             btnRightIcon="mdi:plus"
             @search="(query) => (searchQuery = query)"
+            @btn-right-click="createTransaction"
           />
         </div>
 
@@ -401,13 +414,15 @@ const filteredTransactions = computed(() => {
                 />
               </div>
             </div>
-
             <div class="grid grid-cols-1 gap-1">
-              <TransactionCard
+              <div
                 v-for="transaction in group.transactions"
                 :key="transaction.id"
-                :transaction="transaction"
-              />
+                @click="editTransaction(transaction)"
+                class="cursor-pointer"
+              >
+                <TransactionCard :transaction="transaction" clickable />
+              </div>
             </div>
           </div>
         </div>
@@ -439,6 +454,23 @@ const filteredTransactions = computed(() => {
           />
         </div>
         <div class="modal-backdrop" @click="showNewGroupModal = false"></div>
+      </div>
+    </Teleport>
+
+    <!-- Transaktionsformular Modal -->
+    <Teleport to="body">
+      <div v-if="showTransactionFormModal" class="modal modal-open">
+        <div class="modal-box max-w-2xl">
+          <TransactionForm
+            :transaction="selectedTransaction"
+            @cancel="showTransactionFormModal = false"
+            @save="handleTransactionSave"
+          />
+        </div>
+        <div
+          class="modal-backdrop"
+          @click="showTransactionFormModal = false"
+        ></div>
       </div>
     </Teleport>
   </div>
