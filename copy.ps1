@@ -42,17 +42,20 @@ $searchFiles = @(
     "prompt\sytemprompt.md",
     #"src\stores\recipientStore.ts",
     "src\views\AccountsView.vue",
-    "src\stores\transactionStore.ts",
-    "src\components\transaction\TransactionList.vue",
-    "src\components\transaction\TransactionForm.vue",
-    "src\views\TransactionsView.vue",
-    "src\components\account\*.vue",
+    #"src\stores\transactionStore.ts",
+    #"src\stores\accountStore.ts",
+    #"src\components\transaction\TransactionList.vue",
+    #"src\components\transaction\TransactionForm.vue",
+    #"src\views\TransactionsView.vue",
+    #"src\components\account\*.vue",
+    #"src\utils\*.ts",
+    #"src\types\*.ts"
     #"src\views\admin\AdminRecipientsView.vue"
     #"src\components\ui\SearchableSelect.vue",
     #"src\components\ui\TagSearchableDropdown.vue"
     #"src\stores\categoryStore.ts",
     #"src\stores\tagStore.ts"
-    "src\components\ui\SearchGroup.vue"
+    #"src\components\ui\SearchGroup.vue"
 
 )
 

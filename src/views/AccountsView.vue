@@ -16,7 +16,7 @@ import MonthSelector from "../components/ui/MonthSelector.vue";
 import SearchGroup from "../components/ui/SearchGroup.vue";
 import SearchableSelectLite from "../components/ui/SearchableSelectLite.vue";
 import { formatCurrency, formatDate } from "../utils/formatters";
-import { calculateRunningBalancesByDate } from "../utils/calculation";
+import { groupTransactionsByDateWithBalance } from "../utils/calculation";
 import { useTransactionStore } from "../stores/transactionStore";
 
 const accountStore = useAccountStore();
@@ -114,29 +114,6 @@ const handleDateRangeUpdate = (payload: { start: string; end: string }) => {
   dateRange.value = payload;
 };
 
-const groupedTransactions = computed(() => {
-  if (!selectedAccount.value) return [];
-  const allTxs = accountStore.getTransactionByAccountId(
-    selectedAccount.value.id
-  );
-  const fullGrouped = calculateRunningBalancesByDate(
-    allTxs,
-    selectedAccount.value.id
-  );
-  return fullGrouped
-    .map((group) => {
-      const filtered = group.transactions.filter((tx) =>
-        filteredTransactions.value.some((f) => f.id === tx.id)
-      );
-      return {
-        date: group.date,
-        runningBalance: group.runningBalance,
-        transactions: filtered,
-      };
-    })
-    .filter((group) => group.transactions.length > 0);
-});
-
 const filteredTransactions = computed(() => {
   if (!selectedAccount.value) return [];
   let txs = accountStore.getTransactionByAccountId(selectedAccount.value.id);
@@ -207,6 +184,29 @@ const filteredTransactions = computed(() => {
   return txs;
 });
 
+const groupedTransactions = computed(() => {
+  if (!selectedAccount.value) return [];
+  const allTxs = accountStore.getTransactionByAccountId(
+    selectedAccount.value.id
+  );
+  const fullGrouped = groupTransactionsByDateWithBalance(
+    allTxs,
+    selectedAccount.value
+  );
+  return fullGrouped
+    .map((group) => {
+      const filtered = group.transactions.filter((tx) =>
+        filteredTransactions.value.some((f) => f.id === tx.id)
+      );
+      return {
+        date: group.date,
+        runningBalance: group.runningBalance,
+        transactions: filtered,
+      };
+    })
+    .filter((group) => group.transactions.length > 0);
+});
+
 const createTransaction = () => {
   selectedTransaction.value = null;
   showTransactionFormModal.value = true;
@@ -227,6 +227,7 @@ const handleTransactionSave = (payload: any) => {
   selectedTransaction.value = null;
 };
 </script>
+
 
 <template>
   <div class="flex flex-col items-center">
@@ -460,7 +461,7 @@ const handleTransactionSave = (payload: any) => {
     <!-- Transaktionsformular Modal -->
     <Teleport to="body">
       <div v-if="showTransactionFormModal" class="modal modal-open">
-        <div class="modal-box max-w-2xl">
+        <div class="modal-box overflow-visible max-w-2xl">
           <TransactionForm
             :transaction="selectedTransaction"
             @cancel="showTransactionFormModal = false"

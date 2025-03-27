@@ -104,7 +104,7 @@ defineExpose({ focus, select });
       <input
         ref="inputRef"
         type="text"
-        class="input input-bordered w-full text-right"
+        class="input w-full text-right"
         v-model="rawInputValue"
         @input="onInput"
         @focus="onFocus"
