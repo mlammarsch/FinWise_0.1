@@ -1,40 +1,96 @@
+/**
+ * Pfad zur Komponente: src/stores/categoryStore.ts
+ * Store zur Verwaltung von Kategorien und Kategoriegruppen inkl. Budgets und Sparzielen.
+ *
+ * State:
+ * - categories: Category[] - Alle Kategorien
+ * - categoryGroups: CategoryGroup[] - Gruppen zur Organisation von Kategorien
+ *
+ * Getter:
+ * - getCategoryById(id): Category | undefined - Hole eine Kategorie nach ID
+ * - getCategoriesByParentId(parentId): Category[] - Hole alle Unterkategorien einer Kategorie (computed)
+ * - getChildCategories(parentId): Category[] - Hole alle direkten Kinder (normale Methode)
+ * - rootCategories: Category[] - Nur Hauptkategorien ohne Parent
+ * - savingsGoals: Category[] - Nur Kategorien, die als Sparziel markiert sind
+ * - categoriesByGroup: Record<string, Category[]> - Gruppierte Kategorien (nur Hauptkategorien) nach Gruppe
+ *
+ * Actions:
+ * - addCategory - Neue Kategorie anlegen
+ * - updateCategory - Bestehende Kategorie aktualisieren
+ * - deleteCategory - Kategorie löschen
+ * - updateCategoryBalance - Betrag zur Kategorie hinzufügen
+ * - addCategoryGroup - Neue Kategoriegruppe anlegen
+ * - deleteCategoryGroup - Gruppe löschen, wenn leer
+ * - loadCategories / saveCategories - Persistenz über localStorage
+ * - reset - Reset auf initialen Zustand
+ */
+
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { v4 as uuidv4 } from 'uuid'
 import { Category } from '../types'
 
+type CategoryGroup = {
+  id: string
+  name: string
+  sortOrder: number
+}
+
 export const useCategoryStore = defineStore('category', () => {
   // State
   const categories = ref<Category[]>([])
+  const categoryGroups = ref<CategoryGroup[]>([])
 
   const initialState = {
-    categories: []
+    categories: [],
+    categoryGroups: []
   }
 
-  // Getters
+  // Einzelne Kategorie per ID
   const getCategoryById = computed(() => {
     return (id: string) => categories.value.find(category => category.id === id)
   })
 
+  // Unterkategorien einer Kategorie (nur computed Zugriff)
   const getCategoriesByParentId = computed(() => {
     return (parentId: string | null) => categories.value
       .filter(category => category.parentCategoryId === parentId)
       .sort((a, b) => a.sortOrder - b.sortOrder)
   })
 
+  // Direktzugriff per Methode auf Kindkategorien
+  const getChildCategories = (parentId: string) => {
+    return categories.value
+      .filter(category => category.parentCategoryId === parentId)
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+  }
+
+  // Nur Hauptkategorien (ohne Parent)
   const rootCategories = computed(() => {
     return categories.value
       .filter(category => category.parentCategoryId === null)
       .sort((a, b) => a.sortOrder - b.sortOrder)
   })
 
+  // Nur Sparziele
   const savingsGoals = computed(() => {
     return categories.value
       .filter(category => category.isSavingsGoal)
       .sort((a, b) => a.sortOrder - b.sortOrder)
   })
 
-  // Actions
+  // Gruppierte Hauptkategorien pro Kategoriegruppe
+  const categoriesByGroup = computed(() => {
+    const grouped: Record<string, Category[]> = {}
+    for (const group of categoryGroups.value) {
+      grouped[group.id] = categories.value
+        .filter(cat => cat.categoryGroupId === group.id && !cat.parentCategoryId)
+        .sort((a, b) => a.sortOrder - b.sortOrder)
+    }
+    return grouped
+  })
+
+  // Neue Kategorie anlegen
   function addCategory(category: Omit<Category, 'id' | 'balance' | 'transactionCount' | 'averageTransactionValue'>) {
     const newCategory: Category = {
       ...category,
@@ -48,6 +104,7 @@ export const useCategoryStore = defineStore('category', () => {
     return newCategory
   }
 
+  // Bestehende Kategorie aktualisieren
   function updateCategory(id: string, updates: Partial<Category>) {
     const index = categories.value.findIndex(category => category.id === id)
     if (index !== -1) {
@@ -58,11 +115,13 @@ export const useCategoryStore = defineStore('category', () => {
     return false
   }
 
+  // Kategorie löschen
   function deleteCategory(id: string) {
     categories.value = categories.value.filter(category => category.id !== id)
     saveCategories()
   }
 
+  // Betrag zu Kategorie hinzufügen (z. B. durch Transaktion)
   function updateCategoryBalance(id: string, amount: number) {
     const category = categories.value.find(category => category.id === id)
     if (category) {
@@ -75,36 +134,73 @@ export const useCategoryStore = defineStore('category', () => {
     return false
   }
 
-  // Persistenz
+  // Neue Kategoriegruppe anlegen
+  function addCategoryGroup(group: Omit<CategoryGroup, 'id'>) {
+    const newGroup: CategoryGroup = {
+      id: uuidv4(),
+      ...group
+    }
+    categoryGroups.value.push(newGroup)
+    saveCategoryGroups()
+    return newGroup
+  }
+
+  // Kategoriegruppe löschen, wenn keine Kategorien mehr enthalten
+  function deleteCategoryGroup(id: string) {
+    const hasCategories = categories.value.some(cat => cat.categoryGroupId === id)
+    if (hasCategories) return false
+    categoryGroups.value = categoryGroups.value.filter(group => group.id !== id)
+    saveCategoryGroups()
+    return true
+  }
+
+  // Lade aus LocalStorage
   function loadCategories() {
     const savedCategories = localStorage.getItem('finwise_categories')
     if (savedCategories) {
       categories.value = JSON.parse(savedCategories)
     }
+
+    const savedGroups = localStorage.getItem('finwise_categoryGroups')
+    if (savedGroups) {
+      categoryGroups.value = JSON.parse(savedGroups)
+    }
   }
 
+  // Speichere nach LocalStorage
   function saveCategories() {
     localStorage.setItem('finwise_categories', JSON.stringify(categories.value))
   }
 
+  function saveCategoryGroups() {
+    localStorage.setItem('finwise_categoryGroups', JSON.stringify(categoryGroups.value))
+  }
+
+  // Zurücksetzen des States
   function reset() {
     categories.value = initialState.categories
+    categoryGroups.value = initialState.categoryGroups
     loadCategories()
   }
 
-  // Initialisiere beim ersten Laden
+  // Initialisieren
   loadCategories()
 
   return {
     categories,
+    categoryGroups,
     getCategoryById,
     getCategoriesByParentId,
+    getChildCategories,
     rootCategories,
     savingsGoals,
+    categoriesByGroup,
     addCategory,
     updateCategory,
     deleteCategory,
     updateCategoryBalance,
+    addCategoryGroup,
+    deleteCategoryGroup,
     loadCategories,
     reset
   }

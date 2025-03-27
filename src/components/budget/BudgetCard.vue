@@ -1,8 +1,10 @@
+<!-- src/components/budget/BudgetCard.vue -->
 <script setup lang="ts">
 import { computed } from "vue";
 import { Category } from "../../types";
 import { formatCurrency } from "../../utils/formatters";
 import CurrencyDisplay from "../ui/CurrencyDisplay.vue";
+import { Icon } from "@iconify/vue";
 
 const props = defineProps<{
   category: Category;
@@ -12,32 +14,27 @@ const props = defineProps<{
 
 const emit = defineEmits(["edit", "transfer"]);
 
-// Verwende entweder den übergebenen Zielbetrag oder den aus der Kategorie
 const target = computed(() => {
   return props.targetAmount !== undefined
     ? props.targetAmount
     : props.category.targetAmount;
 });
 
-// Verwende entweder den übergebenen aktuellen Betrag oder den Saldo der Kategorie
 const current = computed(() => {
   return props.currentAmount !== undefined
     ? props.currentAmount
     : props.category.balance;
 });
 
-// Berechne den Fortschritt in Prozent
 const progress = computed(() => {
   if (target.value <= 0) return 0;
   return Math.min(100, (current.value / target.value) * 100);
 });
 
-// Formatiere den Fortschritt für die Anzeige
 const formattedProgress = computed(() => {
   return `${Math.round(progress.value)}%`;
 });
 
-// Bestimme die Farbe des Fortschrittsbalkens
 const progressColor = computed(() => {
   if (progress.value >= 100) return "progress-success";
   if (progress.value >= 70) return "progress-primary";
@@ -46,7 +43,6 @@ const progressColor = computed(() => {
   return "progress-error";
 });
 
-// Berechne den verbleibenden Betrag
 const remaining = computed(() => {
   return Math.max(0, target.value - current.value);
 });
@@ -73,21 +69,15 @@ const remaining = computed(() => {
         </h3>
 
         <div class="dropdown dropdown-end">
-          <label
-            tabindex="0"
-            class="btn btn-ghost btn-sm btn-circle"
-          >
-            <span
-              class="iconify"
-              data-icon="mdi:dots-vertical"
-            ></span>
+          <label tabindex="0" class="btn btn-ghost btn-sm btn-circle">
+            <Icon icon="mdi:dots-vertical" />
           </label>
           <ul
             tabindex="0"
             class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-52"
           >
-            <li><a @click="$emit('transfer')">Übertragen</a></li>
-            <li><a @click="$emit('edit')">Bearbeiten</a></li>
+            <li><a @click="emit('transfer')">Übertragen</a></li>
+            <li><a @click="emit('edit')">Bearbeiten</a></li>
           </ul>
         </div>
       </div>
@@ -111,10 +101,7 @@ const remaining = computed(() => {
           </span>
         </div>
 
-        <div
-          v-if="target > 0"
-          class="flex justify-between items-center mt-1"
-        >
+        <div v-if="target > 0" class="flex justify-between items-center mt-1">
           <span class="text-sm font-medium">Ziel:</span>
           <span>
             <CurrencyDisplay
@@ -125,10 +112,7 @@ const remaining = computed(() => {
           </span>
         </div>
 
-        <div
-          v-if="target > 0"
-          class="flex justify-between items-center mt-1"
-        >
+        <div v-if="target > 0" class="flex justify-between items-center mt-1">
           <span class="text-sm font-medium">Verbleibend:</span>
           <span>
             <CurrencyDisplay
@@ -139,10 +123,7 @@ const remaining = computed(() => {
           </span>
         </div>
 
-        <div
-          v-if="target > 0"
-          class="mt-3"
-        >
+        <div v-if="target > 0" class="mt-3">
           <div class="flex justify-between items-center mb-1">
             <span class="text-xs">Fortschritt</span>
             <span class="text-xs">{{ formattedProgress }}</span>
