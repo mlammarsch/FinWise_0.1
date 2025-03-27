@@ -42,12 +42,14 @@ $searchFiles = @(
     "prompt\sytemprompt.md",
     #"src\stores\recipientStore.ts",
     "src\views\AccountsView.vue",
-    #"src\stores\transactionStore.ts",
+    "src\stores\transactionStore.ts",
+    "src\components\ui\CurrencyDisplay.vue",
+    "src\components\ui\CurrencyInput.vue",
     #"src\stores\accountStore.ts",
     #"src\components\transaction\TransactionList.vue",
     #"src\components\transaction\TransactionForm.vue",
     #"src\views\TransactionsView.vue",
-    #"src\components\account\*.vue",
+    "src\components\account\*.vue"
     #"src\utils\*.ts",
     #"src\types\*.ts"
     #"src\views\admin\AdminRecipientsView.vue"

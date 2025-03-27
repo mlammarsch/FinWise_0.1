@@ -8,6 +8,7 @@ import { useTransactionStore } from "../../stores/transactionStore";
 import CurrencyDisplay from "../ui/CurrencyDisplay.vue";
 import { formatDate } from "../../utils/formatters";
 import BadgeSoft from "../ui/BadgeSoft.vue";
+import { useAccountStore } from "../../stores/accountStore";
 
 /**
  * Pfad zur Komponente: components/transaction/TransactionCard.vue
@@ -21,6 +22,7 @@ import BadgeSoft from "../ui/BadgeSoft.vue";
 
 const props = defineProps<{ transaction: Transaction }>();
 
+const accountStore = useAccountStore();
 const categoryStore = useCategoryStore();
 const tagStore = useTagStore();
 const recipientStore = useRecipientStore();
@@ -33,12 +35,20 @@ const categoryName = computed(() =>
     : "Keine Kategorie"
 );
 
-const recipientName = computed(() =>
-  props.transaction.recipientId
+const recipientName = computed(() => {
+  if (props.transaction.type === TransactionType.TRANSFER) {
+    const toAccountId = props.transaction.transferToAccountId;
+    const account = toAccountId
+      ? accountStore.getAccountById(toAccountId)
+      : null;
+    return account?.name || "-";
+  }
+
+  return props.transaction.recipientId
     ? recipientStore.getRecipientById(props.transaction.recipientId)?.name ||
-      "Unbekannter Empfänger"
-    : "Unbekannter Empfänger"
-);
+        "-"
+    : "-";
+});
 
 const getTagName = (tagId: string) => tagStore.getTagById(tagId)?.name || "";
 

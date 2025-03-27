@@ -1,126 +1,117 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { Account } from '../../types'
-import { useTransactionStore } from '../../stores/transactionStore'
-import { formatCurrency } from '../../utils/formatters'
-import DatePicker from '../ui/DatePicker.vue'
+import { ref, computed, watch } from "vue";
+import { Account } from "../../types";
+import { useTransactionStore } from "../../stores/transactionStore";
+import DatePicker from "../ui/DatePicker.vue";
+import CurrencyInput from "../ui/CurrencyInput.vue";
+import CurrencyDisplay from "../ui/CurrencyDisplay.vue"; // Neuer Import
 
-const props = defineProps<{
-  account: Account
-  isOpen: boolean
-}>()
+/**
+ * Pfad zur Komponente: src/components/account/AccountReconcileModal.vue
+ * Kurzbeschreibung: Modal zur Durchführung des Kontoabgleichs
+ * Komponenten-Props:
+ * - account: Das Konto, das abgeglichen wird
+ * - isOpen: Steuerung der Sichtbarkeit
+ *
+ * Emits:
+ * - close: Schließt das Modal
+ * - reconciled: Nach erfolgreichem Abgleich
+ */
+const props = defineProps<{ account: Account; isOpen: boolean }>();
+const emit = defineEmits(["close", "reconciled"]);
+const transactionStore = useTransactionStore();
 
-const emit = defineEmits(['close', 'reconciled'])
+const reconcileDate = ref(new Date().toISOString().split("T")[0]);
+const actualBalance = ref(0);
+const note = ref("Kontoabgleich");
 
-const transactionStore = useTransactionStore()
+// Berechnet Saldo zum gewählten Datum
+const currentBalance = computed(() => {
+  const target = new Date(reconcileDate.value).getTime();
+  const txs = transactionStore.getTransactionsByAccount(props.account.id) || [];
+  const validTxs = txs.filter((tx) => {
+    const date = new Date(tx.valueDate || tx.date).getTime();
+    return !isNaN(date) && date <= target;
+  });
+  if (validTxs.length === 0) return props.account.balance;
+  validTxs.sort(
+    (a, b) =>
+      new Date(b.valueDate || b.date).getTime() -
+      new Date(a.valueDate || a.date).getTime()
+  );
+  return validTxs[0].runningBalance;
+});
 
-// Formularfelder
-const actualBalance = ref(props.account.balance)
-const reconcileDate = ref(new Date().toISOString().split('T')[0])
-const note = ref('Kontoabgleich')
+// Differenz zwischen tatsächlichem und aktuellem Saldo
+const differenceValue = computed({
+  get: () => actualBalance.value - currentBalance.value,
+  set: (val) => (actualBalance.value = currentBalance.value + val),
+});
 
-// Berechne die Differenz zwischen dem aktuellen und dem eingegebenen Kontostand
-const difference = computed(() => {
-  return actualBalance.value - props.account.balance
-})
-
-// Formatiere die Differenz als Währung
-const formattedDifference = computed(() => {
-  return formatCurrency(difference.value)
-})
-
-// Bestimme die Klasse für die Differenz
-const differenceClass = computed(() => {
-  if (difference.value > 0) return 'text-success'
-  if (difference.value < 0) return 'text-error'
-  return 'text-neutral'
-})
-
-// Konvertiere einen String in eine Zahl
-const parseNumber = (value: string): number => {
-  // Ersetze Komma durch Punkt für die Konvertierung
-  // Ersetze zuerst Punkte durch nichts, dann Komma durch Punkt
-  const normalized = value.replace(/\./g, '').replace(',', '.')
-  return parseFloat(normalized) || 0
-}
-
-// Formatiere eine Zahl für die Anzeige
-const formatNumber = (value: number): string => {
-  return value.toString().replace('.', ',')
-}
-
-
-// Führe den Kontoabgleich durch
-const reconcileAccount = () => {
-  if (difference.value === 0) {
-    emit('close')
-    return
+// Datum ändert -> actualBalance anpassen
+watch(reconcileDate, () => {
+  actualBalance.value = currentBalance.value;
+});
+watch(
+  () => props.isOpen,
+  (open) => {
+    if (open) actualBalance.value = currentBalance.value;
   }
+);
+
+const reconcileAccount = () => {
+  if (differenceValue.value === 0) {
+    emit("close");
+    return;
+  }
+
+  const altSaldo = formatCurrency(currentBalance.value);
+  note.value = `Kontostandsabgleich: Altsaldo war: ${altSaldo}`;
 
   const result = transactionStore.addReconciliationTransaction(
     props.account.id,
     actualBalance.value,
     reconcileDate.value,
     note.value
-  )
-
-  if (result) {
-    emit('reconciled')
-  }
-
-  emit('close')
-}
+  );
+  if (result) emit("reconciled");
+  emit("close");
+};
 </script>
 
 <template>
-  <div v-if="isOpen" class="modal modal-open">
+  <div v-if="props.isOpen" class="modal modal-open">
     <div class="modal-box">
-      <h3 class="font-bold text-lg mb-4">Kontoabgleich: {{ account.name }}</h3>
-
+      <h3 class="font-bold text-lg mb-4">
+        Kontoabgleich: {{ props.account.name }}
+      </h3>
       <form @submit.prevent="reconcileAccount">
         <div class="space-y-4">
           <div class="form-control">
             <label class="label">
               <span class="label-text">Aktueller Kontostand laut FinWise</span>
             </label>
-            <input
-              type="text"
-              :value="formatCurrency(account.balance)"
-              class="input input-bordered"
-              disabled
-            />
+            <!-- Verwendung von CurrencyDisplay statt Input -->
+            <CurrencyDisplay :amount="currentBalance" />
           </div>
-
           <div class="form-control">
             <label class="label">
               <span class="label-text">Tatsächlicher Kontostand</span>
               <span class="text-error">*</span>
             </label>
-            <input
-              type="text"
-              :value="formatNumber(actualBalance)"
-              @input="actualBalance = parseNumber(($event.target as HTMLInputElement).value)"
-              class="input input-bordered"
-              required
-              placeholder="0,00"
-            />
+            <CurrencyInput v-model="actualBalance" borderless required />
           </div>
-
           <div class="form-control">
             <label class="label">
               <span class="label-text">Differenz</span>
             </label>
-            <div class="input input-bordered flex items-center" :class="differenceClass">
-              {{ formattedDifference }}
-            </div>
+            <CurrencyInput v-model="differenceValue" borderless readonly />
           </div>
-
           <DatePicker
             v-model="reconcileDate"
             label="Datum des Abgleichs"
             required
           />
-
           <div class="form-control">
             <label class="label">
               <span class="label-text">Notiz</span>
@@ -133,19 +124,20 @@ const reconcileAccount = () => {
             />
           </div>
         </div>
-
         <div class="modal-action">
-          <button type="button" class="btn" @click="$emit('close')">Abbrechen</button>
+          <button type="button" class="btn" @click="emit('close')">
+            Abbrechen
+          </button>
           <button
             type="submit"
             class="btn btn-primary"
-            :disabled="difference === 0"
+            :disabled="differenceValue === 0"
           >
             Abgleichen
           </button>
         </div>
       </form>
     </div>
-    <div class="modal-backdrop" @click="$emit('close')"></div>
+    <div class="modal-backdrop" @click="emit('close')"></div>
   </div>
 </template>

@@ -10,6 +10,10 @@ const props = defineProps({
     type: String,
     default: "",
   },
+  borderless: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 const emit = defineEmits(["update:modelValue"]);
@@ -93,6 +97,12 @@ function select() {
 }
 
 defineExpose({ focus, select });
+
+const inputClasses = computed(() => {
+  return props.borderless
+    ? "input w-full text-right border-0"
+    : "input w-full text-right";
+});
 </script>
 
 <template>
@@ -104,7 +114,7 @@ defineExpose({ focus, select });
       <input
         ref="inputRef"
         type="text"
-        class="input w-full text-right"
+        :class="inputClasses"
         v-model="rawInputValue"
         @input="onInput"
         @focus="onFocus"

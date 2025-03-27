@@ -206,10 +206,7 @@ defineExpose({ getSelectedTransactions });
               }}
             </span>
             <span v-else>
-              {{
-                recipientStore.getRecipientById(tx.recipientId)?.name ||
-                "Unbekannter Empfänger"
-              }}
+              {{ recipientStore.getRecipientById(tx.recipientId)?.name || "-" }}
             </span>
           </td>
           <td>
