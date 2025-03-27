@@ -20,7 +20,7 @@ const amount = ref(0);
 const date = ref(new Date().toISOString().split("T")[0]);
 const note = ref("");
 
-// Reagiere auf Übergabe einer Kategorie
+// Bei Übergabe einer Kategorie wird deren ID als Quelle gesetzt
 watch(
   () => props.category,
   (cat) => {
@@ -31,39 +31,39 @@ watch(
   { immediate: true }
 );
 
-// Zahl konvertieren
+// Konvertiert einen String in eine Zahl
 const parseNumber = (value: string): number => {
   const normalized = value.replace(/\./g, "").replace(",", ".");
   return parseFloat(normalized) || 0;
 };
 
-// Zahl formatieren
+// Formatiert eine Zahl in einen String
 const formatNumber = (value: number): string => {
   return value.toString().replace(".", ",");
 };
 
-// Alle Kategorien außer der gewählten Quelle
+// Ermittelt alle aktiven Kategorien außer der Quellkategorie
 const toCategories = computed(() => {
   return categoryStore.categories
     .filter((cat) => cat.isActive && cat.id !== fromCategoryId.value)
     .map((cat) => ({ id: cat.id, name: cat.name }));
 });
 
-// Quelle-Kategorien
+// Alle aktiven Kategorien (für Anzeige der Quellkategorie)
 const fromCategories = computed(() => {
   return categoryStore.categories
     .filter((cat) => cat.isActive)
     .map((cat) => ({ id: cat.id, name: cat.name }));
 });
 
-// Saldo der Quelle (direkter Funktionsaufruf)
+// Ermittelt den aktuellen Saldo der Quellkategorie
 const fromCategoryBalance = computed(() => {
   if (!fromCategoryId.value) return 0;
   const category = categoryStore.getCategoryById(fromCategoryId.value);
   return category ? category.balance : 0;
 });
 
-// Übertragung auslösen
+// Löst den Transfer zwischen Kategorien aus
 const transferBetweenCategories = () => {
   if (!fromCategoryId.value || !toCategoryId.value || amount.value <= 0) return;
 
@@ -83,7 +83,6 @@ const transferBetweenCategories = () => {
   <div v-if="isOpen" class="modal modal-open">
     <div class="modal-box">
       <h3 class="font-bold text-lg mb-4">Zwischen Kategorien übertragen</h3>
-
       <form @submit.prevent="transferBetweenCategories">
         <div class="space-y-4">
           <div class="form-control">
@@ -113,7 +112,6 @@ const transferBetweenCategories = () => {
               </option>
             </select>
           </div>
-
           <div class="form-control">
             <label class="label">
               <span class="label-text">Zu Kategorie</span>
@@ -134,7 +132,6 @@ const transferBetweenCategories = () => {
               </option>
             </select>
           </div>
-
           <div class="form-control">
             <label class="label">
               <span class="label-text">Betrag</span>
@@ -162,7 +159,6 @@ const transferBetweenCategories = () => {
               </span>
             </label>
           </div>
-
           <div class="form-control">
             <label class="label">
               <span class="label-text">Datum</span>
@@ -175,7 +171,6 @@ const transferBetweenCategories = () => {
               required
             />
           </div>
-
           <div class="form-control">
             <label class="label">
               <span class="label-text">Notiz</span>
@@ -188,7 +183,6 @@ const transferBetweenCategories = () => {
             />
           </div>
         </div>
-
         <div class="modal-action">
           <button type="button" class="btn" @click="$emit('close')">
             Abbrechen

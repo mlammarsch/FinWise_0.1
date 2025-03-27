@@ -1,30 +1,3 @@
-/**
- * Pfad zur Komponente: src/stores/categoryStore.ts
- * Store zur Verwaltung von Kategorien und Kategoriegruppen inkl. Budgets und Sparzielen.
- *
- * State:
- * - categories: Category[] - Alle Kategorien
- * - categoryGroups: CategoryGroup[] - Gruppen zur Organisation von Kategorien
- *
- * Getter:
- * - getCategoryById(id): Category | undefined - Hole eine Kategorie nach ID
- * - getCategoriesByParentId(parentId): Category[] - Hole alle Unterkategorien einer Kategorie (computed)
- * - getChildCategories(parentId): Category[] - Hole alle direkten Kinder (normale Methode)
- * - rootCategories: Category[] - Nur Hauptkategorien ohne Parent
- * - savingsGoals: Category[] - Nur Kategorien, die als Sparziel markiert sind
- * - categoriesByGroup: Record<string, Category[]> - Gruppierte Kategorien (nur Hauptkategorien) nach Gruppe
- *
- * Actions:
- * - addCategory - Neue Kategorie anlegen
- * - updateCategory - Bestehende Kategorie aktualisieren
- * - deleteCategory - Kategorie löschen
- * - updateCategoryBalance - Betrag zur Kategorie hinzufügen
- * - addCategoryGroup - Neue Kategoriegruppe anlegen
- * - deleteCategoryGroup - Gruppe löschen, wenn leer
- * - loadCategories / saveCategories - Persistenz über localStorage
- * - reset - Reset auf initialen Zustand
- */
-
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { v4 as uuidv4 } from 'uuid'
@@ -46,10 +19,15 @@ export const useCategoryStore = defineStore('category', () => {
     categoryGroups: []
   }
 
-  // Einzelne Kategorie per ID
+  // Einzelne Kategorie per ID (computed Getter)
   const getCategoryById = computed(() => {
     return (id: string) => categories.value.find(category => category.id === id)
   })
+
+  // Alternative Methode für direkten Zugriff
+  function findCategoryById(id: string) {
+    return categories.value.find(category => category.id === id)
+  }
 
   // Unterkategorien einer Kategorie (nur computed Zugriff)
   const getCategoriesByParentId = computed(() => {
@@ -190,6 +168,7 @@ export const useCategoryStore = defineStore('category', () => {
     categories,
     categoryGroups,
     getCategoryById,
+    findCategoryById,
     getCategoriesByParentId,
     getChildCategories,
     rootCategories,

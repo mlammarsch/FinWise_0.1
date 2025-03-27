@@ -146,7 +146,7 @@ export const useTransactionStore = defineStore('transaction', () => {
 
   function updateTransferTransaction(
     id: string,
-    updates: { 
+    updates: {
       fromAccountId: string,
       toAccountId: string,
       amount: number,
@@ -216,8 +216,8 @@ export const useTransactionStore = defineStore('transaction', () => {
     categoryStore.updateCategoryBalance(toCategoryId, Math.abs(amount))
 
     // Erstelle virtuelle Transaktionen für die Kategorieübertragung
-    const fromCategory = categoryStore.getCategoryById.value(fromCategoryId)
-    const toCategory = categoryStore.getCategoryById.value(toCategoryId)
+    const fromCategory = categoryStore.getCategoryById(fromCategoryId)
+    const toCategory = categoryStore.getCategoryById(toCategoryId)
 
     const transferId = uuidv4()
 
@@ -363,7 +363,7 @@ export const useTransactionStore = defineStore('transaction', () => {
     transactions.value = []
     loadTransactions()
   }
-  
+
   return {
     transactions,
     getTransactionById,
