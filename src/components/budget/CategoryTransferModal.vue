@@ -56,10 +56,10 @@ const fromCategories = computed(() => {
     .map((cat) => ({ id: cat.id, name: cat.name }));
 });
 
-// Saldo der Quelle
+// Saldo der Quelle (direkter Funktionsaufruf)
 const fromCategoryBalance = computed(() => {
   if (!fromCategoryId.value) return 0;
-  const category = categoryStore.getCategoryById.value(fromCategoryId.value);
+  const category = categoryStore.getCategoryById(fromCategoryId.value);
   return category ? category.balance : 0;
 });
 
@@ -105,8 +105,7 @@ const transferBetweenCategories = () => {
                 {{ category.name }}
                 (<CurrencyDisplay
                   :amount="
-                    categoryStore.getCategoryById.value(category.id)?.balance ||
-                    0
+                    categoryStore.getCategoryById(category.id)?.balance || 0
                   "
                   :show-zero="true"
                   :as-integer="true"
@@ -153,8 +152,8 @@ const transferBetweenCategories = () => {
               />
             </div>
             <label class="label">
-              <span class="label-text-alt"
-                >Verfügbar:
+              <span class="label-text-alt">
+                Verfügbar:
                 <CurrencyDisplay
                   :amount="fromCategoryBalance"
                   :show-zero="true"
@@ -194,18 +193,7 @@ const transferBetweenCategories = () => {
           <button type="button" class="btn" @click="$emit('close')">
             Abbrechen
           </button>
-          <button
-            type="submit"
-            class="btn btn-primary"
-            :disabled="
-              !fromCategoryId ||
-              !toCategoryId ||
-              amount <= 0 ||
-              amount > fromCategoryBalance
-            "
-          >
-            Übertragen
-          </button>
+          <button type="submit" class="btn btn-primary">Übertragen</button>
         </div>
       </form>
     </div>

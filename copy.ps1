@@ -19,8 +19,10 @@ $excludedDirectories = @(
 )
 
 $includeDirectories = @(
-    "./src/components/transaction",
-    "./src/stores/"
+    #"./src/components/transaction",
+    #"./src/stores/"
+    "src\components\budget",
+    "src\components\transaction"
 
 )
 
@@ -41,23 +43,26 @@ $searchFiles = @(
     #"./src/components/ui/PagingComponent.vue",
     "prompt\sytemprompt.md",
     #"src\stores\recipientStore.ts",
-    "src\views\AccountsView.vue",
-    "src\stores\transactionStore.ts",
-    "src\components\ui\CurrencyDisplay.vue",
-    "src\components\ui\CurrencyInput.vue",
+    #"src\views\AccountsView.vue",
+    #"src\stores\transactionStore.ts",
+    #"src\components\ui\CurrencyDisplay.vue",
+    #"src\components\ui\CurrencyInput.vue",
     #"src\stores\accountStore.ts",
     #"src\components\transaction\TransactionList.vue",
     #"src\components\transaction\TransactionForm.vue",
     #"src\views\TransactionsView.vue",
-    "src\components\account\*.vue"
+    #"src\components\account\*.vue"
     #"src\utils\*.ts",
     #"src\types\*.ts"
     #"src\views\admin\AdminRecipientsView.vue"
     #"src\components\ui\SearchableSelect.vue",
     #"src\components\ui\TagSearchableDropdown.vue"
-    #"src\stores\categoryStore.ts",
+    "src\stores\categoryStore.ts",
     #"src\stores\tagStore.ts"
     #"src\components\ui\SearchGroup.vue"
+    "src\views\TransactionsView.vue",
+    "*.vue",
+    "*.ts"
 
 )
 

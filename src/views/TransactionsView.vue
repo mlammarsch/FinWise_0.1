@@ -6,6 +6,7 @@ import { useCategoryStore } from "../stores/categoryStore";
 import { useTagStore } from "../stores/tagStore";
 import { useRecipientStore } from "../stores/recipientStore";
 import TransactionList from "../components/transaction/TransactionList.vue";
+import CategoryTransactionList from "../components/transaction/CategoryTransactionList.vue";
 import TransactionDetailModal from "../components/transaction/TransactionDetailModal.vue";
 import TransactionForm from "../components/transaction/TransactionForm.vue";
 import PagingComponent from "../components/ui/PagingComponent.vue";
@@ -31,18 +32,15 @@ const transactionListRef = ref<InstanceType<typeof TransactionList> | null>(
   null
 );
 
-// Filter- und UI-Status
+// Umschaltmodus: "account" oder "category"
+const currentViewMode = ref<"account" | "category">("account");
+
+// Gemeinsame Filter und UI-Status
 const selectedTransaction = ref<Transaction | null>(null);
-const selectedAccountId = ref("");
-const selectedTransactionType = ref("");
-const selectedReconciledFilter = ref("");
-const selectedTagId = ref("");
-const selectedCategoryId = ref("");
 const searchQuery = ref("");
 const currentPage = ref(1);
 const itemsPerPage = ref(25);
 const itemsPerPageOptions = [10, 20, 25, 50, 100, "all"];
-
 const dateRange = ref<{ start: string; end: string }>({
   start: new Date().toISOString().split("T")[0],
   end: new Date().toISOString().split("T")[0],
@@ -52,23 +50,14 @@ function handleDateRangeUpdate(payload: { start: string; end: string }) {
   refreshKey.value++;
 }
 
-// Sortierung
-const sortKey = ref<keyof Transaction | "">("date");
-const sortOrder = ref<"asc" | "desc">("desc");
-function sortBy(key: keyof Transaction) {
-  if (sortKey.value === key) {
-    sortOrder.value = sortOrder.value === "asc" ? "desc" : "asc";
-  } else {
-    sortKey.value = key;
-    sortOrder.value = "asc";
-  }
-  currentPage.value = 1;
-}
-function handleSortChange(key: keyof Transaction) {
-  sortBy(key);
-}
+// Filterung für Konto-Ansicht
+const selectedAccountId = ref("");
+const selectedTransactionType = ref("");
+const selectedReconciledFilter = ref("");
+const selectedTagId = ref("");
+const selectedCategoryId = ref(""); // wird in beiden Ansichten verwendet
 
-// Filterung
+// Filterung: Kontobuchungen
 const filteredTransactions = computed(() => {
   refreshKey.value;
   let txs = transactionStore.transactions;
@@ -209,22 +198,68 @@ const paginatedTransactions = computed(() => {
   );
 });
 
+// Filterung für Kategoriebuchungen (nur nach Monat und Kategorie)
+const filteredCategoryTransactions = computed(() => {
+  let txs = transactionStore.transactions;
+  if (selectedCategoryId.value) {
+    txs = txs.filter((tx) => tx.categoryId === selectedCategoryId.value);
+  }
+  const start = new Date(dateRange.value.start).getTime();
+  const end = new Date(dateRange.value.end).getTime();
+  txs = txs.filter((tx) => {
+    const txDate = new Date(tx.date).getTime();
+    return txDate >= start && txDate <= end;
+  });
+  return txs;
+});
+const sortedCategoryTransactions = computed(() => {
+  const list = [...filteredCategoryTransactions.value];
+  list.sort((a, b) => {
+    const aVal = new Date(a.date).getTime();
+    const bVal = new Date(b.date).getTime();
+    return sortOrder.value === "asc" ? aVal - bVal : bVal - aVal;
+  });
+  return list;
+});
+const paginatedCategoryTransactions = computed(() => {
+  if (itemsPerPage.value === "all") return sortedCategoryTransactions.value;
+  const start = (currentPage.value - 1) * Number(itemsPerPage.value);
+  return sortedCategoryTransactions.value.slice(
+    start,
+    start + Number(itemsPerPage.value)
+  );
+});
+
+// Sortierung (gemeinsam für beide Ansichten)
+const sortKey = ref<keyof Transaction | "">("date");
+const sortOrder = ref<"asc" | "desc">("desc");
+function sortBy(key: keyof Transaction) {
+  if (sortKey.value === key) {
+    sortOrder.value = sortOrder.value === "asc" ? "desc" : "asc";
+  } else {
+    sortKey.value = key;
+    sortOrder.value = "asc";
+  }
+  currentPage.value = 1;
+}
+function handleSortChange(key: keyof Transaction) {
+  sortBy(key);
+}
+
+// Aktionen
 const viewTransaction = (tx: Transaction) => {
   selectedTransaction.value = tx;
   showTransactionDetailModal.value = true;
 };
-
 const editTransaction = (tx: Transaction) => {
   selectedTransaction.value = tx;
   showTransactionFormModal.value = true;
   showTransactionDetailModal.value = false;
 };
-
 const createTransaction = () => {
   selectedTransaction.value = null;
   showTransactionFormModal.value = true;
 };
-
 const handleSave = (payload: any) => {
   if (payload.type === TransactionType.TRANSFER) {
     if (selectedTransaction.value?.counterTransactionId) {
@@ -262,7 +297,6 @@ const handleSave = (payload: any) => {
   selectedTransaction.value = null;
   refreshKey.value++;
 };
-
 const deleteTransaction = (tx: Transaction) => {
   if (confirm("Möchten Sie diese Transaktion wirklich löschen?")) {
     transactionStore.deleteTransaction(tx.id);
@@ -270,16 +304,18 @@ const deleteTransaction = (tx: Transaction) => {
   }
 };
 
-const clearFilters = () => {
-  selectedAccountId.value = "";
-  selectedTransactionType.value = "";
-  selectedReconciledFilter.value = "";
-  selectedTagId.value = "";
+function clearFilters() {
+  if (currentViewMode.value === "account") {
+    selectedAccountId.value = "";
+    selectedTransactionType.value = "";
+    selectedReconciledFilter.value = "";
+    selectedTagId.value = "";
+  }
   selectedCategoryId.value = "";
   searchQuery.value = "";
-};
+}
 
-// Filter-Persistenz laden
+// Filter-Persistenz laden (gemeinsam)
 onMounted(() => {
   const savedTag = localStorage.getItem("transactionsView_selectedTagId");
   if (savedTag !== null) selectedTagId.value = savedTag;
@@ -302,161 +338,214 @@ watch(selectedCategoryId, (newVal) => {
       @search="(query) => (searchQuery = query)"
       @btn-right-click="createTransaction"
     />
-    <!-- Transaktionsliste Card -->
-
-    <div class="card bg-base-100 shadow-md border border-base-300">
-      <!-- Filterleiste -->
-      <div
-        class="card-title flex flex-wrap items-end justify-start gap-3 mx-2 pt-2 relative z-10"
+    <!-- Umschalt-Buttons -->
+    <div class="flex space-x-4 mb-2">
+      <button
+        :class="
+          currentViewMode === 'account' ? 'btn btn-primary' : 'btn btn-ghost'
+        "
+        @click="currentViewMode = 'account'"
       >
+        Kontobuchungen
+      </button>
+      <button
+        :class="
+          currentViewMode === 'category' ? 'btn btn-primary' : 'btn btn-ghost'
+        "
+        @click="currentViewMode = 'category'"
+      >
+        Kategoriebuchungen
+      </button>
+    </div>
+    <!-- Filterleiste und Liste abhängig vom Modus -->
+    <div v-if="currentViewMode === 'account'">
+      <div class="card bg-base-100 shadow-md border border-base-300">
         <div
-          class="dropdown dropdown-end dropdown-hover absolute top-1 right-1"
+          class="card-title flex flex-wrap items-end justify-start gap-3 mx-2 pt-2 relative z-10"
         >
-          <label class="btn btn-ghost btn-sm btn-circle"
-            ><Icon icon="mdi:dots-horizontal"
-          /></label>
-          <ul
-            class="dropdown-content menu p-2 shadow bg-base-100 border border-base-300 rounded-box w-52 z-40"
-          >
-            <li>
-              <a
-                class="text-error text-bold"
-                @click="
-                  transactionListRef.value?.getSelectedTransactions() &&
-                    handleBatchDeleteFromList
-                "
-                ><Icon icon="mdi:trash-can-outline" class="text-lg" />
-                Batch Delete
-              </a>
-            </li>
-          </ul>
-        </div>
-        <fieldset class="fieldset pt-0">
-          <legend class="fieldset-legend text-center opacity-50">
-            Monatswahl
-          </legend>
-          <MonthSelector
-            @update-daterange="handleDateRangeUpdate"
-            class="mx-2"
-          />
-        </fieldset>
-        <fieldset class="fieldset pt-0">
-          <legend class="fieldset-legend text-center opacity-50">Konto</legend>
-          <select
-            v-model="selectedAccountId"
-            class="select select-sm select-bordered rounded-full"
-            :class="
-              selectedAccountId
-                ? 'border-2 border-accent'
-                : 'border border-base-300'
-            "
-          >
-            <option value="">Alle Konten</option>
-            <option
-              v-for="acc in accountStore.activeAccounts"
-              :key="acc.id"
-              :value="acc.id"
+          <fieldset class="fieldset pt-0">
+            <legend class="fieldset-legend text-center opacity-50">
+              Monatswahl
+            </legend>
+            <MonthSelector
+              @update-daterange="handleDateRangeUpdate"
+              class="mx-2"
+            />
+          </fieldset>
+          <fieldset class="fieldset pt-0">
+            <legend class="fieldset-legend text-center opacity-50">
+              Konto
+            </legend>
+            <select
+              v-model="selectedAccountId"
+              class="select select-sm select-bordered rounded-full"
+              :class="
+                selectedAccountId
+                  ? 'border-2 border-accent'
+                  : 'border border-base-300'
+              "
             >
-              {{ acc.name }}
-            </option>
-          </select>
-        </fieldset>
-        <fieldset class="fieldset pt-0">
-          <legend class="fieldset-legend text-center opacity-50">
-            Transaktion
-          </legend>
-          <select
-            v-model="selectedTransactionType"
-            class="select select-sm select-bordered rounded-full"
-            :class="
-              selectedTransactionType
-                ? 'border-2 border-accent'
-                : 'border border-base-300'
-            "
+              <option value="">Alle Konten</option>
+              <option
+                v-for="acc in accountStore.activeAccounts"
+                :key="acc.id"
+                :value="acc.id"
+              >
+                {{ acc.name }}
+              </option>
+            </select>
+          </fieldset>
+          <fieldset class="fieldset pt-0">
+            <legend class="fieldset-legend text-center opacity-50">
+              Transaktion
+            </legend>
+            <select
+              v-model="selectedTransactionType"
+              class="select select-sm select-bordered rounded-full"
+              :class="
+                selectedTransactionType
+                  ? 'border-2 border-accent'
+                  : 'border border-base-300'
+              "
+            >
+              <option value="">Alle Typen</option>
+              <option value="ausgabe">Ausgabe</option>
+              <option value="einnahme">Einnahme</option>
+              <option value="transfer">Transfer</option>
+            </select>
+          </fieldset>
+          <fieldset class="fieldset pt-0">
+            <legend class="fieldset-legend text-center opacity-50">
+              Abgeglichen
+            </legend>
+            <select
+              v-model="selectedReconciledFilter"
+              class="select select-sm select-bordered rounded-full"
+              :class="
+                selectedReconciledFilter
+                  ? 'border-2 border-accent'
+                  : 'border border-base-300'
+              "
+            >
+              <option value="">Alle</option>
+              <option value="abgeglichen">Abgeglichen</option>
+              <option value="nicht abgeglichen">Nicht abgeglichen</option>
+            </select>
+          </fieldset>
+          <fieldset class="fieldset pt-0">
+            <legend class="fieldset-legend text-center opacity-50">
+              Kategorien
+            </legend>
+            <SearchableSelectLite
+              v-model="selectedCategoryId"
+              :options="categoryStore.categories"
+              item-text="name"
+              item-value="id"
+              placeholder="Alle Kategorien"
+            />
+          </fieldset>
+          <fieldset class="fieldset pt-0">
+            <legend class="fieldset-legend text-center opacity-50">Tags</legend>
+            <SearchableSelectLite
+              v-model="selectedTagId"
+              :options="tagStore.tags"
+              item-text="name"
+              item-value="id"
+              placeholder="Alle Tags"
+            />
+          </fieldset>
+          <button
+            class="btn btn-sm btn-ghost btn-circle self-end mb-1"
+            @click="clearFilters"
           >
-            <option value="">Alle Typen</option>
-            <option value="ausgabe">Ausgabe</option>
-            <option value="einnahme">Einnahme</option>
-            <option value="transfer">Transfer</option>
-          </select>
-        </fieldset>
-        <fieldset class="fieldset pt-0">
-          <legend class="fieldset-legend text-center opacity-50">
-            Abgeglichen
-          </legend>
-          <select
-            v-model="selectedReconciledFilter"
-            class="select select-sm select-bordered rounded-full"
-            :class="
-              selectedReconciledFilter
-                ? 'border-2 border-accent'
-                : 'border border-base-300'
+            <Icon icon="mdi:filter-off" class="text-xl" />
+          </button>
+        </div>
+        <div class="divider px-5 m-0" />
+        <div class="card-body py-0 px-1">
+          <TransactionList
+            ref="transactionListRef"
+            :transactions="paginatedTransactions"
+            :show-account="true"
+            :sort-key="sortKey"
+            :sort-order="sortOrder"
+            @sort-change="handleSortChange"
+            @edit="editTransaction"
+            @delete="deleteTransaction"
+            @toggleReconciliation="
+              (tx, val) =>
+                transactionStore.updateTransaction(tx.id, { reconciled: val })
             "
-          >
-            <option value="">Alle</option>
-            <option value="abgeglichen">Abgeglichen</option>
-            <option value="nicht abgeglichen">Nicht abgeglichen</option>
-          </select>
-        </fieldset>
-
-        <fieldset class="fieldset pt-0">
-          <legend class="fieldset-legend text-center opacity-50">
-            Kategorien
-          </legend>
-          <SearchableSelectLite
-            v-model="selectedCategoryId"
-            :options="categoryStore.categories"
-            item-text="name"
-            item-value="id"
-            placeholder="Alle Kategorien"
-            class=""
           />
-        </fieldset>
-        <fieldset class="fieldset pt-0">
-          <legend class="fieldset-legend text-center opacity-50">Tags</legend>
-          <SearchableSelectLite
-            v-model="selectedTagId"
-            :options="tagStore.tags"
-            item-text="name"
-            item-value="id"
-            placeholder="Alle Tags"
-            class=""
+          <PagingComponent
+            v-model:currentPage="currentPage"
+            v-model:itemsPerPage="itemsPerPage"
+            :totalPages="
+              itemsPerPage === 'all'
+                ? 1
+                : Math.ceil(sortedTransactions.length / Number(itemsPerPage))
+            "
+            :itemsPerPageOptions="itemsPerPageOptions"
           />
-        </fieldset>
-        <button
-          class="btn btn-sm btn-ghost btn-circle self-end mb-1"
-          @click="clearFilters"
-        >
-          <Icon icon="mdi:filter-off" class="text-xl" />
-        </button>
+        </div>
       </div>
-      <div class="divider px-5 m-0" />
-
-      <div class="card-body py-0 px-1">
-        <TransactionList
-          ref="transactionListRef"
-          :transactions="paginatedTransactions"
-          :show-account="true"
-          :sort-key="sortKey"
-          :sort-order="sortOrder"
-          @sort-change="handleSortChange"
-          @edit="editTransaction"
-          @delete="deleteTransaction"
-          @toggleReconciliation="
-            (tx, val) =>
-              transactionStore.updateTransaction(tx.id, { reconciled: val })
-          "
-        />
-        <PagingComponent
-          v-model:currentPage="currentPage"
-          v-model:itemsPerPage="itemsPerPage"
-          :totalPages="
-            itemsPerPage === 'all'
-              ? 1
-              : Math.ceil(sortedTransactions.length / Number(itemsPerPage))
-          "
-          :itemsPerPageOptions="itemsPerPageOptions"
-        />
+    </div>
+    <div v-else>
+      <div class="card bg-base-100 shadow-md border border-base-300">
+        <div
+          class="card-title flex flex-wrap items-end justify-start gap-3 mx-2 pt-2 relative z-10"
+        >
+          <fieldset class="fieldset pt-0">
+            <legend class="fieldset-legend text-center opacity-50">
+              Monatswahl
+            </legend>
+            <MonthSelector
+              @update-daterange="handleDateRangeUpdate"
+              class="mx-2"
+            />
+          </fieldset>
+          <fieldset class="fieldset pt-0">
+            <legend class="fieldset-legend text-center opacity-50">
+              Kategorien
+            </legend>
+            <SearchableSelectLite
+              v-model="selectedCategoryId"
+              :options="categoryStore.categories"
+              item-text="name"
+              item-value="id"
+              placeholder="Alle Kategorien"
+            />
+          </fieldset>
+          <button
+            class="btn btn-sm btn-ghost btn-circle self-end mb-1"
+            @click="clearFilters"
+          >
+            <Icon icon="mdi:filter-off" class="text-xl" />
+          </button>
+        </div>
+        <div class="divider px-5 m-0" />
+        <div class="card-body py-0 px-1">
+          <CategoryTransactionList
+            :transactions="paginatedCategoryTransactions"
+            :sort-key="sortKey"
+            :sort-order="sortOrder"
+            @sort-change="handleSortChange"
+            @edit="editTransaction"
+            @delete="deleteTransaction"
+          />
+          <PagingComponent
+            v-model:currentPage="currentPage"
+            v-model:itemsPerPage="itemsPerPage"
+            :totalPages="
+              itemsPerPage === 'all'
+                ? 1
+                : Math.ceil(
+                    sortedCategoryTransactions.length / Number(itemsPerPage)
+                  )
+            "
+            :itemsPerPageOptions="itemsPerPageOptions"
+          />
+        </div>
       </div>
     </div>
     <!-- Detail-Modal -->
