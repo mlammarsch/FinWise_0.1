@@ -14,6 +14,17 @@ import { TransactionType } from "../types";
 
 const pinia = createPinia();
 
+function randomNote(): string | undefined {
+  if (Math.random() > 0.6) return undefined;
+  const phrases = [
+    "lorem ipsum", "dolor sit amet", "einkauf\nbei rewe", "tanken", "urlaub bezahlt",
+    "mittagessen", "amazon bestellung", "neue\nversicherung", "handyrechnung", "reparatur auto",
+    "fitness beitrag", "arztbesuch", "geschenk für freund", "bücher", "parkhaus"
+  ];
+  const note = phrases[Math.floor(Math.random() * phrases.length)];
+  return note;
+}
+
 export function seedData() {
   const accountStore = useAccountStore(pinia);
   const transactionStore = useTransactionStore(pinia);
@@ -35,13 +46,59 @@ export function seedData() {
     ].forEach((name) => tagStore.addTag({ name, parentTagId: null }));
   }
 
-  if (categoryStore.categories.length === 0) {
-    [
-      "Lebensmittel", "Freizeit", "Reparaturen", "Miete", "Versicherung",
-      "Gesundheit", "Sparen", "Gehalt", "Nebenjob", "Bargeld"
-    ].forEach((name) =>
-      categoryStore.addCategory({ name, parentCategoryId: null })
-    );
+  if (categoryStore.categoryGroups.length === 0) {
+    const einnahmenGroupId = crypto.randomUUID();
+    const lebenGroupId = crypto.randomUUID();
+    const fixkostenGroupId = crypto.randomUUID();
+
+    categoryStore.addCategoryGroup({
+      id: einnahmenGroupId,
+      name: "Einnahmen",
+      sortOrder: 0,
+      isIncomeGroup: true
+    });
+
+    categoryStore.addCategoryGroup({
+      id: lebenGroupId,
+      name: "Lebenshaltung",
+      sortOrder: 1,
+      isIncomeGroup: false
+    });
+
+    categoryStore.addCategoryGroup({
+      id: fixkostenGroupId,
+      name: "Fixkosten",
+      sortOrder: 2,
+      isIncomeGroup: false
+    });
+
+    const kategorien = [
+      { name: "Gehalt", isIncomeCategory: true, groupId: einnahmenGroupId },
+      { name: "Nebenjob", isIncomeCategory: true, groupId: einnahmenGroupId },
+      { name: "Lebensmittel", isIncomeCategory: false, groupId: lebenGroupId },
+      { name: "Freizeit", isIncomeCategory: false, groupId: lebenGroupId },
+      { name: "Reparaturen", isIncomeCategory: false, groupId: lebenGroupId },
+      { name: "Miete", isIncomeCategory: false, groupId: fixkostenGroupId },
+      { name: "Versicherung", isIncomeCategory: false, groupId: fixkostenGroupId },
+      { name: "Gesundheit", isIncomeCategory: false, groupId: fixkostenGroupId },
+      { name: "Sparen", isIncomeCategory: false, groupId: fixkostenGroupId },
+      { name: "Bargeld", isIncomeCategory: false, groupId: fixkostenGroupId }
+    ];
+
+    kategorien.forEach((k, index) => {
+      categoryStore.addCategory({
+        name: k.name,
+        parentCategoryId: null,
+        isIncomeCategory: k.isIncomeCategory,
+        isHidden: false,
+        isActive: true,
+        budgeted: 0,
+        activity: 0,
+        available: 0,
+        sortOrder: index,
+        categoryGroupId: k.groupId
+      });
+    });
   }
 
   if (accountStore.accounts.length === 0) {
@@ -83,67 +140,31 @@ export function seedData() {
     const categories = categoryStore.categories;
     const tags = tagStore.tags;
     const recipients = recipientStore.recipients;
-
     const today = dayjs();
-    const total = 180;
 
-    for (let i = 0; i < total; i++) {
-      const date = today.subtract(Math.floor(Math.random() * 120), "day").format("YYYY-MM-DD");
-      const isTransfer = Math.random() < 0.15;
+    const incomeCategories = categories.filter(c => c.isIncomeCategory);
+    const expenseCategories = categories.filter(c => !c.isIncomeCategory);
 
-      if (isTransfer && accounts.length > 1) {
-        let from, to;
-        do {
-          from = accounts[Math.floor(Math.random() * accounts.length)];
-          to = accounts[Math.floor(Math.random() * accounts.length)];
-        } while (from.id === to.id);
+    accounts.forEach((account) => {
+      const numIncome = Math.floor(Math.random() * 3) + 3;
 
-        const amount = Math.round(Math.random() * 30000) / 100;
-
-        transactionStore.addTransferTransaction(
-          from.id,
-          to.id,
-          amount,
-          date,
-          date,
-          `Seed Transfer ${i + 1}`
-        );
-      } else {
-        const account = accounts[Math.floor(Math.random() * accounts.length)];
-        const category = categories[Math.floor(Math.random() * categories.length)];
-        const recipient = recipients[Math.floor(Math.random() * recipients.length)];
-
-        const rand = Math.random();
-        let amount = 0;
-        let type: TransactionType;
-
-        if (rand < 0.65) {
-          // Ausgabe
-          amount = -Math.round((Math.random() * 150 + 10) * 100) / 100;
-          type = TransactionType.EXPENSE;
-        } else {
-          // Einnahme
-          amount = Math.round((Math.random() * 1000 + 500) * 100) / 100;
-          type = TransactionType.INCOME;
-        }
-
-        const tagCount = Math.floor(Math.random() * 2) + 1;
-        const tagIds = [];
-        while (tagIds.length < tagCount) {
-          const tag = tags[Math.floor(Math.random() * tags.length)];
-          if (!tagIds.includes(tag.id)) tagIds.push(tag.id);
-        }
+      for (let i = 0; i < numIncome; i++) {
+        const date = today.subtract(Math.floor(Math.random() * 90), "day").format("YYYY-MM-DD");
+        const amountOptions = [1000, 2000, 3000, 4000, 5000];
+        const amount = amountOptions[Math.floor(Math.random() * amountOptions.length)];
+        const category = incomeCategories[i % incomeCategories.length];
+        const recipient = recipients.find((r) => r.name.includes("Arbeitgeber")) || recipients[0];
 
         transactionStore.addTransaction({
           date,
           valueDate: date,
           accountId: account.id,
           categoryId: category.id,
-          tagIds,
+          tagIds: [],
           amount,
-          note: "Seeded Buchung",
+          note: randomNote(),
           recipientId: recipient.id,
-          type,
+          type: TransactionType.INCOME,
           counterTransactionId: null,
           planningTransactionId: null,
           isReconciliation: false,
@@ -152,6 +173,42 @@ export function seedData() {
           transferToAccountId: null
         });
       }
+    });
+
+    for (let i = 0; i < 120; i++) {
+      const date = today.subtract(Math.floor(Math.random() * 120), "day").format("YYYY-MM-DD");
+      const account = accounts[Math.floor(Math.random() * accounts.length)];
+      const category = expenseCategories[i % expenseCategories.length];
+      const recipient = recipients[Math.floor(Math.random() * recipients.length)];
+
+      const amountOptions = [1, 2, 5, 10, 20, 30, 50, 70, 80, 100, 120, 150, 200, 300];
+      const rawAmount = amountOptions[Math.floor(Math.random() * amountOptions.length)];
+      const amount = -rawAmount;
+
+      const tagCount = Math.floor(Math.random() * 2) + 1;
+      const tagIds: string[] = [];
+      while (tagIds.length < tagCount) {
+        const tag = tags[Math.floor(Math.random() * tags.length)];
+        if (!tagIds.includes(tag.id)) tagIds.push(tag.id);
+      }
+
+      transactionStore.addTransaction({
+        date,
+        valueDate: date,
+        accountId: account.id,
+        categoryId: category.id,
+        tagIds,
+        amount,
+        note: randomNote(),
+        recipientId: recipient.id,
+        type: TransactionType.EXPENSE,
+        counterTransactionId: null,
+        planningTransactionId: null,
+        isReconciliation: false,
+        runningBalance: 0,
+        payee: recipient.name,
+        transferToAccountId: null
+      });
     }
   }
 }
@@ -161,6 +218,7 @@ export function clearData() {
   localStorage.removeItem("finwise_account_groups");
   localStorage.removeItem("finwise_transactions");
   localStorage.removeItem("finwise_categories");
+  localStorage.removeItem("finwise_categoryGroups");
   localStorage.removeItem("finwise_recipients");
   localStorage.removeItem("finwise_tags");
   localStorage.removeItem("finwise_planning");

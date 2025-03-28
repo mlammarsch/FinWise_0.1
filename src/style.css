@@ -10,16 +10,6 @@
 }
 
 @plugin "daisyui";
-/* @plugin "flyonui"; */
-@plugin "flyonui" {
-  root: ":root";
-  include: badge;
-  exclude: checkbox, dropdown;
-}
-
-/* @theme {
-  --font-display: "lobster-two", , Inter, Roboto, "sans-serif";
-} */
 
 @theme {
   --font-roboto: "Roboto", sans-serif;
@@ -181,36 +171,6 @@
   --z-modal: 50;
 } */
 
-/*
-.header {
-  @apply z-[var(--z-navbar)];
-}
-.navbar-center {
-  @apply z-[var(--z-navbar)];
-}
-
-.dropdown {
-  @apply z-[var(--z-dropdown)];
-}
-
-.dropdown-content {
-  @apply z-[var(--z-dropdown-content)];
-}
-
-.modal {
-  @apply z-[var(--z-modal)];
-}
-
-.datepicker-button {
-  @apply border border-base-100 rounded-md p-2 flex items-center justify-between bg-base-100 hover:bg-primary/20 active:bg-primary/40;
-}
-.datepicker-shortcut {
-  @apply text-sm text-neutral hover:text-primary hover:font-semibold cursor-pointer;
-}
-.datepicker-day {
-  @apply w-10 h-10 flex items-center justify-center rounded-md text-sm cursor-pointer hover:bg-primary hover:text-white;
-} */
-
 
   /* Checkbox mit class "checkbox-sm" rund darstellen */
   .checkbox.checkbox-sm {
@@ -227,8 +187,3 @@
   @apply relative;
   background: linear-gradient(-18deg, var(--color-secondary) 5%, var(--color-base-100) 68%, var(--color-primary) 95%);
 }
-
-
-/* .glass-effect {
-  @apply bg-base-100/60 backdrop-blur-md;
-} */

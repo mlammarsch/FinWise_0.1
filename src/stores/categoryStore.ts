@@ -1,3 +1,4 @@
+// Datei: store/categoryStore.ts
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { v4 as uuidv4 } from 'uuid'
@@ -7,10 +8,10 @@ type CategoryGroup = {
   id: string
   name: string
   sortOrder: number
+  isIncomeGroup: boolean
 }
 
 export const useCategoryStore = defineStore('category', () => {
-  // State
   const categories = ref<Category[]>([])
   const categoryGroups = ref<CategoryGroup[]>([])
 
@@ -19,45 +20,38 @@ export const useCategoryStore = defineStore('category', () => {
     categoryGroups: []
   }
 
-  // Einzelne Kategorie per ID (computed Getter)
   const getCategoryById = computed(() => {
     return (id: string) => categories.value.find(category => category.id === id)
   })
 
-  // Alternative Methode für direkten Zugriff
   function findCategoryById(id: string) {
     return categories.value.find(category => category.id === id)
   }
 
-  // Unterkategorien einer Kategorie (nur computed Zugriff)
   const getCategoriesByParentId = computed(() => {
     return (parentId: string | null) => categories.value
       .filter(category => category.parentCategoryId === parentId)
       .sort((a, b) => a.sortOrder - b.sortOrder)
   })
 
-  // Direktzugriff per Methode auf Kindkategorien
   const getChildCategories = (parentId: string) => {
     return categories.value
       .filter(category => category.parentCategoryId === parentId)
       .sort((a, b) => a.sortOrder - b.sortOrder)
   }
 
-  // Nur Hauptkategorien (ohne Parent)
   const rootCategories = computed(() => {
     return categories.value
       .filter(category => category.parentCategoryId === null)
       .sort((a, b) => a.sortOrder - b.sortOrder)
   })
 
-  // Nur Sparziele
   const savingsGoals = computed(() => {
     return categories.value
       .filter(category => category.isSavingsGoal)
       .sort((a, b) => a.sortOrder - b.sortOrder)
   })
 
-  // Gruppierte Hauptkategorien pro Kategoriegruppe
   const categoriesByGroup = computed(() => {
     const grouped: Record<string, Category[]> = {}
     for (const group of categoryGroups.value) {
@@ -68,7 +62,6 @@ export const useCategoryStore = defineStore('category', () => {
     return grouped
   })
 
-  // Neue Kategorie anlegen
   function addCategory(category: Omit<Category, 'id' | 'balance' | 'transactionCount' | 'averageTransactionValue'>) {
     const newCategory: Category = {
       ...category,
@@ -82,7 +75,6 @@ export const useCategoryStore = defineStore('category', () => {
     return newCategory
   }
 
-  // Bestehende Kategorie aktualisieren
   function updateCategory(id: string, updates: Partial<Category>) {
     const index = categories.value.findIndex(category => category.id === id)
     if (index !== -1) {
@@ -93,13 +85,11 @@ export const useCategoryStore = defineStore('category', () => {
     return false
   }
 
-  // Kategorie löschen
   function deleteCategory(id: string) {
     categories.value = categories.value.filter(category => category.id !== id)
     saveCategories()
   }
 
-  // Betrag zu Kategorie hinzufügen (z. B. durch Transaktion)
   function updateCategoryBalance(id: string, amount: number) {
     const category = categories.value.find(category => category.id === id)
     if (category) {
@@ -112,18 +102,17 @@ export const useCategoryStore = defineStore('category', () => {
     return false
   }
 
-  // Neue Kategoriegruppe anlegen
-  function addCategoryGroup(group: Omit<CategoryGroup, 'id'>) {
+  function addCategoryGroup(group: Omit<CategoryGroup, 'id'>): CategoryGroup {
     const newGroup: CategoryGroup = {
       id: uuidv4(),
       ...group
     }
     categoryGroups.value.push(newGroup)
     saveCategoryGroups()
-    return newGroup
+    // Direkter Return aus aktualisiertem State
+    return categoryGroups.value.find(g => g.id === newGroup.id)!
   }
 
-  // Kategoriegruppe löschen, wenn keine Kategorien mehr enthalten
   function deleteCategoryGroup(id: string) {
     const hasCategories = categories.value.some(cat => cat.categoryGroupId === id)
     if (hasCategories) return false
@@ -132,7 +121,6 @@ export const useCategoryStore = defineStore('category', () => {
     return true
   }
 
-  // Lade aus LocalStorage
   function loadCategories() {
     const savedCategories = localStorage.getItem('finwise_categories')
     if (savedCategories) {
@@ -145,7 +133,6 @@ export const useCategoryStore = defineStore('category', () => {
     }
   }
 
-  // Speichere nach LocalStorage
   function saveCategories() {
     localStorage.setItem('finwise_categories', JSON.stringify(categories.value))
   }
@@ -154,14 +141,12 @@ export const useCategoryStore = defineStore('category', () => {
     localStorage.setItem('finwise_categoryGroups', JSON.stringify(categoryGroups.value))
   }
 
-  // Zurücksetzen des States
   function reset() {
     categories.value = initialState.categories
     categoryGroups.value = initialState.categoryGroups
     loadCategories()
   }
 
-  // Initialisieren
   loadCategories()
 
   return {

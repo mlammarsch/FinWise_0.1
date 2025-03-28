@@ -1,3 +1,5 @@
+<!-- Datei: CategoryAdmin.vue – vollständig angepasst -->
+
 <script setup lang="ts">
 import { ref, computed } from "vue";
 import { useCategoryStore } from "../../stores/categoryStore";
@@ -8,36 +10,35 @@ import { Icon } from "@iconify/vue";
 // Stores
 const categoryStore = useCategoryStore();
 
-// State für Modals
+// Kategorie State
 const showCategoryModal = ref(false);
-
-// Ausgewählte Kategorie
 const selectedCategory = ref<Category | null>(null);
-
-// Bearbeitungsmodus
 const isEditMode = ref(false);
 
-// Alle Kategorien
-const categories = computed(() => categoryStore.categories);
+// Gruppe State
+const showGroupModal = ref(false);
+const groupName = ref("");
+const groupSort = ref(0);
+const groupIsIncome = ref(false);
+const editingGroupId = ref<string | null>(null);
 
-// Kategoriegruppen
+// Alle Daten
+const categories = computed(() => categoryStore.categories);
 const categoryGroups = computed(() => categoryStore.categoryGroups);
 
-// Kategorie bearbeiten
+// Kategorie-Aktionen
 const editCategory = (category: Category) => {
   selectedCategory.value = category;
   isEditMode.value = true;
   showCategoryModal.value = true;
 };
 
-// Neue Kategorie erstellen
 const createCategory = () => {
   selectedCategory.value = null;
   isEditMode.value = false;
   showCategoryModal.value = true;
 };
 
-// Kategorie speichern
 const saveCategory = (categoryData: Omit<Category, "id">) => {
   if (isEditMode.value && selectedCategory.value) {
     categoryStore.updateCategory(selectedCategory.value.id, categoryData);
@@ -47,7 +48,6 @@ const saveCategory = (categoryData: Omit<Category, "id">) => {
   showCategoryModal.value = false;
 };
 
-// Kategorie löschen
 const deleteCategory = (category: Category) => {
   if (
     confirm(`Möchten Sie die Kategorie "${category.name}" wirklich löschen?`)
@@ -61,18 +61,50 @@ const deleteCategory = (category: Category) => {
   }
 };
 
-// Kategoriegruppe erstellen
+// Kategoriegruppen-Aktionen
 const createCategoryGroup = () => {
-  const name = prompt("Name der neuen Kategoriegruppe:");
-  if (name) {
-    categoryStore.addCategoryGroup({
-      name,
-      sortOrder: categoryGroups.value?.length || 0,
-    });
-  }
+  editingGroupId.value = null;
+  groupName.value = "";
+  groupSort.value = categoryGroups.value?.length || 0;
+  groupIsIncome.value = false;
+  showGroupModal.value = true;
 };
 
-// Kategoriegruppe löschen
+const editCategoryGroup = (groupId: string) => {
+  const group = categoryGroups.value.find((g) => g.id === groupId);
+  if (!group) return;
+  editingGroupId.value = group.id;
+  groupName.value = group.name;
+  groupSort.value = group.sortOrder;
+  groupIsIncome.value = group.isIncomeGroup;
+  showGroupModal.value = true;
+};
+
+const saveCategoryGroup = () => {
+  if (editingGroupId.value) {
+    // Update
+    const existing = categoryGroups.value.find(
+      (g) => g.id === editingGroupId.value
+    );
+    if (existing) {
+      Object.assign(existing, {
+        name: groupName.value,
+        sortOrder: groupSort.value,
+        isIncomeGroup: groupIsIncome.value,
+      });
+      categoryStore.loadCategories(); // Refresh
+    }
+  } else {
+    // Neu
+    categoryStore.addCategoryGroup({
+      name: groupName.value,
+      sortOrder: groupSort.value,
+      isIncomeGroup: groupIsIncome.value,
+    });
+  }
+  showGroupModal.value = false;
+};
+
 const deleteCategoryGroup = (groupId: string) => {
   const group = categoryGroups.value?.find((g) => g.id === groupId);
   if (!group) return;
@@ -88,14 +120,13 @@ const deleteCategoryGroup = (groupId: string) => {
   }
 };
 
-// Hole den Namen einer Kategoriegruppe
+// Helper
 const getGroupName = (groupId: string): string => {
   if (!categoryGroups.value) return "Unbekannt";
   const group = categoryGroups.value.find((g) => g.id === groupId);
   return group ? group.name : "Unbekannt";
 };
 
-// Hole den Namen einer übergeordneten Kategorie
 const getParentCategoryName = (parentId: string | null): string => {
   if (!parentId) return "-";
   const parent = categories.value.find((c) => c.id === parentId);
@@ -105,7 +136,7 @@ const getParentCategoryName = (parentId: string | null): string => {
 
 <template>
   <div>
-    <!-- Header mit Aktionen -->
+    <!-- Header -->
     <div class="flex justify-between items-center mb-6">
       <h2 class="text-xl font-bold">Kategorien verwalten</h2>
       <div class="flex gap-2">
@@ -160,7 +191,7 @@ const getParentCategoryName = (parentId: string | null): string => {
                 </td>
                 <td>
                   <div
-                    class="badge"
+                    class="badge rounded-full"
                     :class="category.isActive ? 'badge-success' : 'badge-error'"
                   >
                     {{ category.isActive ? "Aktiv" : "Inaktiv" }}
@@ -203,6 +234,7 @@ const getParentCategoryName = (parentId: string | null): string => {
             <thead>
               <tr>
                 <th>Name</th>
+                <th>Typ</th>
                 <th>Sortierung</th>
                 <th>Anzahl Kategorien</th>
                 <th class="text-right">Aktionen</th>
@@ -211,6 +243,16 @@ const getParentCategoryName = (parentId: string | null): string => {
             <tbody>
               <tr v-for="group in categoryGroups" :key="group.id">
                 <td>{{ group.name }}</td>
+                <td>
+                  <span
+                    class="badge badge-sm rounded-full"
+                    :class="
+                      group.isIncomeGroup ? 'badge-success' : 'badge-error'
+                    "
+                  >
+                    {{ group.isIncomeGroup ? "Einnahmen" : "Ausgaben" }}
+                  </span>
+                </td>
                 <td>{{ group.sortOrder }}</td>
                 <td>
                   {{
@@ -219,16 +261,24 @@ const getParentCategoryName = (parentId: string | null): string => {
                   }}
                 </td>
                 <td class="text-right">
-                  <button
-                    class="btn btn-ghost btn-sm text-error text-lg"
-                    @click="deleteCategoryGroup(group.id)"
-                  >
-                    <Icon icon="mdi:trash-can" />
-                  </button>
+                  <div class="flex justify-end space-x-1">
+                    <button
+                      class="btn btn-ghost btn-xs text-lg"
+                      @click="editCategoryGroup(group.id)"
+                    >
+                      <Icon icon="mdi:pencil" />
+                    </button>
+                    <button
+                      class="btn btn-ghost btn-xs text-error text-lg"
+                      @click="deleteCategoryGroup(group.id)"
+                    >
+                      <Icon icon="mdi:trash-can" />
+                    </button>
+                  </div>
                 </td>
               </tr>
               <tr v-if="(categoryGroups?.length ?? 0) === 0">
-                <td colspan="4" class="text-center py-4">
+                <td colspan="5" class="text-center py-4">
                   Keine Kategoriegruppen vorhanden
                 </td>
               </tr>
@@ -252,6 +302,51 @@ const getParentCategoryName = (parentId: string | null): string => {
         />
       </div>
       <div class="modal-backdrop" @click="showCategoryModal = false"></div>
+    </div>
+
+    <!-- Kategoriegruppe-Modal -->
+    <div v-if="showGroupModal" class="modal modal-open">
+      <div class="modal-box max-w-xl">
+        <h3 class="font-bold text-lg mb-4">
+          {{ editingGroupId ? "Gruppe bearbeiten" : "Neue Gruppe" }}
+        </h3>
+        <form @submit.prevent="saveCategoryGroup" class="space-y-4">
+          <div>
+            <label class="label">Name</label>
+            <input
+              v-model="groupName"
+              type="text"
+              class="input input-bordered w-full"
+              required
+            />
+          </div>
+          <div>
+            <label class="label">Sortierung</label>
+            <input
+              v-model.number="groupSort"
+              type="number"
+              class="input input-bordered w-full"
+            />
+          </div>
+          <div>
+            <label class="label">Typ</label>
+            <select
+              v-model="groupIsIncome"
+              class="select select-bordered w-full"
+            >
+              <option :value="true">Einnahmen</option>
+              <option :value="false">Ausgaben</option>
+            </select>
+          </div>
+          <div class="modal-action">
+            <button type="submit" class="btn btn-primary">Speichern</button>
+            <button type="button" class="btn" @click="showGroupModal = false">
+              Abbrechen
+            </button>
+          </div>
+        </form>
+      </div>
+      <div class="modal-backdrop" @click="showGroupModal = false"></div>
     </div>
   </div>
 </template>

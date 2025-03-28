@@ -89,7 +89,16 @@ export interface Category {
   available: number
   isIncomeCategory: boolean
   isHidden: boolean
+  isActive: boolean
   sortOrder: number
+  categoryGroupId?: string
+}
+
+export interface CategoryGroup {
+  id: string
+  name: string
+  sortOrder: number
+  isIncomeGroup: boolean
 }
 
 export interface Tag {

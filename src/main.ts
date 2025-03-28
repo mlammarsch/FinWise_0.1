@@ -5,8 +5,7 @@ import { createPinia } from 'pinia';
 import './style.css';
 import './daisyui.css';
 import { seedData } from './mock/seed';
-import { Icon } from '@iconify/vue'; // Importiere Iconify
-import "flyonui/flyonui";
+import { Icon } from '@iconify/vue';
 
 const pinia = createPinia();
 const app = createApp(App);
