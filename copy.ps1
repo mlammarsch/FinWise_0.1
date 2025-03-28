@@ -1,11 +1,8 @@
 # --------------------------------------------------------------------------
 # REKURSIVE SUCHE NACH DATEIEN mit speziellen Filter-Regeln:
-#
-# Ihre Beschreibung und Anmerkungen hier...
 # --------------------------------------------------------------------------
 
 # Basisverzeichnis definieren
-#$baseDirectory = "C:\00_mldata\programming\FinWise\FinWise_0.1" //Geschäftsrechner
 $baseDirectory = "D:\_localData\dev\FinWise\FinWise_0.1"
 $baseDirectoryFull = [System.IO.Path]::GetFullPath($baseDirectory)
 
@@ -19,11 +16,8 @@ $excludedDirectories = @(
 )
 
 $includeDirectories = @(
-    #"./src/components/transaction",
-    #"./src/stores/"
     "src\components\budget",
     "src\components\transaction"
-
 )
 
 # --------------------------------------------------------------------------
@@ -31,47 +25,59 @@ $includeDirectories = @(
 # --------------------------------------------------------------------------
 $excludeFiles = @(
     "./*.*"
-    #"main.js",
-    #"app.vue",
 )
 
 $searchFiles = @(
-    #"./src/views/TransactionsView.vue",
-    #"./src/components/transaction/TransactionCard.vue",
-    #"src\stores\accountStore.ts",
-    #"./src/stores/*.ts"
-    #"./src/components/ui/PagingComponent.vue",
+    # ###Prompt
     "prompt\sytemprompt.md",
-    #"src\stores\recipientStore.ts",
-    #"src\views\AccountsView.vue",
-    #"src\stores\transactionStore.ts",
-    #"src\components\ui\CurrencyDisplay.vue",
-    #"src\components\ui\CurrencyInput.vue",
-    #"src\stores\accountStore.ts",
-    #"src\components\transaction\TransactionList.vue",
-    #"src\components\transaction\TransactionForm.vue",
-    #"src\views\TransactionsView.vue",
-    #"src\components\account\*.vue"
-    #"src\utils\*.ts",
-    #"src\types\*.ts"
-    #"src\views\admin\AdminRecipientsView.vue"
-    #"src\components\ui\SearchableSelect.vue",
-    #"src\components\ui\TagSearchableDropdown.vue"
-    "src\stores\categoryStore.ts",
-    #"src\stores\tagStore.ts"
-    #"src\components\ui\SearchGroup.vue"
-    "src\views\TransactionsView.vue",
-    "*.vue",
-    "*.ts"
 
+    # ###Account
+    # "src\stores\accountStore.ts",
+    # "src\views\AccountsView.vue",
+    # "src\components\account\*.vue",
+
+    # ###Transaction
+    # "./src/views/TransactionsView.vue",
+    # "src\views\TransactionsView.vue",
+    # "./src/components/transaction/TransactionCard.vue",
+    # "src\components\transaction\TransactionList.vue",
+    # "src\components\transaction\TransactionForm.vue",
+    # "src\stores\transactionStore.ts",
+    # "src\stores\recipientStore.ts",
+
+    # ###Category - Budget
+    "src\stores\categoryStore.ts",
+    "src\views\BudgetsView.vue",
+    "src\components\budget\BudgetCategoryColumn.vue",
+    "src\components\budget\BudgetMonthCard.vue",
+    "src\components\budget\BudgetMonthHeaderCard.vue",
+
+    # ###Tags
+    # "src\stores\tagStore.ts",
+
+    # ###Admin
+    # "src\views\admin\AdminRecipientsView.vue",
+    "src\views\admin\AdminCategoriesView.vue",
+
+    # Components
+    # "./src/components/ui/PagingComponent.vue",
+    "src\components\ui\CurrencyDisplay.vue",
+    "src\components\ui\CurrencyInput.vue",
+    # "src\components\ui\SearchableSelect.vue",
+    # "src\components\ui\TagSearchableDropdown.vue",
+    # "src\components\ui\SearchGroup.vue",
+    "src\components\ui\MainNavigation.vue",
+
+    # ###Sonstiges
+    # "./src/stores/*.ts"
+    # "src\utils\*.ts",
+    # "src\types\*.ts"
+    # "*.vue",
+    "*.ts"
 )
 
-# --------------------------------------------------------------------------
-# Vorab Informationen laden
-# --------------------------------------------------------------------------
 $output = @()
 
-# 1. Lade den Inhalt der Datei prompt_GPT_Instructions.md
 $instructionsPath = Join-Path $baseDirectoryFull "prompt_GPT_Instructions.md"
 if (Test-Path $instructionsPath) {
     $output += Get-Content -Path $instructionsPath -Encoding UTF8 -Raw
@@ -79,10 +85,8 @@ if (Test-Path $instructionsPath) {
     $output += "Die Datei 'prompt_GPT_Instructions.md' konnte nicht gefunden werden.`n"
 }
 
-# 2. Füge eine Zeile mit "## Requirements and Context:"
 $output += "## Requirements and Context:`n"
 
-# 3. Lade den Inhalt der Datei prompt_requirements.md
 $requirementsPath = Join-Path $baseDirectoryFull "prompt_requirements.md"
 if (Test-Path $requirementsPath) {
     $output += Get-Content -Path $requirementsPath -Encoding UTF8 -Raw
@@ -90,22 +94,12 @@ if (Test-Path $requirementsPath) {
     $output += "Die Datei 'prompt_requirements.md' konnte nicht gefunden werden.`n"
 }
 
-# 4. Füge eine Zwischenüberschrift "## Foldersystem and existing files" hinzu
 $output += "`n## Foldersystem and existing files`n"
-
-# 5. Füge die Ausgabe von tree ./src /F hinzu
 $output += "### Struktur von ./src:`n"
-# Tree-Befehl erzeugt keinen UTF-8 Output, daher muss hier nichts angepasst werden.
 $output += (tree (Join-Path $baseDirectoryFull "src") /F 2>&1) + "`n"
-
-# 6. Füge die Ausgabe von tree ./test /F hinzu
 $output += "### Struktur von ./tests:`n"
-# Tree-Befehl erzeugt keinen UTF-8 Output, daher muss hier nichts angepasst werden.
 $output += (tree (Join-Path $baseDirectoryFull "tests") /F 2>&1) + "`n"
 
-# --------------------------------------------------------------------------
-# Normalize the configured directories to absolute paths
-# --------------------------------------------------------------------------
 $normalizedExcludedDirs = @()
 foreach ($dir in $excludedDirectories) {
     $norm = [System.IO.Path]::GetFullPath((Join-Path $baseDirectoryFull $dir))
@@ -118,18 +112,12 @@ foreach ($dir in $includeDirectories) {
     $normalizedIncludeDirs += $norm
 }
 
-# --------------------------------------------------------------------------
-# Ausgabe der Konfiguration (Excluded/Included Directories)
-# --------------------------------------------------------------------------
 Write-Host "--- Konfiguration ---"
 Write-Host "Ausgeschlossene Verzeichnisse:"
 $excludedDirectories | ForEach-Object { Write-Host "`t$_" }
 Write-Host "Eingeschlossene Verzeichnisse:"
 $includeDirectories | ForEach-Object { Write-Host "`t$_" }
 
-# --------------------------------------------------------------------------
-# Funktion zur Prüfung, ob eine Datei auf Basis ihres Verzeichnisses erlaubt ist.
-# --------------------------------------------------------------------------
 function Test-IsAllowedFile($file) {
     $fileDir = [System.IO.Path]::GetFullPath($file.DirectoryName)
 
@@ -146,16 +134,9 @@ function Test-IsAllowedFile($file) {
     return $true
 }
 
-# --------------------------------------------------------------------------
-# Rekursive Dateisuche: Alle Dateien im Basisverzeichnis (inklusive Unterordner)
-# --------------------------------------------------------------------------
 $allFiles = Get-ChildItem -Path $baseDirectoryFull -File -Recurse
-
-# Filtere anhand des Verzeichnispfads (Include/Exclude):
 $allowedFiles = $allFiles | Where-Object { Test-IsAllowedFile($_) }
 
-# --------------------------------------------------------------------------
-# Suche explizit nach Dateien, die über $searchFiles als relative Pfadangabe spezifiziert sind.
 $explicitFiles = @()
 foreach ($pattern in $searchFiles) {
     if ($pattern.Contains("/") -or $pattern.Contains("\")) {
@@ -163,8 +144,8 @@ foreach ($pattern in $searchFiles) {
         $fullPath = Join-Path $baseDirectoryFull $normalizedPattern
         if (-not $normalizedPattern.Contains("*")) {
             if (Test-Path -Path $fullPath -PathType Leaf) {
-                $explicitFiles += Get-Item -Path $fullPath
-                Write-Host "Explizit gesuchte Datei gefunden: '$pattern'" # Ausgabe, dass explizit gesucht wurde
+                $explicitFiles += @(Get-Item -Path $fullPath)
+                Write-Host "Explizit gesuchte Datei gefunden: '$pattern'"
             } else {
                 Write-Host "Explizit gesuchte Datei nicht gefunden: '$pattern'"
             }
@@ -173,23 +154,18 @@ foreach ($pattern in $searchFiles) {
             $filePattern = [System.IO.Path]::GetFileName($fullPath)
             if (Test-Path -Path $parentPath -PathType Container) {
                 $matchingFiles = Get-ChildItem -Path $parentPath -Filter $filePattern
-                $explicitFiles += $matchingFiles
-                Write-Host "Explizit gesuchtes Suchmuster gefunden: '$pattern'" # Ausgabe, dass explizit nach Suchmuster gesucht wurde
+                $explicitFiles += @($matchingFiles)
+                Write-Host "Explizit gesuchtes Suchmuster gefunden: '$pattern'"
             } else {
-                 Write-Host "Explizit gesuchtes Suchmuster nicht gefunden: '$pattern'"
+                Write-Host "Explizit gesuchtes Suchmuster nicht gefunden: '$pattern'"
             }
         }
     }
 }
 
-# --------------------------------------------------------------------------
-# Ausgabe der Konfiguration (Included Files)
-# --------------------------------------------------------------------------
 Write-Host "Explizit inkludierte Dateien:"
 $explicitFiles | ForEach-Object { Write-Host "`t$($_.FullName)" }
 
-# --------------------------------------------------------------------------
-# Für einfache (nicht relative) Suchmuster in $searchFiles (z.B. "*.vue" oder "*.js")
 $simpleMatchedFiles = @()
 if ($searchFiles.Count -gt 0) {
     $simpleMatchedFiles = $allowedFiles | Where-Object {
@@ -206,17 +182,19 @@ if ($searchFiles.Count -gt 0) {
     }
 }
 
-# --------------------------------------------------------------------------
-# Zusätzliche Filterung mittels ExcludeFiles:
-# Bevor die Ausgabe in die Zwischenablage erstellt wird
-# --------------------------------------------------------------------------
+if ($simpleMatchedFiles -isnot [System.Array]) { $simpleMatchedFiles = @($simpleMatchedFiles) }
+if ($explicitFiles -isnot [System.Array]) { $explicitFiles = @($explicitFiles) }
+
 $filteredFiles = $simpleMatchedFiles + $explicitFiles
 
 $filteredFiles = $filteredFiles | Where-Object {
+    if (-not $_ -or -not $_.FullName) { return $false }
+
     $skip = $false
+    $relPath = $_.FullName.Substring($baseDirectoryFull.Length + 1).Replace("\", "/")
+
     foreach ($pattern in $excludeFiles) {
         $explicitlyIncluded = $false
-        $relPath = $_.FullName.Substring($baseDirectoryFull.Length + 1).Replace("\", "/")
         foreach ($searchPattern in $searchFiles) {
             if ($searchPattern.Contains("/") -or $searchPattern.Contains("\")) {
                 $normSearch = $searchPattern.Replace("\", "/")
@@ -248,17 +226,11 @@ $filteredFiles = $filteredFiles | Where-Object {
     -not $skip
 }
 
-# --------------------------------------------------------------------------
-# Entferne Duplikate (auf Basis des vollständigen Pfades).
-# --------------------------------------------------------------------------
 $filteredFiles = $filteredFiles | Sort-Object -Property FullName -Unique
-# --------------------------------------------------------------------------
-# Ausgabe der Liste der Dateien, die ausgeschlossen werden.
-# --------------------------------------------------------------------------
+
 Write-Host "Ausgeschlossene Dateien:"
 $excludeFiles | ForEach-Object { Write-Host "`t$_" }
 
-# Ausgabe und Vorbereitung des Outputs für die Zwischenablage
 foreach ($file in $filteredFiles) {
     Write-Host "Gefundene Datei: $($file.FullName)"
     $output += "## $($file.Name)`n"
@@ -266,28 +238,20 @@ foreach ($file in $filteredFiles) {
     $output += "$($file.Directory.FullName.Replace('\', '/'))/$($file.Name)`n"
     $output += "### Code Content:`n"
     try {
-        $output += (Get-Content $file.FullName -Encoding UTF8 -Raw -ErrorAction Stop) + "`n" # -ErrorAction Stop hinzugefügt
+        $output += (Get-Content $file.FullName -Encoding UTF8 -Raw -ErrorAction Stop) + "`n"
     } catch {
-        Write-Warning "Fehler beim Lesen der Datei '$($file.FullName)': $_" # Zusätzliche Fehlermeldung
-        $output += "Fehler beim Lesen der Datei: $_`n";
+        Write-Warning "Fehler beim Lesen der Datei '$($file.FullName)': $_"
+        $output += "Fehler beim Lesen der Datei: $_`n"
     }
     $output += "## End of excerpt for $($file.Name) ---`n`n`n"
 }
 
-# --------------------------------------------------------------------------
-# Kopiere den gesamten Output in die Zwischenablage
-# --------------------------------------------------------------------------
 Add-Type -AssemblyName System.Windows.Forms
 [System.Windows.Forms.Clipboard]::SetText($output -join "`r`n")
 
-# --------------------------------------------------------------------------
-# Ausgabe: Anzahl gefundener Dateien
-# --------------------------------------------------------------------------
-# Wort- und Zeichenanzahl berechnen
 $charCount = ($output | Measure-Object -Character).Characters
 $wordCount = ($output -split '\s+' | Where-Object { $_ } | Measure-Object).Count
 
 Write-Host "--- Zusammenfassung ---"
 Write-Host "Datenmenge: Insgesamt $wordCount Worte mit in Summe $charCount Zeichen"
-
 Write-Host "Insgesamt wurden $($filteredFiles.Count) Dateien gefunden und in die Zwischenablage kopiert."
