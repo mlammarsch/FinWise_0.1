@@ -11,7 +11,7 @@ const props = defineProps<{
 
 <template>
   <div
-    class="min-w-[12rem] border-l border-base-300 bg-base-100 sticky top-0 z-30"
+    class="min-w-[12rem] rounded-lg border border-base-300 bg-base-100 sticky top-0 z-30 m-2"
   >
     <div class="p-2 border-b border-base-300 text-center font-bold">
       {{ props.label }}

@@ -51,7 +51,7 @@ const computeData = (category: Category) => {
 </script>
 
 <template>
-  <div class="w-full border-l border-base-300">
+  <div class="w-full p-1 rounded-lg">
     <!-- Tabellenheader -->
     <div class="sticky top-0 bg-base-100 z-20 p-2 border-b border-base-300">
       <div class="grid grid-cols-3">
@@ -65,13 +65,22 @@ const computeData = (category: Category) => {
       <template v-for="cat in categories" :key="cat.id">
         <div class="grid grid-cols-3 p-2 border-b border-base-200">
           <div class="text-right">
-            <CurrencyDisplay :amount="computeData(cat).budgeted" />
+            <CurrencyDisplay
+              :amount="computeData(cat).budgeted"
+              :asInteger="true"
+            />
           </div>
           <div class="text-right">
-            <CurrencyDisplay :amount="computeData(cat).spent" />
+            <CurrencyDisplay
+              :amount="computeData(cat).spent"
+              :asInteger="true"
+            />
           </div>
           <div class="text-right">
-            <CurrencyDisplay :amount="computeData(cat).saldo" />
+            <CurrencyDisplay
+              :amount="computeData(cat).saldo"
+              :asInteger="true"
+            />
           </div>
         </div>
         <template v-if="props.expanded.has(cat.id)">
@@ -81,13 +90,22 @@ const computeData = (category: Category) => {
             class="grid grid-cols-3 pl-6 text-sm p-2 border-b border-base-200"
           >
             <div class="text-right">
-              <CurrencyDisplay :amount="computeData(child).budgeted" />
+              <CurrencyDisplay
+                :amount="computeData(child).budgeted"
+                :asInteger="true"
+              />
             </div>
             <div class="text-right">
-              <CurrencyDisplay :amount="computeData(child).spent" />
+              <CurrencyDisplay
+                :amount="computeData(child).spent"
+                :asInteger="true"
+              />
             </div>
             <div class="text-right">
-              <CurrencyDisplay :amount="computeData(child).saldo" />
+              <CurrencyDisplay
+                :amount="computeData(child).saldo"
+                :asInteger="true"
+              />
             </div>
           </div>
         </template>
