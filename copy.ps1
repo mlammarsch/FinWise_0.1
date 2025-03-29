@@ -46,7 +46,7 @@ $searchFiles = @(
     # "src\stores\recipientStore.ts",
 
     # ###Category - Budget
-    "src\stores\categoryStore.ts",
+    # "src\stores\categoryStore.ts",
     "src\views\BudgetsView.vue",
     "src\components\budget\BudgetCategoryColumn.vue",
     "src\components\budget\BudgetMonthCard.vue",
@@ -57,16 +57,17 @@ $searchFiles = @(
 
     # ###Admin
     # "src\views\admin\AdminRecipientsView.vue",
-    "src\views\admin\AdminCategoriesView.vue",
+    # "src\views\admin\AdminCategoriesView.vue",
+    "src\layouts\AppLayout.vue",
 
     # Components
     # "./src/components/ui/PagingComponent.vue",
-    "src\components\ui\CurrencyDisplay.vue",
-    "src\components\ui\CurrencyInput.vue",
+    # "src\components\ui\CurrencyDisplay.vue",
+    # "src\components\ui\CurrencyInput.vue",
     # "src\components\ui\SearchableSelect.vue",
     # "src\components\ui\TagSearchableDropdown.vue",
     # "src\components\ui\SearchGroup.vue",
-    "src\components\ui\MainNavigation.vue",
+    # "src\components\ui\MainNavigation.vue",
 
     # ###Sonstiges
     # "./src/stores/*.ts"

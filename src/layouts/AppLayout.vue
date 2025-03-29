@@ -1,3 +1,4 @@
+<!-- Datei: src/layouts/AppLayout.vue -->
 <script setup lang="ts">
 import { ref } from "vue";
 import { useRouter } from "vue-router";
@@ -29,16 +30,13 @@ const toggleMobileMenu = () => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-gradient relative">
-    <!-- <div class="min-h-screen bg-base-100 relative"> -->
-    <!-- Blur-Effekt für Hintergrund -->
-    <div class="absolute bg-base-100/95 inset-0 backdrop-blur-md"></div>
+  <div class="min-h-screen flex flex-col bg-gradient relative">
+    <div class="absolute inset-0 bg-base-100/95 backdrop-blur-md"></div>
 
     <!-- Header -->
-    <header class="sticky top-0 border-b border-base-300 bg-base-100 z-40">
+    <header class="bg-base-100 sticky top-0 z-40 border-b border-base-300">
       <div class="navbar container mx-auto">
         <div class="navbar-start">
-          <!-- Mobile Menü Button -->
           <div class="dropdown">
             <button class="btn btn-ghost lg:hidden" @click="toggleMobileMenu">
               <Icon icon="mdi:menu" class="h-5 w-5" />
@@ -50,7 +48,6 @@ const toggleMobileMenu = () => {
               <MainNavigation @close-menu="isMobileMenuOpen = false" />
             </ul>
           </div>
-          <!-- Logo "FinWise"-->
           <div class="flex normal-case text-2xl p-3">
             <div
               class="text-primary font-normal"
@@ -67,14 +64,12 @@ const toggleMobileMenu = () => {
           </div>
         </div>
 
-        <!-- Hauptnavigation für größere Bildschirme -->
         <div class="navbar-center hidden lg:flex p-2">
           <ul class="menu menu-md menu-horizontal">
             <MainNavigation />
           </ul>
         </div>
 
-        <!-- Theme-Umschalter -->
         <div class="navbar-end p-3">
           <ThemeToggle />
         </div>
@@ -82,13 +77,15 @@ const toggleMobileMenu = () => {
     </header>
 
     <!-- Hauptinhalt -->
-    <main class="container mx-auto px-4 py-6 relative">
+    <main
+      class="flex-grow overflow-y-auto container mx-auto px-4 py-6 relative"
+    >
       <slot></slot>
     </main>
 
     <!-- Footer -->
     <footer
-      class="footer footer-center p-4 glass-effect text-base-content border-t border-base-300 relative"
+      class="bg-base-100 sticky bottom-0 z-40 border-t border-base-300 footer footer-center p-4 glass-effect"
     >
       <div>
         <p>

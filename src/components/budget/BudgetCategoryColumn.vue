@@ -17,11 +17,11 @@ const rootCategories = categoryStore.categories.filter(
 </script>
 
 <template>
-  <div class="bg-base-100 z-10 border-r border-base-300" :style="$attrs.style">
+  <div class="bg-base-100 z-10" :style="$attrs.style">
     <!-- Leercard, entspricht der Höhe des Headers in BudgetMonthHeaderCard -->
     <div class="sticky top-0 bg-base-100 z-20">
       <!-- Kategoriename -->
-      <div class="p-2 font-bold">Kategorie</div>
+      <div class="p-2 font-bold border-b border-base-300">Kategorie</div>
     </div>
     <div v-for="cat in rootCategories" :key="cat.id">
       <div class="p-2 border-b border-base-200">
