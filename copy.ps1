@@ -33,15 +33,15 @@ $searchFiles = @(
 
     # ###Account
 
-     "src\stores\accountStore.ts",
-     "src\views\AccountsView.vue",
-     "src\components\account\*.vue",
+    # "src\stores\accountStore.ts",
+    # "src\views\AccountsView.vue",
+    # "src\components\account\*.vue",
 
     # ###Transaction
-     "src\views\TransactionsView.vue",
-     "./src/components/transaction/TransactionCard.vue",
-     "src\components\transaction\CategoryTransactionList.vue",
-     "src\components\transaction\TransactionList.vue",
+    # "src\views\TransactionsView.vue",
+    # "./src/components/transaction/TransactionCard.vue",
+    # "src\components\transaction\CategoryTransactionList.vue",
+    # "src\components\transaction\TransactionList.vue",
      "src\stores\transactionStore.ts",
     # "src\stores\recipientStore.ts",
 
@@ -59,13 +59,16 @@ $searchFiles = @(
     # "src\stores\tagStore.ts",
 
     # ###Admin
-    "src\views\admin\AdminAccountsView.vue",
+    #"src\views\admin\AdminAccountsView.vue",
     # "src\views\admin\AdminRecipientsView.vue",
-     "src\views\admin\AdminCategoriesView.vue",
+    # "src\views\admin\AdminCategoriesView.vue",
     # "src\layouts\AppLayout.vue",
 
     # Components
     # "./src/components/ui/PagingComponent.vue",
+    "src\components\ui\PagingYearComponent.vue",
+    "src\components\ui\MonthSelector.vue"
+
     # "src\components\ui\CurrencyDisplay.vue",
     # "src\components\ui\CurrencyInput.vue",
     # "src\components\ui\SearchableSelect.vue",
@@ -75,7 +78,8 @@ $searchFiles = @(
 
     # ###Sonstiges
     # "./src/stores/*.ts"
-    "src\utils\*.ts",
+    # "src\utils\*.ts",
+    "src\utils\formatters.ts",
     # "src\types\*.ts"
     # "*.vue",
     "*.ts"

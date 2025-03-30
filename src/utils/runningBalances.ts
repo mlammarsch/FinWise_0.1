@@ -62,8 +62,8 @@ export function calculateCategorySaldo(
   end: Date
 ): { budgeted: number; spent: number; saldo: number } {
   const txs = transactions.filter(tx => tx.categoryId === categoryId)
-  const txsCurrent = txs.filter(tx => new Date(tx.date) >= start && new Date(tx.date) <= end)
-  const txsBefore = txs.filter(tx => new Date(tx.date) < start)
+  const txsCurrent = txs.filter(tx => new Date(tx.valueDate) >= start && new Date(tx.valueDate) <= end)
+  const txsBefore = txs.filter(tx => new Date(tx.valueDate) < start)
   const spentThisMonth = txsCurrent.reduce((sum, tx) => sum + tx.amount, 0)
   const previousSaldo = txsBefore.reduce((sum, tx) => sum + tx.amount, 0)
   return { budgeted: 0, spent: spentThisMonth, saldo: previousSaldo + spentThisMonth }
@@ -80,7 +80,7 @@ export function calculateIncomeCategorySaldo(
   end: Date
 ): { budgeted: number; spent: number; saldo: number } {
   const txs = transactions.filter(tx => tx.categoryId === categoryId)
-  const txsCurrent = txs.filter(tx => new Date(tx.date) >= start && new Date(tx.date) <= end)
+  const txsCurrent = txs.filter(tx => new Date(tx.valueDate) >= start && new Date(tx.valueDate) <= end)
   const sumThisMonth = txsCurrent.reduce((sum, tx) => sum + tx.amount, 0)
   const budget = 0
   return { budgeted: budget, spent: sumThisMonth, saldo: budget - sumThisMonth }

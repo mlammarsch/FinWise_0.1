@@ -25,6 +25,18 @@ export function formatDateTime(dateString: string): string {
 }
 
 /**
+ * Gibt den reinen Datumsteil im Format yyyy-mm-dd zurück.
+ * Verhindert Zeitzonen- oder Zeitfehler bei Datumsvergleichen.
+ */
+export function toDateOnlyString(input: string | Date): string {
+  const date = typeof input === "string" ? new Date(input) : input;
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+/**
  * Gibt die CSS-Klasse für einen Betrag zurück (positiv, negativ, neutral)
  */
 export function getAmountClass(amount: number): string {

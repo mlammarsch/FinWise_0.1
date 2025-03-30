@@ -1,3 +1,4 @@
+<!-- Datei: src/views/BudgetsView.vue -->
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from "vue";
 import { useCategoryStore } from "../stores/categoryStore";
@@ -6,6 +7,7 @@ import BudgetCategoryColumn from "../components/budget/BudgetCategoryColumn.vue"
 import BudgetMonthCard from "../components/budget/BudgetMonthCard.vue";
 import BudgetMonthHeaderCard from "../components/budget/BudgetMonthHeaderCard.vue";
 import PagingYearComponent from "../components/ui/PagingYearComponent.vue";
+import { toDateOnlyString } from "@/utils/formatters";
 
 const categoryStore = useCategoryStore();
 const transactionStore = useTransactionStore();
@@ -49,12 +51,23 @@ const months = computed(() => {
 
   for (let i = 0; i < numMonths.value; i++) {
     const d = new Date(leftDate.getFullYear(), leftDate.getMonth() + i, 1);
-    const endOfMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+    // Normiere Datum: Erster Tag im Monat
+    const normalizedStart = new Date(toDateOnlyString(d));
+    // Letzter Tag im Monat: Errechne anhand des normalisierten Monats
+    const lastDay = new Date(
+      normalizedStart.getFullYear(),
+      normalizedStart.getMonth() + 1,
+      0
+    );
+    const normalizedEnd = new Date(toDateOnlyString(lastDay));
     result.push({
-      key: `${d.getFullYear()}-${d.getMonth() + 1}`,
-      label: d.toLocaleString("de-DE", { month: "long", year: "numeric" }),
-      start: d,
-      end: endOfMonth,
+      key: `${normalizedStart.getFullYear()}-${normalizedStart.getMonth() + 1}`,
+      label: normalizedStart.toLocaleString("de-DE", {
+        month: "long",
+        year: "numeric",
+      }),
+      start: normalizedStart,
+      end: normalizedEnd,
     });
   }
   return result;
@@ -77,7 +90,7 @@ const availableByMonth = computed(() => {
     const prevTxs = transactionStore.transactions.filter(
       (tx) =>
         tx.categoryId === availableCat.id &&
-        new Date(tx.date) < month.start &&
+        new Date(tx.valueDate) < month.start &&
         (tx.type === "EXPENSE" ||
           tx.type === "INCOME" ||
           tx.type === "ACCOUNTTRANSFER" ||
@@ -87,8 +100,8 @@ const availableByMonth = computed(() => {
     const currentTxs = transactionStore.transactions.filter(
       (tx) =>
         tx.categoryId === availableCat.id &&
-        new Date(tx.date) >= month.start &&
-        new Date(tx.date) <= month.end &&
+        new Date(tx.valueDate) >= month.start &&
+        new Date(tx.valueDate) <= month.end &&
         (tx.type === "EXPENSE" ||
           tx.type === "INCOME" ||
           tx.type === "ACCOUNTTRANSFER" ||

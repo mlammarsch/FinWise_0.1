@@ -1,3 +1,4 @@
+<!-- Datei: src/views/TransactionsView.vue -->
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from "vue";
 import { useTransactionStore } from "../stores/transactionStore";
@@ -91,6 +92,7 @@ const filteredTransactions = computed(() => {
   const start = dateRange.value.start;
   const end = dateRange.value.end;
   txs = txs.filter((tx) => {
+    // Bei Konto-Ansicht wird das Buchungsdatum genutzt.
     const txDate = tx.date.split("T")[0];
     return txDate >= start && txDate <= end;
   });
@@ -134,6 +136,21 @@ const filteredTransactions = computed(() => {
       note,
     ].some((field) => field.includes(lower) || field.includes(numeric));
   });
+});
+
+// Filterung für Kategoriebuchungen – hier Wertstellungsdatum verwenden
+const filteredCategoryTransactions = computed(() => {
+  let txs = transactionStore.transactions;
+  if (selectedCategoryId.value) {
+    txs = txs.filter((tx) => tx.categoryId === selectedCategoryId.value);
+  }
+  const start = dateRange.value.start;
+  const end = dateRange.value.end;
+  txs = txs.filter((tx) => {
+    const txDate = tx.valueDate.split("T")[0];
+    return txDate >= start && txDate <= end;
+  });
+  return txs;
 });
 
 const sortedTransactions = computed(() => {
@@ -190,6 +207,16 @@ const sortedTransactions = computed(() => {
   return list;
 });
 
+const sortedCategoryTransactions = computed(() => {
+  const list = [...filteredCategoryTransactions.value];
+  list.sort((a, b) =>
+    sortOrder.value === "asc"
+      ? a.valueDate.localeCompare(b.valueDate)
+      : b.valueDate.localeCompare(a.valueDate)
+  );
+  return list;
+});
+
 const paginatedTransactions = computed(() => {
   if (itemsPerPage.value === "all") return sortedTransactions.value;
   const start = (currentPage.value - 1) * Number(itemsPerPage.value);
@@ -197,31 +224,6 @@ const paginatedTransactions = computed(() => {
     start,
     start + Number(itemsPerPage.value)
   );
-});
-
-// Filterung für Kategoriebuchungen
-const filteredCategoryTransactions = computed(() => {
-  let txs = transactionStore.transactions;
-  if (selectedCategoryId.value) {
-    txs = txs.filter((tx) => tx.categoryId === selectedCategoryId.value);
-  }
-  const start = dateRange.value.start;
-  const end = dateRange.value.end;
-  txs = txs.filter((tx) => {
-    const txDate = tx.date.split("T")[0];
-    return txDate >= start && txDate <= end;
-  });
-  return txs;
-});
-
-const sortedCategoryTransactions = computed(() => {
-  const list = [...filteredCategoryTransactions.value];
-  list.sort((a, b) =>
-    sortOrder.value === "asc"
-      ? a.date.localeCompare(b.date)
-      : b.date.localeCompare(a.date)
-  );
-  return list;
 });
 
 const paginatedCategoryTransactions = computed(() => {
@@ -332,7 +334,6 @@ watch(selectedCategoryId, (newVal) => {
   localStorage.setItem("transactionsView_selectedCategoryId", newVal);
 });
 </script>
-
 
 <template>
   <div class="space-y-6">

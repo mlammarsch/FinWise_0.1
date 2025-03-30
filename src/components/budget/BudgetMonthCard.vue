@@ -30,6 +30,7 @@ import {
   calculateCategorySaldo,
   calculateIncomeCategorySaldo,
 } from "@/utils/runningBalances";
+import { toDateOnlyString } from "@/utils/formatters";
 
 const props = defineProps<{
   month: { start: Date; end: Date; label: string };
@@ -38,6 +39,10 @@ const props = defineProps<{
 }>();
 
 const transactionStore = useTransactionStore();
+
+// Normierung der Monatsdaten
+const normalizedMonthStart = new Date(toDateOnlyString(props.month.start));
+const normalizedMonthEnd = new Date(toDateOnlyString(props.month.end));
 
 // Filter: Nur echte Konto-Buchungen (ohne CATEGORYTRANSFER) für die Transaktions-Spalte.
 const filteredTxs = computed(() =>
@@ -71,14 +76,14 @@ const sumExpensesSummary = computed(() => {
     const dataMiddle = calculateCategorySaldo(
       txsMiddle,
       cat.id,
-      props.month.start,
-      props.month.end
+      normalizedMonthStart,
+      normalizedMonthEnd
     );
     const dataFull = calculateCategorySaldo(
       txsFull,
       cat.id,
-      props.month.start,
-      props.month.end
+      normalizedMonthStart,
+      normalizedMonthEnd
     );
     budgeted += dataMiddle.budgeted;
     spentMiddle += dataMiddle.spent;
@@ -88,14 +93,14 @@ const sumExpensesSummary = computed(() => {
         const childDataMiddle = calculateCategorySaldo(
           txsMiddle,
           child.id,
-          props.month.start,
-          props.month.end
+          normalizedMonthStart,
+          normalizedMonthEnd
         );
         const childDataFull = calculateCategorySaldo(
           txsFull,
           child.id,
-          props.month.start,
-          props.month.end
+          normalizedMonthStart,
+          normalizedMonthEnd
         );
         budgeted += childDataMiddle.budgeted;
         spentMiddle += childDataMiddle.spent;
@@ -124,14 +129,14 @@ const sumIncomesSummary = computed(() => {
     const dataMiddle = calculateIncomeCategorySaldo(
       txsMiddle,
       cat.id,
-      props.month.start,
-      props.month.end
+      normalizedMonthStart,
+      normalizedMonthEnd
     );
     const dataFull = calculateIncomeCategorySaldo(
       txsFull,
       cat.id,
-      props.month.start,
-      props.month.end
+      normalizedMonthStart,
+      normalizedMonthEnd
     );
     budgeted += dataMiddle.budgeted;
     spentMiddle += dataMiddle.spent;
@@ -141,14 +146,14 @@ const sumIncomesSummary = computed(() => {
         const childDataMiddle = calculateIncomeCategorySaldo(
           txsMiddle,
           child.id,
-          props.month.start,
-          props.month.end
+          normalizedMonthStart,
+          normalizedMonthEnd
         );
         const childDataFull = calculateIncomeCategorySaldo(
           txsFull,
           child.id,
-          props.month.start,
-          props.month.end
+          normalizedMonthStart,
+          normalizedMonthEnd
         );
         budgeted += childDataMiddle.budgeted;
         spentMiddle += childDataMiddle.spent;
@@ -213,8 +218,8 @@ const sumIncomesSummary = computed(() => {
                 calculateCategorySaldo(
                   filteredTxs,
                   cat.id,
-                  props.month.start,
-                  props.month.end
+                  normalizedMonthStart,
+                  normalizedMonthEnd
                 ).budgeted
               "
               :asInteger="true"
@@ -227,8 +232,8 @@ const sumIncomesSummary = computed(() => {
                 calculateCategorySaldo(
                   filteredTxs,
                   cat.id,
-                  props.month.start,
-                  props.month.end
+                  normalizedMonthStart,
+                  normalizedMonthEnd
                 ).spent
               "
               :asInteger="true"
@@ -241,8 +246,8 @@ const sumIncomesSummary = computed(() => {
                 calculateCategorySaldo(
                   transactionStore.transactions,
                   cat.id,
-                  props.month.start,
-                  props.month.end
+                  normalizedMonthStart,
+                  normalizedMonthEnd
                 ).saldo
               "
               :asInteger="true"
@@ -263,8 +268,8 @@ const sumIncomesSummary = computed(() => {
                   calculateCategorySaldo(
                     filteredTxs,
                     child.id,
-                    props.month.start,
-                    props.month.end
+                    normalizedMonthStart,
+                    normalizedMonthEnd
                   ).budgeted
                 "
                 :asInteger="true"
@@ -276,8 +281,8 @@ const sumIncomesSummary = computed(() => {
                   calculateCategorySaldo(
                     filteredTxs,
                     child.id,
-                    props.month.start,
-                    props.month.end
+                    normalizedMonthStart,
+                    normalizedMonthEnd
                   ).spent
                 "
                 :asInteger="true"
@@ -289,8 +294,8 @@ const sumIncomesSummary = computed(() => {
                   calculateCategorySaldo(
                     transactionStore.transactions,
                     child.id,
-                    props.month.start,
-                    props.month.end
+                    normalizedMonthStart,
+                    normalizedMonthEnd
                   ).saldo
                 "
                 :asInteger="true"
@@ -343,8 +348,8 @@ const sumIncomesSummary = computed(() => {
                 calculateIncomeCategorySaldo(
                   filteredTxs,
                   cat.id,
-                  props.month.start,
-                  props.month.end
+                  normalizedMonthStart,
+                  normalizedMonthEnd
                 ).budgeted
               "
               :asInteger="true"
@@ -356,8 +361,8 @@ const sumIncomesSummary = computed(() => {
                 calculateIncomeCategorySaldo(
                   filteredTxs,
                   cat.id,
-                  props.month.start,
-                  props.month.end
+                  normalizedMonthStart,
+                  normalizedMonthEnd
                 ).spent
               "
               :asInteger="true"
@@ -369,8 +374,8 @@ const sumIncomesSummary = computed(() => {
                 calculateIncomeCategorySaldo(
                   transactionStore.transactions,
                   cat.id,
-                  props.month.start,
-                  props.month.end
+                  normalizedMonthStart,
+                  normalizedMonthEnd
                 ).saldo
               "
               :asInteger="true"
@@ -391,8 +396,8 @@ const sumIncomesSummary = computed(() => {
                   calculateIncomeCategorySaldo(
                     filteredTxs,
                     child.id,
-                    props.month.start,
-                    props.month.end
+                    normalizedMonthStart,
+                    normalizedMonthEnd
                   ).budgeted
                 "
                 :asInteger="true"
@@ -404,8 +409,8 @@ const sumIncomesSummary = computed(() => {
                   calculateIncomeCategorySaldo(
                     filteredTxs,
                     child.id,
-                    props.month.start,
-                    props.month.end
+                    normalizedMonthStart,
+                    normalizedMonthEnd
                   ).spent
                 "
                 :asInteger="true"
@@ -417,8 +422,8 @@ const sumIncomesSummary = computed(() => {
                   calculateIncomeCategorySaldo(
                     transactionStore.transactions,
                     child.id,
-                    props.month.start,
-                    props.month.end
+                    normalizedMonthStart,
+                    normalizedMonthEnd
                   ).saldo
                 "
                 :asInteger="true"
