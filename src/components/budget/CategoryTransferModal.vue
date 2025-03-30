@@ -1,18 +1,45 @@
+<!-- Datei: src/components/budget/CategoryTransferModal.vue -->
 <script setup lang="ts">
+/**
+ * Pfad zur Komponente: src/components/budget/CategoryTransferModal.vue
+ * Funktion: Übertragung von Beträgen zwischen Kategorien.
+ * Komponenten-Props:
+ * - category?: Category - Wird als Quelle genutzt (bei Header-/Transfer-Modus z. B. "Verfügbare Mittel")
+ * - isOpen: boolean - Steuerung der Sichtbarkeit des Modals
+ * - month?: { start: Date; end: Date } - Relevanter Monat
+ * - preselectedToCategoryId?: string - Vorselektion der Zielkategorie (bei Fill-Modus)
+ * - mode?: "fill" | "transfer" | "header" - Steuert, welche Felder sichtbar sind:
+ *    - fill: Der offene Betrag (Saldo) der geklickten Kategorie wird übernommen,
+ *            Zielkategorie fix (Dropdown ausgeblendet).
+ *    - transfer: Quellkategorie fix (Dropdown ausgeblendet), Betrag 0; Zielkategorie wählbar.
+ *    - header: Im Header-Modus ist die Quellkategorie fix (als "Verfügbare Mittel"),
+ *              Zielkategorie wählbar.
+ *
+ * Emits:
+ * - close - Schließt das Modal (auch per ESC)
+ * - transfer - Löst den Transfer aus
+ */
 import { ref, computed, watch } from "vue";
 import { Category } from "../../types";
 import { useCategoryStore } from "../../stores/categoryStore";
-import { formatCurrency } from "../../utils/formatters";
+import { useTransactionStore } from "../../stores/transactionStore";
+import { toDateOnlyString } from "@/utils/formatters";
+import { calculateCategorySaldo } from "@/utils/runningBalances";
 import CurrencyDisplay from "../ui/CurrencyDisplay.vue";
+import SearchableSelect from "../ui/SearchableSelect.vue";
 
 const props = defineProps<{
   category?: Category;
   isOpen: boolean;
+  month?: { start: Date; end: Date };
+  preselectedToCategoryId?: string;
+  mode?: "fill" | "transfer" | "header";
 }>();
 
 const emit = defineEmits(["close", "transfer"]);
 
 const categoryStore = useCategoryStore();
+const transactionStore = useTransactionStore();
 
 const fromCategoryId = ref("");
 const toCategoryId = ref("");
@@ -20,53 +47,105 @@ const amount = ref(0);
 const date = ref(new Date().toISOString().split("T")[0]);
 const note = ref("");
 
-// Bei Übergabe einer Kategorie wird deren ID als Quelle gesetzt
+// In Header-/Transfer-Modus: Quelle fix
+if ((props.mode === "header" || props.mode === "transfer") && props.category) {
+  fromCategoryId.value = props.category.id;
+}
+// In Fill-Modus: Ziel fix
+if (props.mode === "fill" && props.preselectedToCategoryId) {
+  toCategoryId.value = props.preselectedToCategoryId;
+}
+
 watch(
   () => props.category,
   (cat) => {
-    if (cat) {
+    if (cat && (props.mode === "header" || props.mode === "transfer")) {
       fromCategoryId.value = cat.id;
     }
   },
   { immediate: true }
 );
 
-// Konvertiert einen String in eine Zahl
+watch(
+  () => props.preselectedToCategoryId,
+  (toCat) => {
+    if (toCat && props.mode === "fill") {
+      toCategoryId.value = toCat;
+    }
+  },
+  { immediate: true }
+);
+
 const parseNumber = (value: string): number => {
   const normalized = value.replace(/\./g, "").replace(",", ".");
   return parseFloat(normalized) || 0;
 };
 
-// Formatiert eine Zahl in einen String
 const formatNumber = (value: number): string => {
   return value.toString().replace(".", ",");
 };
 
-// Ermittelt alle aktiven Kategorien außer der Quellkategorie
-const toCategories = computed(() => {
-  return categoryStore.categories
-    .filter((cat) => cat.isActive && cat.id !== fromCategoryId.value)
-    .map((cat) => ({ id: cat.id, name: cat.name }));
+const isExpenseCategory = (cat: Category) => {
+  return (
+    cat.name.trim().toLowerCase() === "verfügbare mittel" ||
+    !cat.isIncomeCategory
+  );
+};
+
+const normalizedMonthStart = computed(() =>
+  props.month ? new Date(toDateOnlyString(props.month.start)) : new Date()
+);
+const normalizedMonthEnd = computed(() =>
+  props.month ? new Date(toDateOnlyString(props.month.end)) : new Date()
+);
+
+const sortOptions = (options: any[]) => {
+  return options.sort((a, b) => {
+    if (a.name.trim().toLowerCase() === "verfügbare mittel") return -1;
+    if (b.name.trim().toLowerCase() === "verfügbare mittel") return 1;
+    return a.name.localeCompare(b.name);
+  });
+};
+
+const comboboxFromOptions = computed(() => {
+  const opts = categoryStore.categories
+    .filter((cat) => isExpenseCategory(cat))
+    .map((cat) => ({
+      id: cat.id,
+      name: cat.name,
+      saldo: props.month
+        ? calculateCategorySaldo(
+            transactionStore.transactions,
+            cat.id,
+            normalizedMonthStart.value,
+            normalizedMonthEnd.value
+          ).saldo
+        : 0,
+    }));
+  return sortOptions(opts);
 });
 
-// Alle aktiven Kategorien (für Anzeige der Quellkategorie)
-const fromCategories = computed(() => {
-  return categoryStore.categories
-    .filter((cat) => cat.isActive)
-    .map((cat) => ({ id: cat.id, name: cat.name }));
+const comboboxToOptions = computed(() => {
+  const opts = categoryStore.categories
+    .filter((cat) => isExpenseCategory(cat) && cat.id !== fromCategoryId.value)
+    .map((cat) => ({
+      id: cat.id,
+      name: cat.name,
+      saldo: props.month
+        ? calculateCategorySaldo(
+            transactionStore.transactions,
+            cat.id,
+            normalizedMonthStart.value,
+            normalizedMonthEnd.value
+          ).saldo
+        : 0,
+    }));
+  return sortOptions(opts);
 });
 
-// Ermittelt den aktuellen Saldo der Quellkategorie
-const fromCategoryBalance = computed(() => {
-  if (!fromCategoryId.value) return 0;
-  const category = categoryStore.getCategoryById(fromCategoryId.value);
-  return category ? category.balance : 0;
-});
-
-// Löst den Transfer zwischen Kategorien aus
+// Wird beim Drücken der Enter-Taste oder Klick auf den Button ausgelöst
 const transferBetweenCategories = () => {
   if (!fromCategoryId.value || !toCategoryId.value || amount.value <= 0) return;
-
   emit("transfer", {
     fromCategoryId: fromCategoryId.value,
     toCategoryId: toCategoryId.value,
@@ -74,64 +153,104 @@ const transferBetweenCategories = () => {
     date: date.value,
     note: note.value,
   });
-
   emit("close");
 };
 </script>
 
 <template>
-  <div v-if="isOpen" class="modal modal-open">
+  <div
+    v-if="isOpen"
+    class="modal modal-open"
+    tabindex="0"
+    @keydown.escape="$emit('close')"
+  >
     <div class="modal-box">
       <h3 class="font-bold text-lg mb-4">Zwischen Kategorien übertragen</h3>
       <form @submit.prevent="transferBetweenCategories">
         <div class="space-y-4">
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text">Von Kategorie</span>
-              <span class="text-error">*</span>
-            </label>
-            <select
-              v-model="fromCategoryId"
-              class="select select-bordered w-full"
-              required
-            >
-              <option value="" disabled>Kategorie auswählen</option>
-              <option
-                v-for="category in fromCategories"
-                :key="category.id"
-                :value="category.id"
-              >
-                {{ category.name }}
-                (<CurrencyDisplay
-                  :amount="
-                    categoryStore.getCategoryById(category.id)?.balance || 0
-                  "
-                  :show-zero="true"
-                  :as-integer="true"
-                />)
-              </option>
-            </select>
+          <!-- Quell-Kategorie -->
+          <div v-if="props.mode === 'header' || props.mode === 'transfer'">
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text">Von Kategorie</span>
+              </label>
+              <div class="p-2 border rounded bg-gray-100">
+                {{
+                  comboboxFromOptions.find((o) => o.id === fromCategoryId)
+                    ?.name || ""
+                }}
+              </div>
+            </div>
           </div>
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text">Zu Kategorie</span>
-              <span class="text-error">*</span>
-            </label>
-            <select
-              v-model="toCategoryId"
-              class="select select-bordered w-full"
-              required
-            >
-              <option value="" disabled>Kategorie auswählen</option>
-              <option
-                v-for="category in toCategories"
-                :key="category.id"
-                :value="category.id"
+          <div v-else>
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text">Von Kategorie</span>
+                <span class="text-error">*</span>
+              </label>
+              <SearchableSelect
+                v-model="fromCategoryId"
+                :options="comboboxFromOptions"
+                placeholder="Kategorie auswählen"
+                required
               >
-                {{ category.name }}
-              </option>
-            </select>
+                <template #option="{ option }">
+                  <div class="flex justify-between items-center">
+                    <span>{{ option.name }}</span>
+                    <div class="ml-2">
+                      (<CurrencyDisplay
+                        :amount="option.saldo"
+                        :show-zero="true"
+                        :as-integer="true"
+                      />)
+                    </div>
+                  </div>
+                </template>
+              </SearchableSelect>
+            </div>
           </div>
+          <!-- Ziel-Kategorie -->
+          <div v-if="props.mode === 'fill'">
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text">Zu Kategorie</span>
+              </label>
+              <div class="p-2 border rounded bg-gray-100">
+                {{
+                  comboboxFromOptions.find((o) => o.id === toCategoryId)
+                    ?.name || ""
+                }}
+              </div>
+            </div>
+          </div>
+          <div v-else>
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text">Zu Kategorie</span>
+                <span class="text-error">*</span>
+              </label>
+              <SearchableSelect
+                v-model="toCategoryId"
+                :options="comboboxToOptions"
+                placeholder="Kategorie auswählen"
+                required
+              >
+                <template #option="{ option }">
+                  <div class="flex justify-between items-center">
+                    <span>{{ option.name }}</span>
+                    <div class="ml-2">
+                      (<CurrencyDisplay
+                        :amount="option.saldo"
+                        :show-zero="true"
+                        :as-integer="true"
+                      />)
+                    </div>
+                  </div>
+                </template>
+              </SearchableSelect>
+            </div>
+          </div>
+          <!-- Betrag -->
           <div class="form-control">
             <label class="label">
               <span class="label-text">Betrag</span>
@@ -144,21 +263,23 @@ const transferBetweenCategories = () => {
                 @input="amount = parseNumber(($event.target as HTMLInputElement).value)"
                 class="input input-bordered w-full"
                 required
-                placeholder="0,00"
-                :max="fromCategoryBalance"
               />
             </div>
             <label class="label">
               <span class="label-text-alt">
                 Verfügbar:
                 <CurrencyDisplay
-                  :amount="fromCategoryBalance"
+                  :amount="
+                    comboboxFromOptions.find((o) => o.id === fromCategoryId)
+                      ?.saldo || 0
+                  "
                   :show-zero="true"
                   :as-integer="true"
                 />
               </span>
             </label>
           </div>
+          <!-- Datum und Notiz -->
           <div class="form-control">
             <label class="label">
               <span class="label-text">Datum</span>
@@ -194,3 +315,7 @@ const transferBetweenCategories = () => {
     <div class="modal-backdrop" @click="$emit('close')"></div>
   </div>
 </template>
+
+<style scoped>
+/* Keine zusätzlichen Styles benötigt */
+</style>
