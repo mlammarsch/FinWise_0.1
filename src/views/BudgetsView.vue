@@ -159,6 +159,7 @@ const availableByMonth = computed(() => {
             :overspent="0"
             :available="availableByMonth[i]"
             :nextMonth="0"
+            :month="month"
           />
         </div>
       </div>

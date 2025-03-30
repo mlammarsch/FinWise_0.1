@@ -1,26 +1,11 @@
 <script setup lang="ts">
-/**
- * Pfad zur Komponente: src/components/budget/BudgetMonthHeaderCard.vue
- * Zeigt Kopfdaten pro Monats-Spalte an.
- *
- * Komponenten-Props:
- * - label: string - Monatslabel
- * - toBudget: number - Geplantes Budget
- * - available?: number - verfügbare Mittel
- * - overspent?: number - Überzogen aus Vormonat
- * - budgeted?: number - bereits Budgetiert
- * - nextMonth?: number - für Folgemonat reserviert
- * - month?: { start: Date; end: Date } - Relevanter Monat (optional)
- *
- * Im Header soll bei Rechtsklick auf den "verfügbare Mittel"-Bereich ein Dropdown erscheinen,
- * das den Eintrag "Transfer zu…" enthält. Wird dieser gewählt, öffnet sich das Transfer-Modal im Header-Modus.
- */
 import CurrencyDisplay from "../ui/CurrencyDisplay.vue";
-import { ref, computed } from "vue";
+import { ref, computed, nextTick } from "vue";
 import { useCategoryStore } from "../../stores/categoryStore";
 import CategoryTransferModal from "../budget/CategoryTransferModal.vue";
 import { addCategoryTransfer } from "@/utils/categoryTransfer";
 import { debugLog } from "@/utils/logger";
+import { toDateOnlyString } from "@/utils/formatters";
 
 const props = defineProps<{
   label: string;
@@ -34,27 +19,39 @@ const props = defineProps<{
 
 const categoryStore = useCategoryStore();
 
+// Neu: Prüfe den aktuellen Monat ausschließlich anhand des Datums
+const isCurrentMonth = computed(() => {
+  if (!props.month) return false;
+  const now = new Date(toDateOnlyString(new Date()));
+  const monthStart = new Date(toDateOnlyString(props.month.start));
+  return (
+    now.getFullYear() === monthStart.getFullYear() &&
+    now.getMonth() === monthStart.getMonth()
+  );
+});
+
 // Container für relative Positionierung
 const containerRef = ref<HTMLElement | null>(null);
 const showHeaderDropdown = ref(false);
 const headerDropdownX = ref(0);
 const headerDropdownY = ref(0);
+const headerDropdownRef = ref<HTMLElement | null>(null);
 
 function openHeaderDropdown(event: MouseEvent) {
   event.preventDefault();
-  if (containerRef.value) {
-    const rect = containerRef.value.getBoundingClientRect();
-    headerDropdownX.value = event.clientX - rect.left;
-    headerDropdownY.value = event.clientY - rect.top;
-  } else {
-    headerDropdownX.value = event.clientX;
-    headerDropdownY.value = event.clientY;
-  }
+  const targetRect = (
+    event.currentTarget as HTMLElement
+  ).getBoundingClientRect();
+  headerDropdownX.value = event.clientX - targetRect.left;
+  headerDropdownY.value = event.clientY - targetRect.top;
   debugLog("[BudgetMonthHeaderCard] openHeaderDropdown", {
     x: headerDropdownX.value,
     y: headerDropdownY.value,
   });
   showHeaderDropdown.value = true;
+  nextTick(() => {
+    headerDropdownRef.value?.focus();
+  });
 }
 
 function closeHeaderDropdown() {
@@ -78,7 +75,6 @@ const availableCategory = computed(() =>
 );
 
 function openHeaderTransfer() {
-  // Im Header-Modus: Quell fix = "Verfügbare Mittel", Ziel wählbar
   modalData.value = { mode: "header" };
   showTransferModal.value = true;
   closeHeaderDropdown();
@@ -103,13 +99,24 @@ function handleTransfer(data: any) {
 <template>
   <div
     ref="containerRef"
-    class="relative min-w-[12rem] rounded-lg border border-base-300 bg-base-100 sticky top-0 z-30 m-2"
+    :class="[
+      'relative min-w-[12rem] border border-accent/50 rounded-lg sticky top-0 z-10 m-2',
+      isCurrentMonth
+        ? 'border border-none outline-accent/75 outline-double outline-2 outline-offset-2'
+        : 'border border-base-300',
+    ]"
   >
-    <div class="p-2 border-b border-base-300 text-center font-bold">
+    <div
+      :class="[
+        'p-2 text-center font-bold',
+        isCurrentMonth
+          ? 'border-b border-accent opacity-70'
+          : 'border-b border-base-300',
+      ]"
+    >
       {{ props.label }}
     </div>
     <div class="p-2 text-sm space-y-1 flex flex-col items-center">
-      <!-- Rechtsklick-Trigger -->
       <div @contextmenu.prevent="openHeaderDropdown" class="cursor-pointer">
         <CurrencyDisplay :amount="props.available ?? 0" :as-integer="true" />
         verfügbare Mittel
@@ -119,9 +126,9 @@ function handleTransfer(data: any) {
       <div>-{{ props.nextMonth ?? 0 }} For next month</div>
     </div>
   </div>
-  <!-- Header Dropdown-Menü -->
   <div
     v-if="showHeaderDropdown"
+    ref="headerDropdownRef"
     class="absolute z-40 w-40 bg-base-100 border border-base-300 rounded shadow p-2"
     :style="{ left: `${headerDropdownX}px`, top: `${headerDropdownY}px` }"
     tabindex="0"
@@ -136,7 +143,6 @@ function handleTransfer(data: any) {
       </li>
     </ul>
   </div>
-  <!-- Header Transfer Modal -->
   <CategoryTransferModal
     v-if="showTransferModal"
     :is-open="showTransferModal"

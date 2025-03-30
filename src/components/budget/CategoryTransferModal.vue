@@ -9,11 +9,10 @@
  * - month?: { start: Date; end: Date } - Relevanter Monat
  * - preselectedToCategoryId?: string - Vorselektion der Zielkategorie (bei Fill-Modus)
  * - mode?: "fill" | "transfer" | "header" - Steuert, welche Felder sichtbar sind:
- *    - fill: Der offene Betrag (Saldo) der geklickten Kategorie wird übernommen,
- *            Zielkategorie fix (Dropdown ausgeblendet).
- *    - transfer: Quellkategorie fix (Dropdown ausgeblendet), Betrag 0; Zielkategorie wählbar.
- *    - header: Im Header-Modus ist die Quellkategorie fix (als "Verfügbare Mittel"),
- *              Zielkategorie wählbar.
+ *    - fill: Es wird der Betrag (Saldo) der angeklickten Kategorie übernommen und als Ziel vorbefüllt.
+ *    - transfer: Es wird die angeklickte Kategorie als Quelle vorbefüllt; Betrag 0.
+ *    - header: Im Header-Modus ist die Quellkategorie fix (als "Verfügbare Mittel"), Ziel wählbar.
+ * - prefillAmount?: number - Initialwert für das Betragsfeld
  *
  * Emits:
  * - close - Schließt das Modal (auch per ESC)
@@ -27,6 +26,7 @@ import { toDateOnlyString } from "@/utils/formatters";
 import { calculateCategorySaldo } from "@/utils/runningBalances";
 import CurrencyDisplay from "../ui/CurrencyDisplay.vue";
 import SearchableSelect from "../ui/SearchableSelect.vue";
+import CurrencyInput from "../ui/CurrencyInput.vue";
 
 const props = defineProps<{
   category?: Category;
@@ -34,6 +34,7 @@ const props = defineProps<{
   month?: { start: Date; end: Date };
   preselectedToCategoryId?: string;
   mode?: "fill" | "transfer" | "header";
+  prefillAmount?: number;
 }>();
 
 const emit = defineEmits(["close", "transfer"]);
@@ -43,15 +44,45 @@ const transactionStore = useTransactionStore();
 
 const fromCategoryId = ref("");
 const toCategoryId = ref("");
-const amount = ref(0);
-const date = ref(new Date().toISOString().split("T")[0]);
+const amount = ref(props.prefillAmount || 0);
+
+// Datum abhängig vom relevanten Monat setzen
+function computeDefaultDate(): string {
+  const today = new Date();
+  if (props.month) {
+    const clickedStart = new Date(toDateOnlyString(props.month.start));
+    if (
+      today.getFullYear() === clickedStart.getFullYear() &&
+      today.getMonth() === clickedStart.getMonth()
+    ) {
+      return today.toISOString().split("T")[0];
+    } else if (clickedStart > today) {
+      // Zukunft: Erster Tag des geklickten Monats
+      const firstDay = new Date(
+        clickedStart.getFullYear(),
+        clickedStart.getMonth(),
+        1
+      );
+      return firstDay.toISOString().split("T")[0];
+    } else {
+      // Vergangenheit: Letzter Tag des Vormonats des geklickten Monats
+      const lastDayPrev = new Date(
+        clickedStart.getFullYear(),
+        clickedStart.getMonth(),
+        0
+      );
+      return lastDayPrev.toISOString().split("T")[0];
+    }
+  }
+  return today.toISOString().split("T")[0];
+}
+const date = ref(computeDefaultDate());
 const note = ref("");
 
-// In Header-/Transfer-Modus: Quelle fix
-if ((props.mode === "header" || props.mode === "transfer") && props.category) {
+// Initiale Befüllung basierend auf dem Modus
+if (props.mode === "transfer" && props.category) {
   fromCategoryId.value = props.category.id;
 }
-// In Fill-Modus: Ziel fix
 if (props.mode === "fill" && props.preselectedToCategoryId) {
   toCategoryId.value = props.preselectedToCategoryId;
 }
@@ -59,7 +90,7 @@ if (props.mode === "fill" && props.preselectedToCategoryId) {
 watch(
   () => props.category,
   (cat) => {
-    if (cat && (props.mode === "header" || props.mode === "transfer")) {
+    if (cat && props.mode === "transfer") {
       fromCategoryId.value = cat.id;
     }
   },
@@ -143,7 +174,7 @@ const comboboxToOptions = computed(() => {
   return sortOptions(opts);
 });
 
-// Wird beim Drücken der Enter-Taste oder Klick auf den Button ausgelöst
+// Übertragung auslösen (bei Enter oder Button)
 const transferBetweenCategories = () => {
   if (!fromCategoryId.value || !toCategoryId.value || amount.value <= 0) return;
   emit("transfer", {
@@ -169,86 +200,56 @@ const transferBetweenCategories = () => {
       <form @submit.prevent="transferBetweenCategories">
         <div class="space-y-4">
           <!-- Quell-Kategorie -->
-          <div v-if="props.mode === 'header' || props.mode === 'transfer'">
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text">Von Kategorie</span>
-              </label>
-              <div class="p-2 border rounded bg-gray-100">
-                {{
-                  comboboxFromOptions.find((o) => o.id === fromCategoryId)
-                    ?.name || ""
-                }}
-              </div>
-            </div>
-          </div>
-          <div v-else>
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text">Von Kategorie</span>
-                <span class="text-error">*</span>
-              </label>
-              <SearchableSelect
-                v-model="fromCategoryId"
-                :options="comboboxFromOptions"
-                placeholder="Kategorie auswählen"
-                required
-              >
-                <template #option="{ option }">
-                  <div class="flex justify-between items-center">
-                    <span>{{ option.name }}</span>
-                    <div class="ml-2">
-                      (<CurrencyDisplay
-                        :amount="option.saldo"
-                        :show-zero="true"
-                        :as-integer="true"
-                      />)
-                    </div>
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">Von Kategorie</span>
+              <span class="text-error">*</span>
+            </label>
+            <SearchableSelect
+              v-model="fromCategoryId"
+              :options="comboboxFromOptions"
+              placeholder="Kategorie auswählen"
+              required
+            >
+              <template #option="{ option }">
+                <div class="flex justify-between items-center">
+                  <span>{{ option.name }}</span>
+                  <div class="ml-2">
+                    (<CurrencyDisplay
+                      :amount="option.saldo"
+                      :show-zero="true"
+                      :as-integer="true"
+                    />)
                   </div>
-                </template>
-              </SearchableSelect>
-            </div>
+                </div>
+              </template>
+            </SearchableSelect>
           </div>
           <!-- Ziel-Kategorie -->
-          <div v-if="props.mode === 'fill'">
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text">Zu Kategorie</span>
-              </label>
-              <div class="p-2 border rounded bg-gray-100">
-                {{
-                  comboboxFromOptions.find((o) => o.id === toCategoryId)
-                    ?.name || ""
-                }}
-              </div>
-            </div>
-          </div>
-          <div v-else>
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text">Zu Kategorie</span>
-                <span class="text-error">*</span>
-              </label>
-              <SearchableSelect
-                v-model="toCategoryId"
-                :options="comboboxToOptions"
-                placeholder="Kategorie auswählen"
-                required
-              >
-                <template #option="{ option }">
-                  <div class="flex justify-between items-center">
-                    <span>{{ option.name }}</span>
-                    <div class="ml-2">
-                      (<CurrencyDisplay
-                        :amount="option.saldo"
-                        :show-zero="true"
-                        :as-integer="true"
-                      />)
-                    </div>
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">Zu Kategorie</span>
+              <span class="text-error">*</span>
+            </label>
+            <SearchableSelect
+              v-model="toCategoryId"
+              :options="comboboxToOptions"
+              placeholder="Kategorie auswählen"
+              required
+            >
+              <template #option="{ option }">
+                <div class="flex justify-between items-center">
+                  <span>{{ option.name }}</span>
+                  <div class="ml-2">
+                    (<CurrencyDisplay
+                      :amount="option.saldo"
+                      :show-zero="true"
+                      :as-integer="true"
+                    />)
                   </div>
-                </template>
-              </SearchableSelect>
-            </div>
+                </div>
+              </template>
+            </SearchableSelect>
           </div>
           <!-- Betrag -->
           <div class="form-control">
@@ -256,15 +257,7 @@ const transferBetweenCategories = () => {
               <span class="label-text">Betrag</span>
               <span class="text-error">*</span>
             </label>
-            <div class="input-group">
-              <input
-                type="text"
-                :value="formatNumber(amount)"
-                @input="amount = parseNumber(($event.target as HTMLInputElement).value)"
-                class="input input-bordered w-full"
-                required
-              />
-            </div>
+            <CurrencyInput v-model="amount" />
             <label class="label">
               <span class="label-text-alt">
                 Verfügbar:
@@ -279,7 +272,7 @@ const transferBetweenCategories = () => {
               </span>
             </label>
           </div>
-          <!-- Datum und Notiz -->
+          <!-- Datum -->
           <div class="form-control">
             <label class="label">
               <span class="label-text">Datum</span>
@@ -292,6 +285,7 @@ const transferBetweenCategories = () => {
               required
             />
           </div>
+          <!-- Notiz -->
           <div class="form-control">
             <label class="label">
               <span class="label-text">Notiz</span>

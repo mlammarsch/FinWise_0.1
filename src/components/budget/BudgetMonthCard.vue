@@ -15,7 +15,7 @@
  * 2. "Transferiere zu …": Modus "transfer" – Betrag wird auf 0 gesetzt, Quell fix = geklickte Kategorie.
  * Beide Optionen öffnen das Transfer-Modal mit entsprechender Vorbefüllung.
  */
-import { computed, ref } from "vue";
+import { computed, ref, nextTick } from "vue";
 import { useTransactionStore } from "../../stores/transactionStore";
 import { useCategoryStore } from "../../stores/categoryStore";
 import { Category, TransactionType } from "../../types";
@@ -157,6 +157,22 @@ const sumIncomesSummary = computed(() => {
   return { budgeted, spentMiddle, saldoFull };
 });
 
+// Neuer Computed: Prüft, ob der angezeigte Monat aktuell ist
+const isCurrentMonth = computed(() => {
+  const now = new Date();
+  return (
+    now.getFullYear() === props.month.start.getFullYear() &&
+    now.getMonth() === props.month.start.getMonth()
+  );
+});
+
+// Computed für Divider-Farbe
+const dividerColorClass = computed(() => {
+  return isCurrentMonth.value
+    ? "bg-accent opacity-75 border-1 border-accent/75"
+    : "bg-base-300";
+});
+
 // Zustand für Transfer-Modal und Dropdown
 const showTransferModal = ref(false);
 const modalData = ref<{
@@ -170,6 +186,7 @@ const containerRef = ref<HTMLElement | null>(null);
 const showDropdown = ref(false);
 const dropdownX = ref(0);
 const dropdownY = ref(0);
+const dropdownRef = ref<HTMLElement | null>(null);
 
 function openDropdown(event: MouseEvent, cat: Category) {
   event.preventDefault();
@@ -194,6 +211,9 @@ function openDropdown(event: MouseEvent, cat: Category) {
     y: dropdownY.value,
   });
   showDropdown.value = true;
+  nextTick(() => {
+    dropdownRef.value?.focus();
+  });
 }
 
 function closeDropdown() {
@@ -207,21 +227,20 @@ function handleEscDropdown(event: KeyboardEvent) {
 }
 
 // Option 1: "Fülle auf von …"
-// Modus "fill": Übernimmt den offenen Saldo der geklickten Kategorie, Ziel fix = geklickte Kategorie.
 function optionFill() {
   if (!modalData.value?.clickedCategory) {
     console.warn("clickedCategory is null in optionFill");
     return;
   }
-
   modalData.value.mode = "fill";
-  modalData.value.amount = calculateCategorySaldo(
-    transactionStore.transactions,
-    modalData.value.clickedCategory.id,
-    normalizedMonthStart,
-    normalizedMonthEnd
-  ).saldo;
-
+  modalData.value.amount = Math.abs(
+    calculateCategorySaldo(
+      transactionStore.transactions,
+      modalData.value.clickedCategory.id,
+      normalizedMonthStart,
+      normalizedMonthEnd
+    ).saldo
+  );
   debugLog("[BudgetMonthCard] optionFill", {
     categoryId: modalData.value.clickedCategory?.id,
     categoryName: modalData.value.clickedCategory?.name,
@@ -233,7 +252,6 @@ function optionFill() {
 }
 
 // Option 2: "Transferiere zu …"
-// Modus "transfer": Betrag 0, Quell fix = geklickte Kategorie, Ziel wählbar.
 function optionTransfer() {
   if (!modalData.value?.clickedCategory) {
     console.warn("clickedCategory is null in optionTransfer");
@@ -247,332 +265,346 @@ function optionTransfer() {
     amount: modalData.value.amount,
     mode: modalData.value.mode,
   });
-
   showTransferModal.value = true;
   closeDropdown();
 }
 </script>
 
 <template>
-  <div ref="containerRef" class="relative w-full p-1 rounded-lg">
-    <!-- Tabellenheader -->
-    <div class="sticky top-0 bg-base-100 z-20 p-2 border-b border-base-300">
-      <div class="grid grid-cols-3">
-        <div class="text-right font-bold">Budget</div>
-        <div class="text-right font-bold">Transakt.</div>
-        <div class="text-right font-bold">Saldo</div>
-      </div>
+  <div class="flex w-full">
+    <!-- Vertikaler Divider -->
+    <div class="p-1">
+      <div class="w-px h-full" :class="dividerColorClass"></div>
     </div>
-    <!-- Überschrift Ausgaben -->
-    <div class="p-2 font-bold border-b border-base-300 mt-2">
-      <div class="grid grid-cols-3 font-bold">
-        <div class="text-right">
-          <CurrencyDisplay
-            :amount="sumExpensesSummary.budgeted"
-            :as-integer="true"
-          />
+    <!-- Bestehender Inhalt -->
+    <div class="flex-grow">
+      <div ref="containerRef" class="relative w-full p-1 rounded-lg">
+        <!-- Tabellenheader -->
+        <div class="sticky top-0 bg-base-100 z-20 p-2 border-b border-base-300">
+          <div class="grid grid-cols-3">
+            <div class="text-right font-bold">Budget</div>
+            <div class="text-right font-bold">Transakt.</div>
+            <div class="text-right font-bold">Saldo</div>
+          </div>
         </div>
-        <div class="text-right">
-          <CurrencyDisplay
-            :amount="sumExpensesSummary.spentMiddle"
-            :as-integer="true"
-          />
+        <!-- Überschrift Ausgaben -->
+        <div class="p-2 font-bold border-b border-base-300 mt-2">
+          <div class="grid grid-cols-3 font-bold">
+            <div class="text-right">
+              <CurrencyDisplay
+                :amount="sumExpensesSummary.budgeted"
+                :as-integer="true"
+              />
+            </div>
+            <div class="text-right">
+              <CurrencyDisplay
+                :amount="sumExpensesSummary.spentMiddle"
+                :as-integer="true"
+              />
+            </div>
+            <div class="text-right">
+              <CurrencyDisplay
+                :amount="sumExpensesSummary.saldoFull"
+                :as-integer="true"
+              />
+            </div>
+          </div>
         </div>
-        <div class="text-right">
-          <CurrencyDisplay
-            :amount="sumExpensesSummary.saldoFull"
-            :as-integer="true"
-          />
+        <!-- Liste der Kategorien -->
+        <div class="grid grid-rows-auto">
+          <template
+            v-for="cat in props.categories.filter(
+              (c) =>
+                c.isActive &&
+                !c.isIncomeCategory &&
+                !c.parentCategoryId &&
+                !isVerfuegbareMittel(c)
+            )"
+            :key="cat.id"
+          >
+            <div
+              class="grid grid-cols-3 p-2 border-b border-base-200"
+              @contextmenu="openDropdown($event, cat)"
+            >
+              <div class="text-right">
+                <CurrencyDisplay
+                  :amount="
+                    calculateCategorySaldo(
+                      filteredTxs,
+                      cat.id,
+                      normalizedMonthStart,
+                      normalizedMonthEnd
+                    ).budgeted
+                  "
+                  :as-integer="true"
+                />
+              </div>
+              <div class="text-right">
+                <CurrencyDisplay
+                  :amount="
+                    calculateCategorySaldo(
+                      filteredTxs,
+                      cat.id,
+                      normalizedMonthStart,
+                      normalizedMonthEnd
+                    ).spent
+                  "
+                  :as-integer="true"
+                />
+              </div>
+              <div class="text-right">
+                <CurrencyDisplay
+                  :amount="
+                    calculateCategorySaldo(
+                      transactionStore.transactions,
+                      cat.id,
+                      normalizedMonthStart,
+                      normalizedMonthEnd
+                    ).saldo
+                  "
+                  :as-integer="true"
+                />
+              </div>
+            </div>
+            <template v-if="props.expanded.has(cat.id)">
+              <div
+                v-for="child in cat.children.filter(
+                  (c) => c.isActive && !isVerfuegbareMittel(c)
+                )"
+                :key="child.id"
+                class="grid grid-cols-3 pl-6 text-sm p-2 border-b border-base-200"
+                @contextmenu="openDropdown($event, child)"
+              >
+                <div class="text-right">
+                  <CurrencyDisplay
+                    :amount="
+                      calculateCategorySaldo(
+                        filteredTxs,
+                        child.id,
+                        normalizedMonthStart,
+                        normalizedMonthEnd
+                      ).budgeted
+                    "
+                    :as-integer="true"
+                  />
+                </div>
+                <div class="text-right">
+                  <CurrencyDisplay
+                    :amount="
+                      calculateCategorySaldo(
+                        filteredTxs,
+                        child.id,
+                        normalizedMonthStart,
+                        normalizedMonthEnd
+                      ).spent
+                    "
+                    :as-integer="true"
+                  />
+                </div>
+                <div class="text-right">
+                  <CurrencyDisplay
+                    :amount="
+                      calculateCategorySaldo(
+                        transactionStore.transactions,
+                        child.id,
+                        normalizedMonthStart,
+                        normalizedMonthEnd
+                      ).saldo
+                    "
+                    :as-integer="true"
+                  />
+                </div>
+              </div>
+            </template>
+          </template>
         </div>
-      </div>
-    </div>
-    <!-- Liste der Kategorien -->
-    <div class="grid grid-rows-auto">
-      <template
-        v-for="cat in props.categories.filter(
-          (c) =>
-            c.isActive &&
-            !c.isIncomeCategory &&
-            !c.parentCategoryId &&
-            !isVerfuegbareMittel(c)
-        )"
-        :key="cat.id"
-      >
+        <!-- Dropdown-Menü (per Rechtsklick) -->
         <div
-          class="grid grid-cols-3 p-2 border-b border-base-200"
-          @contextmenu="openDropdown($event, cat)"
+          v-if="showDropdown"
+          class="absolute z-40 w-40 bg-base-100 border border-base-300 rounded shadow p-2"
+          :style="{ left: `${dropdownX}px`, top: `${dropdownY}px` }"
+          tabindex="0"
+          @keydown.escape="closeDropdown"
+          @click.outside="closeDropdown"
         >
-          <div class="text-right">
-            <CurrencyDisplay
-              :amount="
-                calculateCategorySaldo(
-                  filteredTxs,
-                  cat.id,
-                  normalizedMonthStart,
-                  normalizedMonthEnd
-                ).budgeted
-              "
-              :as-integer="true"
-            />
-          </div>
-          <div class="text-right">
-            <CurrencyDisplay
-              :amount="
-                calculateCategorySaldo(
-                  filteredTxs,
-                  cat.id,
-                  normalizedMonthStart,
-                  normalizedMonthEnd
-                ).spent
-              "
-              :as-integer="true"
-            />
-          </div>
-          <div class="text-right">
-            <CurrencyDisplay
-              :amount="
-                calculateCategorySaldo(
-                  transactionStore.transactions,
-                  cat.id,
-                  normalizedMonthStart,
-                  normalizedMonthEnd
-                ).saldo
-              "
-              :as-integer="true"
-            />
+          <ul>
+            <li>
+              <button class="btn btn-ghost btn-sm w-full" @click="optionFill">
+                Fülle auf von …
+              </button>
+            </li>
+            <li>
+              <button
+                class="btn btn-ghost btn-sm w-full"
+                @click="optionTransfer"
+              >
+                Transferiere zu …
+              </button>
+            </li>
+          </ul>
+        </div>
+        <!-- Überschrift Einnahmen -->
+        <div class="p-2 font-bold border-b border-base-300 mt-4">
+          <div class="grid grid-cols-3 font-bold">
+            <div class="text-right">
+              <CurrencyDisplay
+                :amount="sumIncomesSummary.budgeted"
+                :as-integer="true"
+              />
+            </div>
+            <div class="text-right">
+              <CurrencyDisplay
+                :amount="sumIncomesSummary.spentMiddle"
+                :as-integer="true"
+              />
+            </div>
+            <div class="text-right">
+              <CurrencyDisplay
+                :amount="sumIncomesSummary.saldoFull"
+                :as-integer="true"
+              />
+            </div>
           </div>
         </div>
-        <template v-if="props.expanded.has(cat.id)">
-          <div
-            v-for="child in cat.children.filter(
-              (c) => c.isActive && !isVerfuegbareMittel(c)
+        <div class="grid grid-rows-auto">
+          <template
+            v-for="cat in props.categories.filter(
+              (c) =>
+                c.isActive &&
+                c.isIncomeCategory &&
+                !c.parentCategoryId &&
+                !isVerfuegbareMittel(c)
             )"
-            :key="child.id"
-            class="grid grid-cols-3 pl-6 text-sm p-2 border-b border-base-200"
-            @contextmenu="openDropdown($event, child)"
+            :key="cat.id"
           >
-            <div class="text-right">
-              <CurrencyDisplay
-                :amount="
-                  calculateCategorySaldo(
-                    filteredTxs,
-                    child.id,
-                    normalizedMonthStart,
-                    normalizedMonthEnd
-                  ).budgeted
-                "
-                :as-integer="true"
-              />
+            <div class="grid grid-cols-3 p-2 border-b border-base-200">
+              <div class="text-right">
+                <CurrencyDisplay
+                  :amount="
+                    calculateIncomeCategorySaldo(
+                      filteredTxs,
+                      cat.id,
+                      normalizedMonthStart,
+                      normalizedMonthEnd
+                    ).budgeted
+                  "
+                  :as-integer="true"
+                />
+              </div>
+              <div class="text-right">
+                <CurrencyDisplay
+                  :amount="
+                    calculateIncomeCategorySaldo(
+                      filteredTxs,
+                      cat.id,
+                      normalizedMonthStart,
+                      normalizedMonthEnd
+                    ).spent
+                  "
+                  :as-integer="true"
+                />
+              </div>
+              <div class="text-right">
+                <CurrencyDisplay
+                  :amount="
+                    calculateIncomeCategorySaldo(
+                      transactionStore.transactions,
+                      cat.id,
+                      normalizedMonthStart,
+                      normalizedMonthEnd
+                    ).saldo
+                  "
+                  :as-integer="true"
+                />
+              </div>
             </div>
-            <div class="text-right">
-              <CurrencyDisplay
-                :amount="
-                  calculateCategorySaldo(
-                    filteredTxs,
-                    child.id,
-                    normalizedMonthStart,
-                    normalizedMonthEnd
-                  ).spent
-                "
-                :as-integer="true"
-              />
-            </div>
-            <div class="text-right">
-              <CurrencyDisplay
-                :amount="
-                  calculateCategorySaldo(
-                    transactionStore.transactions,
-                    child.id,
-                    normalizedMonthStart,
-                    normalizedMonthEnd
-                  ).saldo
-                "
-                :as-integer="true"
-              />
-            </div>
-          </div>
-        </template>
-      </template>
-    </div>
-    <!-- Dropdown-Menü (per Rechtsklick) -->
-    <div
-      v-if="showDropdown"
-      class="absolute z-40 w-40 bg-base-100 border border-base-300 rounded shadow p-2"
-      :style="{ left: `${dropdownX}px`, top: `${dropdownY}px` }"
-      tabindex="0"
-      @keydown.escape="closeDropdown"
-      @click.outside="closeDropdown"
-    >
-      <ul>
-        <li>
-          <button class="btn btn-ghost btn-sm w-full" @click="optionFill">
-            Fülle auf von …
-          </button>
-        </li>
-        <li>
-          <button class="btn btn-ghost btn-sm w-full" @click="optionTransfer">
-            Transferiere zu …
-          </button>
-        </li>
-      </ul>
-    </div>
-    <!-- Überschrift Einnahmen -->
-    <div class="p-2 font-bold border-b border-base-300 mt-4">
-      <div class="grid grid-cols-3 font-bold">
-        <div class="text-right">
-          <CurrencyDisplay
-            :amount="sumIncomesSummary.budgeted"
-            :as-integer="true"
-          />
-        </div>
-        <div class="text-right">
-          <CurrencyDisplay
-            :amount="sumIncomesSummary.spentMiddle"
-            :as-integer="true"
-          />
-        </div>
-        <div class="text-right">
-          <CurrencyDisplay
-            :amount="sumIncomesSummary.saldoFull"
-            :as-integer="true"
-          />
+            <template v-if="props.expanded.has(cat.id)">
+              <div
+                v-for="child in cat.children.filter(
+                  (c) => c.isActive && !isVerfuegbareMittel(c)
+                )"
+                :key="child.id"
+                class="grid grid-cols-3 pl-6 text-sm p-2 border-b border-base-200"
+              >
+                <div class="text-right">
+                  <CurrencyDisplay
+                    :amount="
+                      calculateIncomeCategorySaldo(
+                        filteredTxs,
+                        child.id,
+                        normalizedMonthStart,
+                        normalizedMonthEnd
+                      ).budgeted
+                    "
+                    :as-integer="true"
+                  />
+                </div>
+                <div class="text-right">
+                  <CurrencyDisplay
+                    :amount="
+                      calculateIncomeCategorySaldo(
+                        filteredTxs,
+                        child.id,
+                        normalizedMonthStart,
+                        normalizedMonthEnd
+                      ).spent
+                    "
+                    :as-integer="true"
+                  />
+                </div>
+                <div class="text-right">
+                  <CurrencyDisplay
+                    :amount="
+                      calculateIncomeCategorySaldo(
+                        transactionStore.transactions,
+                        child.id,
+                        normalizedMonthStart,
+                        normalizedMonthEnd
+                      ).saldo
+                    "
+                    :as-integer="true"
+                  />
+                </div>
+              </div>
+            </template>
+          </template>
         </div>
       </div>
-    </div>
-    <div class="grid grid-rows-auto">
-      <template
-        v-for="cat in props.categories.filter(
-          (c) =>
-            c.isActive &&
-            c.isIncomeCategory &&
-            !c.parentCategoryId &&
-            !isVerfuegbareMittel(c)
-        )"
-        :key="cat.id"
-      >
-        <div class="grid grid-cols-3 p-2 border-b border-base-200">
-          <div class="text-right">
-            <CurrencyDisplay
-              :amount="
-                calculateIncomeCategorySaldo(
-                  filteredTxs,
-                  cat.id,
-                  normalizedMonthStart,
-                  normalizedMonthEnd
-                ).budgeted
-              "
-              :as-integer="true"
-            />
-          </div>
-          <div class="text-right">
-            <CurrencyDisplay
-              :amount="
-                calculateIncomeCategorySaldo(
-                  filteredTxs,
-                  cat.id,
-                  normalizedMonthStart,
-                  normalizedMonthEnd
-                ).spent
-              "
-              :as-integer="true"
-            />
-          </div>
-          <div class="text-right">
-            <CurrencyDisplay
-              :amount="
-                calculateIncomeCategorySaldo(
-                  transactionStore.transactions,
-                  cat.id,
-                  normalizedMonthStart,
-                  normalizedMonthEnd
-                ).saldo
-              "
-              :as-integer="true"
-            />
-          </div>
-        </div>
-        <template v-if="props.expanded.has(cat.id)">
-          <div
-            v-for="child in cat.children.filter(
-              (c) => c.isActive && !isVerfuegbareMittel(c)
-            )"
-            :key="child.id"
-            class="grid grid-cols-3 pl-6 text-sm p-2 border-b border-base-200"
-          >
-            <div class="text-right">
-              <CurrencyDisplay
-                :amount="
-                  calculateIncomeCategorySaldo(
-                    filteredTxs,
-                    child.id,
-                    normalizedMonthStart,
-                    normalizedMonthEnd
-                  ).budgeted
-                "
-                :as-integer="true"
-              />
-            </div>
-            <div class="text-right">
-              <CurrencyDisplay
-                :amount="
-                  calculateIncomeCategorySaldo(
-                    filteredTxs,
-                    child.id,
-                    normalizedMonthStart,
-                    normalizedMonthEnd
-                  ).spent
-                "
-                :as-integer="true"
-              />
-            </div>
-            <div class="text-right">
-              <CurrencyDisplay
-                :amount="
-                  calculateIncomeCategorySaldo(
-                    transactionStore.transactions,
-                    child.id,
-                    normalizedMonthStart,
-                    normalizedMonthEnd
-                  ).saldo
-                "
-                :as-integer="true"
-              />
-            </div>
-          </div>
-        </template>
-      </template>
+      <!-- Transfer Modal -->
+      <CategoryTransferModal
+        v-if="showTransferModal"
+        :is-open="showTransferModal"
+        :month="props.month"
+        :mode="modalData.value?.mode || 'transfer'"
+        :prefillAmount="
+          modalData.value?.mode === 'fill' ? modalData.value.amount : 0
+        "
+        :preselectedToCategoryId="
+          modalData.value?.mode === 'fill'
+            ? modalData.value?.clickedCategory?.id
+            : ''
+        "
+        :category="
+          modalData.value?.mode === 'transfer'
+            ? modalData.value?.clickedCategory
+            : undefined
+        "
+        @close="showTransferModal = false"
+        @transfer="
+          (data) => {
+            addCategoryTransfer(
+              data.fromCategoryId,
+              data.toCategoryId,
+              data.amount,
+              data.date,
+              data.note
+            );
+            showTransferModal = false;
+          }
+        "
+      />
     </div>
   </div>
-  <!-- Transfer Modal -->
-  <CategoryTransferModal
-    v-if="showTransferModal"
-    :is-open="showTransferModal"
-    :month="props.month"
-    :mode="modalData.value?.mode || 'transfer'"
-    :preselectedToCategoryId="
-      modalData.value?.mode === 'fill'
-        ? modalData.value?.clickedCategory?.id
-        : ''
-    "
-    :category="
-      modalData.value?.mode === 'transfer'
-        ? modalData.value?.clickedCategory
-        : undefined
-    "
-    @close="showTransferModal = false"
-    @transfer="
-      (data) => {
-        addCategoryTransfer(
-          data.fromCategoryId,
-          data.toCategoryId,
-          data.amount,
-          data.date,
-          data.note
-        );
-        showTransferModal = false;
-      }
-    "
-  />
 </template>
 
 <style scoped>

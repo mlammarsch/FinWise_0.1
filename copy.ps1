@@ -69,18 +69,18 @@ $searchFiles = @(
     # "src\components\ui\PagingYearComponent.vue",
     # "src\components\ui\MonthSelector.vue"
 
-    # "src\components\ui\CurrencyDisplay.vue",
-    # "src\components\ui\CurrencyInput.vue",
-    # "src\components\ui\SearchableSelect.vue",
+     "src\components\ui\CurrencyDisplay.vue",
+     "src\components\ui\CurrencyInput.vue",
+     "src\components\ui\SearchableSelect.vue",
     # "src\components\ui\TagSearchableDropdown.vue",
     # "src\components\ui\SearchGroup.vue",
     # "src\components\ui\MainNavigation.vue",
 
     # ###Sonstiges
     # "./src/stores/*.ts"
-    # "src\utils\*.ts",
+     "src\utils\*.ts",
     # "src\utils\formatters.ts",
-     "src\types\*.ts"
+    # "src\types\*.ts"
     # "*.vue",
     "*.ts"
 )
