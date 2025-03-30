@@ -32,7 +32,8 @@ export enum AccountType {
 export enum TransactionType {
   EXPENSE = 'EXPENSE',
   INCOME = 'INCOME',
-  TRANSFER = 'TRANSFER'
+  ACCOUNTTRANSFER = 'ACCOUNTTRANSFER',
+  CATEGORYTRANSFER = 'CATEGORYTRANSFER'
 }
 
 export enum RecurrencePattern {
@@ -53,11 +54,12 @@ export interface PlanningTransaction {
   payee?: string
   amount: number
   description?: string
+  note?: string
+  tagIds: string[]
   transactionType: TransactionType
   recurrencePattern: RecurrencePattern
   endDate?: string | null
   recurrenceCount?: number | null
-  tagIds: string[]
   counterPlanningTransactionId?: string | null
 }
 

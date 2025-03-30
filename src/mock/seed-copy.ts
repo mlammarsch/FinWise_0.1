@@ -9,7 +9,21 @@ import { useStatisticsStore } from "../stores/statisticsStore";
 import { useThemeStore } from "../stores/themeStore";
 import { createPinia } from "pinia";
 
+import dayjs from "dayjs";
+import { TransactionType } from "../types";
+
 const pinia = createPinia();
+
+function randomNote(): string | undefined {
+  if (Math.random() > 0.6) return undefined;
+  const phrases = [
+    "lorem ipsum", "dolor sit amet", "einkauf\nbei rewe", "tanken", "urlaub bezahlt",
+    "mittagessen", "amazon bestellung", "neue\nversicherung", "handyrechnung", "reparatur auto",
+    "fitness beitrag", "arztbesuch", "geschenk für freund", "bücher", "parkhaus"
+  ];
+  const note = phrases[Math.floor(Math.random() * phrases.length)];
+  return note;
+}
 
 export function seedData() {
   const accountStore = useAccountStore(pinia);
@@ -119,6 +133,83 @@ export function seedData() {
       isOfflineBudget: false,
       accountGroupId: secondGroupId
     });
+  }
+
+  if (transactionStore.transactions.length === 0) {
+    const accounts = accountStore.accounts;
+    const categories = categoryStore.categories;
+    const tags = tagStore.tags;
+    const recipients = recipientStore.recipients;
+    const today = dayjs();
+
+    const incomeCategories = categories.filter(c => c.isIncomeCategory);
+    const expenseCategories = categories.filter(c => !c.isIncomeCategory);
+
+    accounts.forEach((account) => {
+      const numIncome = Math.floor(Math.random() * 3) + 3;
+
+      for (let i = 0; i < numIncome; i++) {
+        const date = today.subtract(Math.floor(Math.random() * 90), "day").format("YYYY-MM-DD");
+        const amountOptions = [1000, 2000, 3000, 4000, 5000];
+        const amount = amountOptions[Math.floor(Math.random() * amountOptions.length)];
+        const category = incomeCategories[i % incomeCategories.length];
+        const recipient = recipients.find((r) => r.name.includes("Arbeitgeber")) || recipients[0];
+
+        transactionStore.addTransaction({
+          date,
+          valueDate: date,
+          accountId: account.id,
+          categoryId: category.id,
+          tagIds: [],
+          amount,
+          note: randomNote(),
+          recipientId: recipient.id,
+          type: TransactionType.INCOME,
+          counterTransactionId: null,
+          planningTransactionId: null,
+          isReconciliation: false,
+          runningBalance: 0,
+          payee: recipient.name,
+          transferToAccountId: null
+        });
+      }
+    });
+
+    for (let i = 0; i < 120; i++) {
+      const date = today.subtract(Math.floor(Math.random() * 120), "day").format("YYYY-MM-DD");
+      const account = accounts[Math.floor(Math.random() * accounts.length)];
+      const category = expenseCategories[i % expenseCategories.length];
+      const recipient = recipients[Math.floor(Math.random() * recipients.length)];
+
+      const amountOptions = [1, 2, 5, 10, 20, 30, 50, 70, 80, 100, 120, 150, 200, 300];
+      const rawAmount = amountOptions[Math.floor(Math.random() * amountOptions.length)];
+      const amount = -rawAmount;
+
+      const tagCount = Math.floor(Math.random() * 2) + 1;
+      const tagIds: string[] = [];
+      while (tagIds.length < tagCount) {
+        const tag = tags[Math.floor(Math.random() * tags.length)];
+        if (!tagIds.includes(tag.id)) tagIds.push(tag.id);
+      }
+
+      transactionStore.addTransaction({
+        date,
+        valueDate: date,
+        accountId: account.id,
+        categoryId: category.id,
+        tagIds,
+        amount,
+        note: randomNote(),
+        recipientId: recipient.id,
+        type: TransactionType.EXPENSE,
+        counterTransactionId: null,
+        planningTransactionId: null,
+        isReconciliation: false,
+        runningBalance: 0,
+        payee: recipient.name,
+        transferToAccountId: null
+      });
+    }
   }
 }
 

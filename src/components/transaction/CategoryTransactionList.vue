@@ -1,3 +1,4 @@
+<!-- Datei: src/components/transaction/CategoryTransactionList.vue -->
 <script setup lang="ts">
 import { defineProps, defineEmits, ref, computed, defineExpose } from "vue";
 import { Transaction, TransactionType } from "../../types";
@@ -11,10 +12,9 @@ const props = defineProps<{
   transactions: Transaction[];
   sortKey: keyof Transaction | "";
   sortOrder: "asc" | "desc";
-  viewMode?: "normal"; // grouping removed; default is "normal"
+  viewMode?: "normal";
 }>();
 
-// Set default viewMode if not provided
 const viewMode = computed(() => props.viewMode || "normal");
 
 const emit = defineEmits(["edit", "delete", "sort-change"]);
@@ -22,18 +22,17 @@ const emit = defineEmits(["edit", "delete", "sort-change"]);
 const accountStore = useAccountStore();
 const categoryStore = useCategoryStore();
 
-// Computed: Exclude transfer transactions that do not change category
-const displayTransactions = computed(() => {
-  return props.transactions.filter((tx) => {
-    if (tx.type === TransactionType.TRANSFER) {
-      // Only include transfers if target category exists and is different from source category
-      return tx.toCategoryId && tx.toCategoryId !== tx.categoryId;
-    }
-    return true;
-  });
-});
+// Zeige nur EXPENSE, INCOME und CATEGORYTRANSFER
+const displayTransactions = computed(() =>
+  props.transactions.filter(
+    (tx) =>
+      tx.type === TransactionType.EXPENSE ||
+      tx.type === TransactionType.INCOME ||
+      tx.type === TransactionType.CATEGORYTRANSFER
+  )
+);
 
-// Selection logic (similar to TransactionList)
+// Auswahl-Logik
 const selectedIds = ref<string[]>([]);
 const lastSelectedIndex = ref<number | null>(null);
 const currentPageIds = computed(() =>
@@ -100,7 +99,7 @@ defineExpose({ getSelectedTransactions });
     <table class="table w-full">
       <thead>
         <tr>
-          <!-- Selection Checkbox Header -->
+          <!-- Auswahl -->
           <th class="w-5">
             <input
               type="checkbox"
@@ -129,8 +128,7 @@ defineExpose({ getSelectedTransactions });
               />
             </div>
           </th>
-          <!-- Category Field -->
-          <th class="cursor-pointer" @click="emit('sort-change', 'categoryId')">
+          <th @click="emit('sort-change', 'categoryId')" class="cursor-pointer">
             <div class="flex items-center">
               Kategorie
               <Icon
@@ -140,18 +138,18 @@ defineExpose({ getSelectedTransactions });
               />
             </div>
           </th>
-          <!-- Account / Target Category Field -->
-          <th class="cursor-pointer" @click="emit('sort-change', 'accountId')">
+          <th @click="emit('sort-change', 'accountId')" class="cursor-pointer">
             <div class="flex items-center">
               <template
                 v-if="
                   displayTransactions[0] &&
-                  displayTransactions[0].type === TransactionType.TRANSFER
+                  displayTransactions[0].type ===
+                    TransactionType.CATEGORYTRANSFER
                 "
               >
                 Zielkategorie
               </template>
-              <template v-else> Konto </template>
+              <template v-else>Konto</template>
               <Icon
                 v-if="sortKey === 'accountId'"
                 :icon="sortOrder === 'asc' ? 'mdi:arrow-up' : 'mdi:arrow-down'"
@@ -172,11 +170,9 @@ defineExpose({ getSelectedTransactions });
               />
             </div>
           </th>
-          <!-- Note -->
           <th class="text-center cursor-pointer">
             <Icon icon="mdi:note-text-outline" class="text-lg" />
           </th>
-          <!-- Actions -->
           <th class="text-right">Aktionen</th>
         </tr>
       </thead>
@@ -198,7 +194,7 @@ defineExpose({ getSelectedTransactions });
             }}
           </td>
           <td>
-            <template v-if="tx.type === TransactionType.TRANSFER">
+            <template v-if="tx.type === TransactionType.CATEGORYTRANSFER">
               {{
                 categoryStore.getCategoryById(tx.toCategoryId)?.name ||
                 "Unbekannt"
@@ -214,7 +210,9 @@ defineExpose({ getSelectedTransactions });
             <CurrencyDisplay
               :amount="tx.amount"
               :show-zero="true"
-              :class="{ 'text-warning': tx.type === TransactionType.TRANSFER }"
+              :class="{
+                'text-warning': tx.type === TransactionType.CATEGORYTRANSFER,
+              }"
             />
           </td>
           <td class="text-center">

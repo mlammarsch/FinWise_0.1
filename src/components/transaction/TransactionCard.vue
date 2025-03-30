@@ -1,3 +1,4 @@
+<!-- Datei: src/components/transaction/TransactionCard.vue -->
 <script setup lang="ts">
 import { defineProps, computed } from "vue";
 import { Transaction, TransactionType } from "../../types";
@@ -36,7 +37,7 @@ const categoryName = computed(() =>
 );
 
 const recipientName = computed(() => {
-  if (props.transaction.type === TransactionType.TRANSFER) {
+  if (props.transaction.type === TransactionType.ACCOUNTTRANSFER) {
     const toAccountId = props.transaction.transferToAccountId;
     const account = toAccountId
       ? accountStore.getAccountById(toAccountId)
@@ -53,7 +54,7 @@ const recipientName = computed(() => {
 const getTagName = (tagId: string) => tagStore.getTagById(tagId)?.name || "";
 
 const transactionIcon = computed(() => {
-  if (props.transaction.type === TransactionType.TRANSFER)
+  if (props.transaction.type === TransactionType.ACCOUNTTRANSFER)
     return "mdi:bank-transfer";
   if (props.transaction.type === TransactionType.EXPENSE)
     return "mdi:cash-minus";
@@ -70,6 +71,7 @@ const toggleReconciled = () => {
 
 <template>
   <div
+    v-if="transaction.type !== TransactionType.CATEGORYTRANSFER"
     class="card rounded-md border border-base-300 bg-base-100 shadow-md hover:bg-base-200 transition duration-150"
   >
     <div class="flex items-stretch px-2 p-2 space-x-2">
@@ -105,7 +107,8 @@ const toggleReconciled = () => {
               class="text-right text-base whitespace-nowrap"
               :show-zero="true"
               :class="{
-                'text-warning': transaction.type === TransactionType.TRANSFER,
+                'text-warning':
+                  transaction.type === TransactionType.ACCOUNTTRANSFER,
               }"
             />
           </div>

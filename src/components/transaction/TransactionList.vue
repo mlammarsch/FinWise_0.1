@@ -30,10 +30,19 @@ const categoryStore = useCategoryStore();
 const tagStore = useTagStore();
 const recipientStore = useRecipientStore();
 
+// Computed: Exclude CATEGORYTRANSFER transactions
+const displayTransactions = computed(() =>
+  props.transactions.filter(
+    (tx) => tx.type !== TransactionType.CATEGORYTRANSFER
+  )
+);
+
 // Auswahl-Logik
 const selectedIds = ref<string[]>([]);
 const lastSelectedIndex = ref<number | null>(null);
-const currentPageIds = computed(() => props.transactions.map((tx) => tx.id));
+const currentPageIds = computed(() =>
+  displayTransactions.value.map((tx) => tx.id)
+);
 const allSelected = computed(() =>
   currentPageIds.value.every((id) => selectedIds.value.includes(id))
 );
@@ -60,7 +69,7 @@ function handleCheckboxClick(
     const start = Math.min(lastSelectedIndex.value, index);
     const end = Math.max(lastSelectedIndex.value, index);
     for (let i = start; i <= end; i++) {
-      const id = props.transactions[i].id;
+      const id = displayTransactions.value[i].id;
       if (isChecked && !selectedIds.value.includes(id)) {
         selectedIds.value.push(id);
       } else if (!isChecked) {
@@ -82,7 +91,9 @@ function handleCheckboxClick(
 }
 
 function getSelectedTransactions(): Transaction[] {
-  return props.transactions.filter((tx) => selectedIds.value.includes(tx.id));
+  return displayTransactions.value.filter((tx) =>
+    selectedIds.value.includes(tx.id)
+  );
 }
 
 defineExpose({ getSelectedTransactions });
@@ -184,7 +195,7 @@ defineExpose({ getSelectedTransactions });
         </tr>
       </thead>
       <tbody>
-        <tr v-for="(tx, index) in transactions" :key="tx.id">
+        <tr v-for="(tx, index) in displayTransactions" :key="tx.id">
           <!-- Auswahl-Checkbox in jeder Zeile -->
           <td>
             <input
@@ -199,7 +210,7 @@ defineExpose({ getSelectedTransactions });
             {{ accountStore.getAccountById(tx.accountId)?.name || "Unbekannt" }}
           </td>
           <td>
-            <span v-if="tx.type === TransactionType.TRANSFER">
+            <span v-if="tx.type === TransactionType.ACCOUNTTRANSFER">
               {{
                 accountStore.getAccountById(tx.transferToAccountId)?.name ||
                 "Unbekanntes Konto"
@@ -229,7 +240,9 @@ defineExpose({ getSelectedTransactions });
             <CurrencyDisplay
               :amount="tx.amount"
               :show-zero="true"
-              :class="{ 'text-warning': tx.type === TransactionType.TRANSFER }"
+              :class="{
+                'text-warning': tx.type === TransactionType.ACCOUNTTRANSFER,
+              }"
             />
           </td>
           <td class="text-right flex justify-end items-center mt-1">

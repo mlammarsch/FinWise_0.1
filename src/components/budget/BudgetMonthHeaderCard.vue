@@ -1,4 +1,20 @@
 <script setup lang="ts">
+/**
+ * Pfad zur Komponente: src/components/budget/BudgetMonthHeaderCard.vue
+ * Kurze Beschreibung: Zeigt Kopfdaten pro Monats-Spalte an.
+ * Komponenten-Props:
+ * - label: string - Monatslabel
+ * - toBudget: number - Geplantes Budget
+ * - available?: number - verfügbare Mittel
+ * - overspent?: number - Überzogen aus Vormonat
+ * - budgeted?: number - bereits Budgetiert
+ * - nextMonth?: number - für Folgemonat reserviert
+ *
+ * Emits:
+ * - Keine Emits vorhanden
+ */
+import CurrencyDisplay from "../ui/CurrencyDisplay.vue";
+
 const props = defineProps<{
   label: string;
   toBudget: number;
@@ -18,7 +34,8 @@ const props = defineProps<{
     </div>
     <div class="p-2 text-sm space-y-1 flex flex-col items-center">
       <div>
-        <strong>{{ props.available ?? "200" }}</strong> Available funds
+        <CurrencyDisplay :amount="props.available ?? 0" :as-integer="true" />
+        verfügbare Mittel
       </div>
       <div>-{{ props.overspent ?? 0 }} Overspent in prev</div>
       <div>-{{ props.budgeted ?? 0 }} Budgeted</div>

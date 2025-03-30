@@ -1,9 +1,35 @@
 <!-- Datei: src/components/budget/BudgetMonthCard.vue -->
 <script setup lang="ts">
+/**
+ * Pfad zur Komponente: src/components/budget/BudgetMonthCard.vue
+ * Zeigt pro Monat die Budget-, Transaktions- und Saldo-Werte an.
+ *
+ * Für Ausgabenkategorien:
+ * - Mittlere Spalte ("Transakt.") basiert auf echten Buchungen:
+ *   EXPENSE, INCOME und ACCOUNTTRANSFER (CATEGORYTRANSFER werden ausgeschlossen).
+ * - Letzte Spalte ("Saldo") bildet den tatsächlichen Endsaldo ab,
+ *   indem der Vormonatssaldo plus alle Buchungen des laufenden Monats (inkl. CATEGORYTRANSFER)
+ *   berücksichtigt wird.
+ *
+ * Die Stammkategorie "Verfügbare Mittel" wird in der Ansicht komplett ausgefiltert.
+ *
+ * Komponenten-Props:
+ * - month: { start: Date; end: Date; label: string } – Der aktuelle Anzeigemonat
+ * - categories: Category[] – Liste aller Kategorien
+ * - expanded: Set<string> – IDs der aufgeklappten Kategorien
+ *
+ * Emits:
+ * - Keine Emits
+ */
 import { computed } from "vue";
 import { useTransactionStore } from "../../stores/transactionStore";
-import { Category } from "../../types";
+import { Category, TransactionType } from "../../types";
 import CurrencyDisplay from "../ui/CurrencyDisplay.vue";
+import { debugLog } from "@/utils/logger";
+import {
+  calculateCategorySaldo,
+  calculateIncomeCategorySaldo,
+} from "@/utils/runningBalances";
 
 const props = defineProps<{
   month: { start: Date; end: Date; label: string };
@@ -13,41 +39,125 @@ const props = defineProps<{
 
 const transactionStore = useTransactionStore();
 
-/**
- * Berechnet für die gegebene Kategorie:
- * - budgeted: Platzhalter (0)
- * - spent: Summe der Buchungen im laufenden Monat
- * - saldo: Buchungen im Vormonat + Buchungen im laufenden Monat
- */
-const computeData = (category: Category) => {
-  const txsCurrent = transactionStore.transactions.filter(
+// Filter: Nur echte Konto-Buchungen (ohne CATEGORYTRANSFER) für die Transaktions-Spalte.
+const filteredTxs = computed(() =>
+  transactionStore.transactions.filter(
     (tx) =>
-      tx.categoryId === category.id &&
-      new Date(tx.date) >= props.month.start &&
-      new Date(tx.date) <= props.month.end
-  );
-  const spentCurrent = txsCurrent.reduce((sum, tx) => sum + tx.amount, 0);
+      tx.type === TransactionType.EXPENSE ||
+      tx.type === TransactionType.INCOME ||
+      tx.type === TransactionType.ACCOUNTTRANSFER
+  )
+);
 
-  const prevMonthStart = new Date(
-    props.month.start.getFullYear(),
-    props.month.start.getMonth() - 1,
-    1
-  );
-  const prevMonthEnd = new Date(
-    props.month.start.getFullYear(),
-    props.month.start.getMonth(),
-    0
-  );
-  const txsPrev = transactionStore.transactions.filter(
-    (tx) =>
-      tx.categoryId === category.id &&
-      new Date(tx.date) >= prevMonthStart &&
-      new Date(tx.date) <= prevMonthEnd
-  );
-  const spentPrev = txsPrev.reduce((sum, tx) => sum + tx.amount, 0);
+// Hilfsfunktion, um die Stammkategorie "Verfügbare Mittel" zu identifizieren.
+const isVerfuegbareMittel = (cat: Category) =>
+  cat.name.trim().toLowerCase() === "verfügbare mittel";
 
-  return { budgeted: 0, spent: spentCurrent, saldo: spentPrev + spentCurrent };
-};
+// Zusammenfassung für Ausgabenkategorien: Mittlere Spalte (ohne Transfers) und
+// tatsächlicher Endsaldo (inkl. Transfers)
+const sumExpensesSummary = computed(() => {
+  let budgeted = 0;
+  let spentMiddle = 0; // Transaktionen ohne CATEGORYTRANSFER
+  let saldoFull = 0; // Endsaldo inkl. CATEGORYTRANSFER
+  const txsMiddle = filteredTxs.value;
+  const txsFull = transactionStore.transactions;
+  for (const cat of props.categories.filter(
+    (c) =>
+      c.isActive &&
+      !c.isIncomeCategory &&
+      !c.parentCategoryId &&
+      !isVerfuegbareMittel(c)
+  )) {
+    const dataMiddle = calculateCategorySaldo(
+      txsMiddle,
+      cat.id,
+      props.month.start,
+      props.month.end
+    );
+    const dataFull = calculateCategorySaldo(
+      txsFull,
+      cat.id,
+      props.month.start,
+      props.month.end
+    );
+    budgeted += dataMiddle.budgeted;
+    spentMiddle += dataMiddle.spent;
+    saldoFull += dataFull.saldo;
+    for (const child of cat.children || []) {
+      if (child.isActive && !isVerfuegbareMittel(child)) {
+        const childDataMiddle = calculateCategorySaldo(
+          txsMiddle,
+          child.id,
+          props.month.start,
+          props.month.end
+        );
+        const childDataFull = calculateCategorySaldo(
+          txsFull,
+          child.id,
+          props.month.start,
+          props.month.end
+        );
+        budgeted += childDataMiddle.budgeted;
+        spentMiddle += childDataMiddle.spent;
+        saldoFull += childDataFull.saldo;
+      }
+    }
+  }
+  return { budgeted, spentMiddle, saldoFull };
+});
+
+// Zusammenfassung für Einnahmekategorien: Analog, wobei hier CATEGORYTRANSFER
+// standardmäßig einbezogen wird.
+const sumIncomesSummary = computed(() => {
+  let budgeted = 0;
+  let spentMiddle = 0;
+  let saldoFull = 0;
+  const txsMiddle = filteredTxs.value;
+  const txsFull = transactionStore.transactions;
+  for (const cat of props.categories.filter(
+    (c) =>
+      c.isActive &&
+      c.isIncomeCategory &&
+      !c.parentCategoryId &&
+      !isVerfuegbareMittel(c)
+  )) {
+    const dataMiddle = calculateIncomeCategorySaldo(
+      txsMiddle,
+      cat.id,
+      props.month.start,
+      props.month.end
+    );
+    const dataFull = calculateIncomeCategorySaldo(
+      txsFull,
+      cat.id,
+      props.month.start,
+      props.month.end
+    );
+    budgeted += dataMiddle.budgeted;
+    spentMiddle += dataMiddle.spent;
+    saldoFull += dataFull.saldo;
+    for (const child of cat.children || []) {
+      if (child.isActive && !isVerfuegbareMittel(child)) {
+        const childDataMiddle = calculateIncomeCategorySaldo(
+          txsMiddle,
+          child.id,
+          props.month.start,
+          props.month.end
+        );
+        const childDataFull = calculateIncomeCategorySaldo(
+          txsFull,
+          child.id,
+          props.month.start,
+          props.month.end
+        );
+        budgeted += childDataMiddle.budgeted;
+        spentMiddle += childDataMiddle.spent;
+        saldoFull += childDataFull.saldo;
+      }
+    }
+  }
+  return { budgeted, spentMiddle, saldoFull };
+});
 </script>
 
 <template>
@@ -60,50 +170,257 @@ const computeData = (category: Category) => {
         <div class="text-right font-bold">Saldo</div>
       </div>
     </div>
-    <!-- Datenzeilen -->
+
+    <!-- Überschrift Ausgaben -->
+    <div class="p-2 font-bold border-b border-base-300 mt-2">
+      <!-- Summenzeile Ausgaben -->
+      <div class="grid grid-cols-3 font-bold">
+        <div class="text-right">
+          <CurrencyDisplay
+            :amount="sumExpensesSummary.budgeted"
+            :asInteger="true"
+          />
+        </div>
+        <div class="text-right">
+          <CurrencyDisplay
+            :amount="sumExpensesSummary.spentMiddle"
+            :asInteger="true"
+          />
+        </div>
+        <div class="text-right">
+          <CurrencyDisplay
+            :amount="sumExpensesSummary.saldoFull"
+            :asInteger="true"
+          />
+        </div>
+      </div>
+    </div>
     <div class="grid grid-rows-auto">
-      <template v-for="cat in categories" :key="cat.id">
+      <template
+        v-for="cat in props.categories.filter(
+          (c) =>
+            c.isActive &&
+            !c.isIncomeCategory &&
+            !c.parentCategoryId &&
+            !isVerfuegbareMittel(c)
+        )"
+        :key="cat.id"
+      >
         <div class="grid grid-cols-3 p-2 border-b border-base-200">
           <div class="text-right">
             <CurrencyDisplay
-              :amount="computeData(cat).budgeted"
+              :amount="
+                calculateCategorySaldo(
+                  filteredTxs,
+                  cat.id,
+                  props.month.start,
+                  props.month.end
+                ).budgeted
+              "
               :asInteger="true"
             />
           </div>
           <div class="text-right">
+            <!-- Transaktionen ohne CATEGORYTRANSFER -->
             <CurrencyDisplay
-              :amount="computeData(cat).spent"
+              :amount="
+                calculateCategorySaldo(
+                  filteredTxs,
+                  cat.id,
+                  props.month.start,
+                  props.month.end
+                ).spent
+              "
               :asInteger="true"
             />
           </div>
           <div class="text-right">
+            <!-- Tatsächlicher Saldo inkl. CATEGORYTRANSFER -->
             <CurrencyDisplay
-              :amount="computeData(cat).saldo"
+              :amount="
+                calculateCategorySaldo(
+                  transactionStore.transactions,
+                  cat.id,
+                  props.month.start,
+                  props.month.end
+                ).saldo
+              "
               :asInteger="true"
             />
           </div>
         </div>
         <template v-if="props.expanded.has(cat.id)">
           <div
-            v-for="child in cat.children"
+            v-for="child in cat.children.filter(
+              (c) => c.isActive && !isVerfuegbareMittel(c)
+            )"
             :key="child.id"
             class="grid grid-cols-3 pl-6 text-sm p-2 border-b border-base-200"
           >
             <div class="text-right">
               <CurrencyDisplay
-                :amount="computeData(child).budgeted"
+                :amount="
+                  calculateCategorySaldo(
+                    filteredTxs,
+                    child.id,
+                    props.month.start,
+                    props.month.end
+                  ).budgeted
+                "
                 :asInteger="true"
               />
             </div>
             <div class="text-right">
               <CurrencyDisplay
-                :amount="computeData(child).spent"
+                :amount="
+                  calculateCategorySaldo(
+                    filteredTxs,
+                    child.id,
+                    props.month.start,
+                    props.month.end
+                  ).spent
+                "
                 :asInteger="true"
               />
             </div>
             <div class="text-right">
               <CurrencyDisplay
-                :amount="computeData(child).saldo"
+                :amount="
+                  calculateCategorySaldo(
+                    transactionStore.transactions,
+                    child.id,
+                    props.month.start,
+                    props.month.end
+                  ).saldo
+                "
+                :asInteger="true"
+              />
+            </div>
+          </div>
+        </template>
+      </template>
+    </div>
+
+    <!-- Überschrift Einnahmen -->
+    <div class="p-2 font-bold border-b border-base-300 mt-4">
+      <!-- Summenzeile Einnahmen -->
+      <div class="grid grid-cols-3 font-bold">
+        <div class="text-right">
+          <CurrencyDisplay
+            :amount="sumIncomesSummary.budgeted"
+            :asInteger="true"
+          />
+        </div>
+        <div class="text-right">
+          <CurrencyDisplay
+            :amount="sumIncomesSummary.spentMiddle"
+            :asInteger="true"
+          />
+        </div>
+        <div class="text-right">
+          <CurrencyDisplay
+            :amount="sumIncomesSummary.saldoFull"
+            :asInteger="true"
+          />
+        </div>
+      </div>
+    </div>
+    <div class="grid grid-rows-auto">
+      <template
+        v-for="cat in props.categories.filter(
+          (c) =>
+            c.isActive &&
+            c.isIncomeCategory &&
+            !c.parentCategoryId &&
+            !isVerfuegbareMittel(c)
+        )"
+        :key="cat.id"
+      >
+        <div class="grid grid-cols-3 p-2 border-b border-base-200">
+          <div class="text-right">
+            <CurrencyDisplay
+              :amount="
+                calculateIncomeCategorySaldo(
+                  filteredTxs,
+                  cat.id,
+                  props.month.start,
+                  props.month.end
+                ).budgeted
+              "
+              :asInteger="true"
+            />
+          </div>
+          <div class="text-right">
+            <CurrencyDisplay
+              :amount="
+                calculateIncomeCategorySaldo(
+                  filteredTxs,
+                  cat.id,
+                  props.month.start,
+                  props.month.end
+                ).spent
+              "
+              :asInteger="true"
+            />
+          </div>
+          <div class="text-right">
+            <CurrencyDisplay
+              :amount="
+                calculateIncomeCategorySaldo(
+                  transactionStore.transactions,
+                  cat.id,
+                  props.month.start,
+                  props.month.end
+                ).saldo
+              "
+              :asInteger="true"
+            />
+          </div>
+        </div>
+        <template v-if="props.expanded.has(cat.id)">
+          <div
+            v-for="child in cat.children.filter(
+              (c) => c.isActive && !isVerfuegbareMittel(c)
+            )"
+            :key="child.id"
+            class="grid grid-cols-3 pl-6 text-sm p-2 border-b border-base-200"
+          >
+            <div class="text-right">
+              <CurrencyDisplay
+                :amount="
+                  calculateIncomeCategorySaldo(
+                    filteredTxs,
+                    child.id,
+                    props.month.start,
+                    props.month.end
+                  ).budgeted
+                "
+                :asInteger="true"
+              />
+            </div>
+            <div class="text-right">
+              <CurrencyDisplay
+                :amount="
+                  calculateIncomeCategorySaldo(
+                    filteredTxs,
+                    child.id,
+                    props.month.start,
+                    props.month.end
+                  ).spent
+                "
+                :asInteger="true"
+              />
+            </div>
+            <div class="text-right">
+              <CurrencyDisplay
+                :amount="
+                  calculateIncomeCategorySaldo(
+                    transactionStore.transactions,
+                    child.id,
+                    props.month.start,
+                    props.month.end
+                  ).saldo
+                "
                 :asInteger="true"
               />
             </div>
@@ -114,5 +431,4 @@ const computeData = (category: Category) => {
   </div>
 </template>
 
-<style scoped>
-</style>
+<style scoped></style>

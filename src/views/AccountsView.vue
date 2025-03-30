@@ -16,7 +16,7 @@ import MonthSelector from "../components/ui/MonthSelector.vue";
 import SearchGroup from "../components/ui/SearchGroup.vue";
 import SearchableSelectLite from "../components/ui/SearchableSelectLite.vue";
 import { formatCurrency, formatDate } from "../utils/formatters";
-import { groupTransactionsByDateWithBalance } from "../utils/calculation";
+import { groupTransactionsByDateWithRunningBalance } from "../utils/runningBalances";
 import { useTransactionStore } from "../stores/transactionStore";
 
 const accountStore = useAccountStore();
@@ -189,7 +189,7 @@ const groupedTransactions = computed(() => {
   const allTxs = accountStore.getTransactionByAccountId(
     selectedAccount.value.id
   );
-  const fullGrouped = groupTransactionsByDateWithBalance(
+  const fullGrouped = groupTransactionsByDateWithRunningBalance(
     allTxs,
     selectedAccount.value
   );
@@ -228,10 +228,8 @@ const handleTransactionSave = (payload: any) => {
 };
 </script>
 
-
 <template>
   <div class="flex flex-col items-center">
-    <!-- Steuerungsleiste mit Filterelementen -->
     <div
       id="FilterCard"
       class="rounded-md border border-base-300 backdrop-blur-lg p-2 w-full max-w-5xl mb-3 z-10"
@@ -325,7 +323,6 @@ const handleTransactionSave = (payload: any) => {
 
     <div class="flex gap-4 justify-center w-full max-w-5xl">
       <div class="w-full md:w-1/2 max-w-2xl">
-        <!-- Row für Gesamtsaldo und Buttons -->
         <div class="rounded-md bg-base-200/50 backdrop-blur-lg p-2 mb-6">
           <div class="flex justify-between items-center">
             <div class="join">
@@ -371,7 +368,6 @@ const handleTransactionSave = (payload: any) => {
         </div>
       </div>
 
-      <!-- Such- und gefilterte Transaktionsliste -->
       <div class="flex flex-col w-1/2">
         <div
           class="rounded-md bg-base-200/50 backdrop-blur-lg mb-6 flex justify-end p-2 items-center"
@@ -384,7 +380,6 @@ const handleTransactionSave = (payload: any) => {
           />
         </div>
 
-        <!-- Gefilterte Transaktionsliste gruppiert nach Datum -->
         <div>
           <div
             v-for="(group, index) in groupedTransactions"
@@ -430,7 +425,6 @@ const handleTransactionSave = (payload: any) => {
       </div>
     </div>
 
-    <!-- Neues Konto Modal -->
     <Teleport to="body">
       <div v-if="showNewAccountModal" class="modal modal-open">
         <div class="modal-box max-w-2xl">
@@ -444,7 +438,6 @@ const handleTransactionSave = (payload: any) => {
       </div>
     </Teleport>
 
-    <!-- Neue Gruppe Modal -->
     <Teleport to="body">
       <div v-if="showNewGroupModal" class="modal modal-open">
         <div class="modal-box max-w-2xl">
@@ -458,7 +451,6 @@ const handleTransactionSave = (payload: any) => {
       </div>
     </Teleport>
 
-    <!-- Transaktionsformular Modal -->
     <Teleport to="body">
       <div v-if="showTransactionFormModal" class="modal modal-open">
         <div class="modal-box overflow-visible max-w-2xl">
