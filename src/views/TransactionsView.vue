@@ -55,9 +55,8 @@ const selectedAccountId = ref("");
 const selectedTransactionType = ref("");
 const selectedReconciledFilter = ref("");
 const selectedTagId = ref("");
-const selectedCategoryId = ref(""); // wird in beiden Ansichten verwendet
+const selectedCategoryId = ref("");
 
-// Filterung: Kontobuchungen
 const filteredTransactions = computed(() => {
   refreshKey.value;
   let txs = transactionStore.transactions;
@@ -89,10 +88,10 @@ const filteredTransactions = computed(() => {
   if (selectedCategoryId.value) {
     txs = txs.filter((tx) => tx.categoryId === selectedCategoryId.value);
   }
-  const start = new Date(dateRange.value.start).getTime();
-  const end = new Date(dateRange.value.end).getTime();
+  const start = dateRange.value.start;
+  const end = dateRange.value.end;
   txs = txs.filter((tx) => {
-    const txDate = new Date(tx.date).getTime();
+    const txDate = tx.date.split("T")[0];
     return txDate >= start && txDate <= end;
   });
   if (!searchQuery.value.trim()) return txs;
@@ -136,6 +135,7 @@ const filteredTransactions = computed(() => {
     ].some((field) => field.includes(lower) || field.includes(numeric));
   });
 });
+
 const sortedTransactions = computed(() => {
   const list = [...filteredTransactions.value];
   if (sortKey.value) {
@@ -169,8 +169,8 @@ const sortedTransactions = computed(() => {
           bVal = b.amount;
           break;
         case "date":
-          aVal = new Date(a.date).getTime();
-          bVal = new Date(b.date).getTime();
+          aVal = a.date;
+          bVal = b.date;
           break;
         default:
           aVal = a[sortKey.value];
@@ -189,6 +189,7 @@ const sortedTransactions = computed(() => {
   }
   return list;
 });
+
 const paginatedTransactions = computed(() => {
   if (itemsPerPage.value === "all") return sortedTransactions.value;
   const start = (currentPage.value - 1) * Number(itemsPerPage.value);
@@ -198,29 +199,31 @@ const paginatedTransactions = computed(() => {
   );
 });
 
-// Filterung für Kategoriebuchungen (nur nach Monat und Kategorie)
+// Filterung für Kategoriebuchungen
 const filteredCategoryTransactions = computed(() => {
   let txs = transactionStore.transactions;
   if (selectedCategoryId.value) {
     txs = txs.filter((tx) => tx.categoryId === selectedCategoryId.value);
   }
-  const start = new Date(dateRange.value.start).getTime();
-  const end = new Date(dateRange.value.end).getTime();
+  const start = dateRange.value.start;
+  const end = dateRange.value.end;
   txs = txs.filter((tx) => {
-    const txDate = new Date(tx.date).getTime();
+    const txDate = tx.date.split("T")[0];
     return txDate >= start && txDate <= end;
   });
   return txs;
 });
+
 const sortedCategoryTransactions = computed(() => {
   const list = [...filteredCategoryTransactions.value];
-  list.sort((a, b) => {
-    const aVal = new Date(a.date).getTime();
-    const bVal = new Date(b.date).getTime();
-    return sortOrder.value === "asc" ? aVal - bVal : bVal - aVal;
-  });
+  list.sort((a, b) =>
+    sortOrder.value === "asc"
+      ? a.date.localeCompare(b.date)
+      : b.date.localeCompare(a.date)
+  );
   return list;
 });
+
 const paginatedCategoryTransactions = computed(() => {
   if (itemsPerPage.value === "all") return sortedCategoryTransactions.value;
   const start = (currentPage.value - 1) * Number(itemsPerPage.value);
@@ -230,7 +233,7 @@ const paginatedCategoryTransactions = computed(() => {
   );
 });
 
-// Sortierung (gemeinsam für beide Ansichten)
+// Sortierung
 const sortKey = ref<keyof Transaction | "">("date");
 const sortOrder = ref<"asc" | "desc">("desc");
 function sortBy(key: keyof Transaction) {
@@ -315,7 +318,7 @@ function clearFilters() {
   searchQuery.value = "";
 }
 
-// Filter-Persistenz laden (gemeinsam)
+// Filter-Persistenz
 onMounted(() => {
   const savedTag = localStorage.getItem("transactionsView_selectedTagId");
   if (savedTag !== null) selectedTagId.value = savedTag;
@@ -329,6 +332,7 @@ watch(selectedCategoryId, (newVal) => {
   localStorage.setItem("transactionsView_selectedCategoryId", newVal);
 });
 </script>
+
 
 <template>
   <div class="space-y-6">

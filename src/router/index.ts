@@ -5,6 +5,7 @@ import DashboardView from '../views/DashboardView.vue'
 import AccountsView from '../views/AccountsView.vue'
 import TransactionsView from '../views/TransactionsView.vue'
 import BudgetsView from '../views/BudgetsView.vue'
+import BudgetsView2 from '../views/BudgetsView2.vue'
 import StatisticsView from '../views/StatisticsView.vue'
 import PlanningView from '../views/PlanningView.vue'
 import SettingsView from '../views/SettingsView.vue'
@@ -44,7 +45,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/statistics',
     name: 'statistics',
-    component: StatisticsView,
+    component: BudgetsView2,
     meta: { title: 'Statistiken', breadcrumb: 'Statistiken' }
   },
   {

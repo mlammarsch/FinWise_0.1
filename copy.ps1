@@ -32,9 +32,10 @@ $searchFiles = @(
     "prompt\sytemprompt.md",
 
     # ###Account
-    # "src\stores\accountStore.ts",
-    # "src\views\AccountsView.vue",
-    # "src\components\account\*.vue",
+
+     "src\stores\accountStore.ts",
+     "src\views\AccountsView.vue",
+     "src\components\account\*.vue",
 
     # ###Transaction
      "src\views\TransactionsView.vue",
@@ -58,6 +59,7 @@ $searchFiles = @(
     # "src\stores\tagStore.ts",
 
     # ###Admin
+    "src\views\admin\AdminAccountsView.vue",
     # "src\views\admin\AdminRecipientsView.vue",
      "src\views\admin\AdminCategoriesView.vue",
     # "src\layouts\AppLayout.vue",

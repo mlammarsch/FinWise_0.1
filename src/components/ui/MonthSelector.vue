@@ -1,12 +1,11 @@
-<!-- MonthSelector.vue -->
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
+import { debugLog } from "@/utils/logger";
 
 const emit = defineEmits<{
   (e: "update-daterange", payload: { start: string; end: string }): void;
 }>();
 
-// Initialer Monat: aktueller Monat, erster Tag
 const currentMonth = ref(
   new Date(new Date().getFullYear(), new Date().getMonth(), 1)
 );
@@ -18,24 +17,33 @@ const formattedMonthYear = computed(() =>
   })
 );
 
-const startDate = computed(
-  () => currentMonth.value.toISOString().split("T")[0]
-);
+// Hilfsfunktion für saubere YYYY-MM-DD-Ausgabe
+function toDateString(year: number, month: number, day: number): string {
+  const m = String(month + 1).padStart(2, "0");
+  const d = String(day).padStart(2, "0");
+  return `${year}-${m}-${d}`;
+}
 
-const endDate = computed(() => {
-  const lastDay = new Date(
-    currentMonth.value.getFullYear(),
-    currentMonth.value.getMonth() + 1,
-    0
-  );
-  return lastDay.toISOString().split("T")[0];
+// Start- und Enddatum aus Jahr/Monat
+const startDate = computed(() => {
+  const y = currentMonth.value.getFullYear();
+  const m = currentMonth.value.getMonth();
+  return toDateString(y, m, 1);
 });
 
-// Emit bei Änderung
+const endDate = computed(() => {
+  const y = currentMonth.value.getFullYear();
+  const m = currentMonth.value.getMonth();
+  const lastDay = new Date(y, m + 1, 0).getDate();
+  return toDateString(y, m, lastDay);
+});
+
 watch(
   currentMonth,
   () => {
-    emit("update-daterange", { start: startDate.value, end: endDate.value });
+    const payload = { start: startDate.value, end: endDate.value };
+    debugLog("[MonthSelector] update-daterange", payload);
+    emit("update-daterange", payload);
   },
   { immediate: true }
 );
@@ -46,6 +54,7 @@ function previousMonth() {
     currentMonth.value.getMonth() - 1,
     1
   );
+  debugLog("[MonthSelector] previousMonth", currentMonth.value);
 }
 
 function nextMonth() {
@@ -54,6 +63,7 @@ function nextMonth() {
     currentMonth.value.getMonth() + 1,
     1
   );
+  debugLog("[MonthSelector] nextMonth", currentMonth.value);
 }
 </script>
 

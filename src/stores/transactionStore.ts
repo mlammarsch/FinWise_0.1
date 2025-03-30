@@ -19,6 +19,10 @@ export interface ExtendedTransaction extends Transaction {
   transferToAccountId?: string | null
 }
 
+function toDateOnlyString(input: string): string {
+  return input?.split("T")[0] ?? input
+}
+
 export const useTransactionStore = defineStore('transaction', () => {
   const transactions = ref<ExtendedTransaction[]>([])
   const accountStore = useAccountStore()
@@ -31,32 +35,30 @@ export const useTransactionStore = defineStore('transaction', () => {
   const getTransactionsByAccount = computed(() => {
     return (accountId: string) => transactions.value
       .filter(transaction => transaction.accountId === accountId)
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .sort((a, b) => b.date.localeCompare(a.date))
   })
 
   const getTransactionsByCategory = computed(() => {
     return (categoryId: string) => transactions.value
       .filter(transaction => transaction.categoryId === categoryId)
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .sort((a, b) => b.date.localeCompare(a.date))
   })
 
   const getTransactionsByDateRange = computed(() => {
     return (startDate: string, endDate: string) => {
-      const start = new Date(startDate).getTime()
-      const end = new Date(endDate).getTime()
       return transactions.value
         .filter(transaction => {
-          const txDate = new Date(transaction.valueDate || transaction.date).getTime()
-          return txDate >= start && txDate <= end
+          const txDate = (transaction.valueDate || transaction.date).split("T")[0]
+          return txDate >= startDate && txDate <= endDate
         })
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        .sort((a, b) => b.date.localeCompare(a.date))
     }
   })
 
   const getRecentTransactions = (limit: number = 10) => {
     debugLog("[transactionStore] getRecentTransactions called", { limit })
     return [...transactions.value]
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .sort((a, b) => b.date.localeCompare(a.date))
       .slice(0, limit)
   }
 
@@ -74,7 +76,9 @@ export const useTransactionStore = defineStore('transaction', () => {
     const newTransaction: ExtendedTransaction = {
       ...transaction,
       id: uuidv4(),
-      runningBalance
+      runningBalance,
+      date: toDateOnlyString(transaction.date),
+      valueDate: toDateOnlyString(transaction.valueDate || transaction.date)
     }
 
     transactions.value.push(newTransaction)
@@ -111,6 +115,13 @@ export const useTransactionStore = defineStore('transaction', () => {
   function updateTransaction(id: string, updates: Partial<ExtendedTransaction>) {
     const index = transactions.value.findIndex(transaction => transaction.id === id)
     if (index !== -1) {
+      if (updates.date) {
+        updates.date = toDateOnlyString(updates.date)
+      }
+      if (updates.valueDate) {
+        updates.valueDate = toDateOnlyString(updates.valueDate)
+      }
+
       transactions.value[index] = { ...transactions.value[index], ...updates }
 
       if (updates.hasOwnProperty("reconciled")) {
@@ -151,11 +162,9 @@ export const useTransactionStore = defineStore('transaction', () => {
     return true
   }
 
-  // Nutzt die zentrale Berechnung für laufende Salden
   function updateRunningBalances(accountId: string) {
     const accountTxs = transactions.value.filter(tx => tx.accountId === accountId)
     const { updatedTransactions, finalBalance } = calculateRunningBalances(accountTxs)
-    // Aktualisiere die betroffenen Transaktionen in transactions.value
     updatedTransactions.forEach(updatedTx => {
       const index = transactions.value.findIndex(tx => tx.id === updatedTx.id)
       if (index !== -1) {
@@ -169,10 +178,19 @@ export const useTransactionStore = defineStore('transaction', () => {
     debugLog("[transactionStore] updateRunningBalances", { accountId, finalBalance })
   }
 
+  function normalizeLoadedDates() {
+    transactions.value = transactions.value.map(tx => ({
+      ...tx,
+      date: toDateOnlyString(tx.date),
+      valueDate: toDateOnlyString(tx.valueDate || tx.date)
+    }))
+  }
+
   function loadTransactions() {
     const savedTransactions = localStorage.getItem('finwise_transactions')
     if (savedTransactions) {
       transactions.value = JSON.parse(savedTransactions)
+      normalizeLoadedDates()
     }
     debugLog("[transactionStore] loadTransactions", transactions.value)
   }
