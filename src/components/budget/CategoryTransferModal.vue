@@ -4,13 +4,13 @@
  * Pfad zur Komponente: src/components/budget/CategoryTransferModal.vue
  * Funktion: Übertragung von Beträgen zwischen Kategorien.
  * Komponenten-Props:
- * - category?: Category - Wird als Quelle genutzt (bei Header-/Transfer-Modus z. B. "Verfügbare Mittel")
+ * - category?: Category - Wird als Quelle genutzt (bei Transfer-Modus)
  * - isOpen: boolean - Steuerung der Sichtbarkeit des Modals
  * - month?: { start: Date; end: Date } - Relevanter Monat
  * - preselectedToCategoryId?: string - Vorselektion der Zielkategorie (bei Fill-Modus)
  * - mode?: "fill" | "transfer" | "header" - Steuert, welche Felder sichtbar sind:
- *    - fill: Es wird der Betrag (Saldo) der angeklickten Kategorie übernommen und als Ziel vorbefüllt.
- *    - transfer: Es wird die angeklickte Kategorie als Quelle vorbefüllt; Betrag 0.
+ *    - fill: Übernimmt den Saldo der angeklickten Kategorie als Zielwert.
+ *    - transfer: Übernimmt die angeklickte Kategorie als Quelle; Betrag 0.
  *    - header: Im Header-Modus ist die Quellkategorie fix (als "Verfügbare Mittel"), Ziel wählbar.
  * - prefillAmount?: number - Initialwert für das Betragsfeld
  *
@@ -19,17 +19,17 @@
  * - transfer - Löst den Transfer aus
  */
 import { ref, computed, watch } from "vue";
-import { Category } from "../../types";
+import { toDateOnlyString } from "@/utils/formatters";
+import CurrencyDisplay from "../ui/CurrencyDisplay.vue";
+import CurrencyInput from "../ui/CurrencyInput.vue";
+import SelectCategory from "../ui/SelectCategory.vue";
 import { useCategoryStore } from "../../stores/categoryStore";
 import { useTransactionStore } from "../../stores/transactionStore";
-import { toDateOnlyString } from "@/utils/formatters";
 import { calculateCategorySaldo } from "@/utils/runningBalances";
-import CurrencyDisplay from "../ui/CurrencyDisplay.vue";
-import SearchableSelect from "../ui/SearchableSelect.vue";
-import CurrencyInput from "../ui/CurrencyInput.vue";
+import { debugLog } from "@/utils/logger";
 
 const props = defineProps<{
-  category?: Category;
+  category?: any;
   isOpen: boolean;
   month?: { start: Date; end: Date };
   preselectedToCategoryId?: string;
@@ -46,40 +46,18 @@ const fromCategoryId = ref("");
 const toCategoryId = ref("");
 const amount = ref(props.prefillAmount || 0);
 
-// Datum abhängig vom relevanten Monat setzen
+// Datum: Setze immer den letzten Tag des übergebenen Monats
 function computeDefaultDate(): string {
-  const today = new Date();
   if (props.month) {
-    const clickedStart = new Date(toDateOnlyString(props.month.start));
-    if (
-      today.getFullYear() === clickedStart.getFullYear() &&
-      today.getMonth() === clickedStart.getMonth()
-    ) {
-      return today.toISOString().split("T")[0];
-    } else if (clickedStart > today) {
-      // Zukunft: Erster Tag des geklickten Monats
-      const firstDay = new Date(
-        clickedStart.getFullYear(),
-        clickedStart.getMonth(),
-        1
-      );
-      return firstDay.toISOString().split("T")[0];
-    } else {
-      // Vergangenheit: Letzter Tag des Vormonats des geklickten Monats
-      const lastDayPrev = new Date(
-        clickedStart.getFullYear(),
-        clickedStart.getMonth(),
-        0
-      );
-      return lastDayPrev.toISOString().split("T")[0];
-    }
+    const lastDay = new Date(props.month.end);
+    return lastDay.toISOString().split("T")[0];
   }
-  return today.toISOString().split("T")[0];
+  return new Date().toISOString().split("T")[0];
 }
 const date = ref(computeDefaultDate());
 const note = ref("");
 
-// Initiale Befüllung basierend auf dem Modus
+// Alte Logik zur Initialbefüllung beibehalten
 if (props.mode === "transfer" && props.category) {
   fromCategoryId.value = props.category.id;
 }
@@ -116,27 +94,27 @@ const formatNumber = (value: number): string => {
   return value.toString().replace(".", ",");
 };
 
-const isExpenseCategory = (cat: Category) => {
+const isExpenseCategory = (cat: any) => {
   return (
     cat.name.trim().toLowerCase() === "verfügbare mittel" ||
     !cat.isIncomeCategory
   );
 };
 
+// Computed für Einkommen-Kategorien (werden ausgeschlossen)
+const incomeCategoryIds = computed(() => {
+  return categoryStore.categories
+    .filter((cat) => cat.isIncomeCategory)
+    .map((cat) => cat.id);
+});
+
+// Beibehaltung der alten Computed für Verfügbar-Anzeige
 const normalizedMonthStart = computed(() =>
   props.month ? new Date(toDateOnlyString(props.month.start)) : new Date()
 );
 const normalizedMonthEnd = computed(() =>
   props.month ? new Date(toDateOnlyString(props.month.end)) : new Date()
 );
-
-const sortOptions = (options: any[]) => {
-  return options.sort((a, b) => {
-    if (a.name.trim().toLowerCase() === "verfügbare mittel") return -1;
-    if (b.name.trim().toLowerCase() === "verfügbare mittel") return 1;
-    return a.name.localeCompare(b.name);
-  });
-};
 
 const comboboxFromOptions = computed(() => {
   const opts = categoryStore.categories
@@ -153,30 +131,21 @@ const comboboxFromOptions = computed(() => {
           ).saldo
         : 0,
     }));
-  return sortOptions(opts);
-});
-
-const comboboxToOptions = computed(() => {
-  const opts = categoryStore.categories
-    .filter((cat) => isExpenseCategory(cat) && cat.id !== fromCategoryId.value)
-    .map((cat) => ({
-      id: cat.id,
-      name: cat.name,
-      saldo: props.month
-        ? calculateCategorySaldo(
-            transactionStore.transactions,
-            cat.id,
-            normalizedMonthStart.value,
-            normalizedMonthEnd.value
-          ).saldo
-        : 0,
-    }));
-  return sortOptions(opts);
+  return opts.sort((a, b) => a.name.localeCompare(b.name));
 });
 
 // Übertragung auslösen (bei Enter oder Button)
 const transferBetweenCategories = () => {
-  if (!fromCategoryId.value || !toCategoryId.value || amount.value <= 0) return;
+  if (!fromCategoryId.value || !toCategoryId.value || amount.value <= 0) {
+    return;
+  }
+  debugLog("[CategoryTransferModal] transferBetweenCategories", {
+    fromCategoryId: fromCategoryId.value,
+    toCategoryId: toCategoryId.value,
+    amount: amount.value,
+    date: date.value,
+    note: note.value,
+  });
   emit("transfer", {
     fromCategoryId: fromCategoryId.value,
     toCategoryId: toCategoryId.value,
@@ -195,109 +164,86 @@ const transferBetweenCategories = () => {
     tabindex="0"
     @keydown.escape="$emit('close')"
   >
-    <div class="modal-box">
+    <div class="modal-box w-2/3">
       <h3 class="font-bold text-lg mb-4">Zwischen Kategorien übertragen</h3>
-      <form @submit.prevent="transferBetweenCategories">
-        <div class="space-y-4">
-          <!-- Quell-Kategorie -->
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text">Von Kategorie</span>
-              <span class="text-error">*</span>
-            </label>
-            <SearchableSelect
-              v-model="fromCategoryId"
-              :options="comboboxFromOptions"
-              placeholder="Kategorie auswählen"
-              required
-            >
-              <template #option="{ option }">
-                <div class="flex justify-between items-center">
-                  <span>{{ option.name }}</span>
-                  <div class="ml-2">
-                    (<CurrencyDisplay
-                      :amount="option.saldo"
-                      :show-zero="true"
-                      :as-integer="true"
-                    />)
-                  </div>
-                </div>
-              </template>
-            </SearchableSelect>
-          </div>
-          <!-- Ziel-Kategorie -->
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text">Zu Kategorie</span>
-              <span class="text-error">*</span>
-            </label>
-            <SearchableSelect
-              v-model="toCategoryId"
-              :options="comboboxToOptions"
-              placeholder="Kategorie auswählen"
-              required
-            >
-              <template #option="{ option }">
-                <div class="flex justify-between items-center">
-                  <span>{{ option.name }}</span>
-                  <div class="ml-2">
-                    (<CurrencyDisplay
-                      :amount="option.saldo"
-                      :show-zero="true"
-                      :as-integer="true"
-                    />)
-                  </div>
-                </div>
-              </template>
-            </SearchableSelect>
-          </div>
-          <!-- Betrag -->
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text">Betrag</span>
-              <span class="text-error">*</span>
-            </label>
-            <CurrencyInput v-model="amount" />
-            <label class="label">
-              <span class="label-text-alt">
-                Verfügbar:
-                <CurrencyDisplay
-                  :amount="
-                    comboboxFromOptions.find((o) => o.id === fromCategoryId)
-                      ?.saldo || 0
-                  "
-                  :show-zero="true"
-                  :as-integer="true"
-                />
-              </span>
-            </label>
-          </div>
-          <!-- Datum -->
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text">Datum</span>
-              <span class="text-error">*</span>
-            </label>
-            <input
-              type="date"
-              v-model="date"
-              class="input input-bordered"
-              required
-            />
-          </div>
-          <!-- Notiz -->
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text">Notiz</span>
-            </label>
-            <input
-              type="text"
-              v-model="note"
-              class="input input-bordered"
-              placeholder="Grund für die Übertragung"
-            />
-          </div>
-        </div>
+      <form
+        @submit.prevent="transferBetweenCategories"
+        class="flex flex-col space-y-4 w-full"
+      >
+        <!-- Von Kategorie -->
+        <fieldset class="form-control">
+          <legend class="label font-bold select-none">
+            Von Kategorie <span class="text-error">*</span>
+          </legend>
+          <SelectCategory
+            v-model:modelValue="fromCategoryId"
+            :initialID="
+              props.mode === 'transfer' && props.category
+                ? props.category.id
+                : ''
+            "
+            :filterOutArray="incomeCategoryIds"
+          />
+        </fieldset>
+        <!-- Zu Kategorie -->
+        <fieldset class="form-control">
+          <legend class="label font-bold select-none">
+            Zu Kategorie <span class="text-error">*</span>
+          </legend>
+          <SelectCategory
+            v-model:modelValue="toCategoryId"
+            :initialID="
+              props.mode === 'fill' && props.preselectedToCategoryId
+                ? props.preselectedToCategoryId
+                : ''
+            "
+            :filterOutArray="
+              incomeCategoryIds.concat(fromCategoryId ? [fromCategoryId] : [])
+            "
+          />
+        </fieldset>
+        <!-- Betrag -->
+        <fieldset class="form-control">
+          <legend class="label font-bold select-none">
+            Betrag <span class="text-error">*</span>
+          </legend>
+          <CurrencyInput v-model="amount" />
+          <label class="label">
+            <span class="label-text-alt">
+              Verfügbar:
+              <CurrencyDisplay
+                :amount="
+                  comboboxFromOptions.find((o) => o.id === fromCategoryId)
+                    ?.saldo || 0
+                "
+                :show-zero="true"
+                :as-integer="true"
+              />
+            </span>
+          </label>
+        </fieldset>
+        <!-- Datum -->
+        <fieldset class="form-control">
+          <legend class="label font-bold select-none">
+            Datum <span class="text-error">*</span>
+          </legend>
+          <input
+            type="date"
+            v-model="date"
+            class="input input-bordered w-full"
+            required
+          />
+        </fieldset>
+        <!-- Notiz -->
+        <fieldset class="form-control">
+          <legend class="label font-bold select-none">Notiz</legend>
+          <input
+            type="text"
+            v-model="note"
+            class="input input-bordered w-full"
+            placeholder="Grund für die Übertragung"
+          />
+        </fieldset>
         <div class="modal-action">
           <button type="button" class="btn" @click="$emit('close')">
             Abbrechen

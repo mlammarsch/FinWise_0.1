@@ -100,7 +100,7 @@ function handleTransfer(data: any) {
   <div
     ref="containerRef"
     :class="[
-      'relative min-w-[12rem] border border-accent/50 rounded-lg sticky top-0 z-10 m-2',
+      'relative min-w-[12rem] border border-accent/50 rounded-lg shadow-md sticky top-0 z-10 m-2',
       isCurrentMonth
         ? 'border border-none outline-accent/75 outline-double outline-2 outline-offset-2'
         : 'border border-base-300',
