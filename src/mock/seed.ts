@@ -104,7 +104,7 @@ export function seedData() {
       name: "Gehaltskonto",
       description: "Girokonto ING",
       iban: "DE89123456780123456789",
-      balance: 1200,
+      balance: 0,
       isActive: true,
       isOfflineBudget: false,
       accountGroupId: secondGroupId
@@ -114,7 +114,7 @@ export function seedData() {
       name: "Tagesgeldkonto",
       description: "Sparkonto",
       iban: "DE89123456780987654321",
-      balance: 3500,
+      balance: 0,
       isActive: true,
       isOfflineBudget: false,
       accountGroupId: secondGroupId

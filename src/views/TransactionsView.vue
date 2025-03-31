@@ -1,4 +1,3 @@
-<!-- Datei: src/views/TransactionsView.vue -->
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from "vue";
 import { useTransactionStore } from "../stores/transactionStore";
@@ -16,6 +15,7 @@ import SearchGroup from "../components/ui/SearchGroup.vue";
 import SearchableSelectLite from "../components/ui/SearchableSelectLite.vue";
 import { Transaction, TransactionType } from "../types";
 import { formatCurrency } from "../utils/formatters";
+import { addAccountTransfer } from "@/utils/accountTransfers";
 
 const refreshKey = ref(0);
 
@@ -65,7 +65,7 @@ const filteredTransactions = computed(() => {
     const typeMap: Record<string, TransactionType> = {
       ausgabe: TransactionType.EXPENSE,
       einnahme: TransactionType.INCOME,
-      transfer: TransactionType.TRANSFER,
+      transfer: TransactionType.ACCOUNTTRANSFER,
     };
     const desired = typeMap[selectedTransactionType.value];
     if (desired) txs = txs.filter((tx) => tx.type === desired);
@@ -92,7 +92,6 @@ const filteredTransactions = computed(() => {
   const start = dateRange.value.start;
   const end = dateRange.value.end;
   txs = txs.filter((tx) => {
-    // Bei Konto-Ansicht wird das Buchungsdatum genutzt.
     const txDate = tx.date.split("T")[0];
     return txDate >= start && txDate <= end;
   });
@@ -115,7 +114,7 @@ const filteredTransactions = computed(() => {
     const accountName =
       accountStore.getAccountById(tx.accountId)?.name.toLowerCase() || "";
     const toAccountName =
-      tx.type === TransactionType.TRANSFER
+      tx.type === TransactionType.ACCOUNTTRANSFER
         ? accountStore
             .getAccountById(tx.transferToAccountId)
             ?.name.toLowerCase() || ""
@@ -165,11 +164,11 @@ const sortedTransactions = computed(() => {
           break;
         case "recipientId":
           aVal =
-            a.type === "TRANSFER"
+            a.type === "ACCOUNTTRANSFER"
               ? accountStore.getAccountById(a.transferToAccountId)?.name || ""
               : recipientStore.getRecipientById(a.recipientId)?.name || "";
           bVal =
-            b.type === "TRANSFER"
+            b.type === "ACCOUNTTRANSFER"
               ? accountStore.getAccountById(b.transferToAccountId)?.name || ""
               : recipientStore.getRecipientById(b.recipientId)?.name || "";
           break;
@@ -266,27 +265,24 @@ const createTransaction = () => {
   showTransactionFormModal.value = true;
 };
 const handleSave = (payload: any) => {
-  if (payload.type === TransactionType.TRANSFER) {
-    if (selectedTransaction.value?.counterTransactionId) {
-      transactionStore.updateTransferTransaction(selectedTransaction.value.id, {
-        fromAccountId: payload.fromAccountId,
-        toAccountId: payload.toAccountId,
-        amount: payload.amount,
-        date: payload.date,
-        valueDate: payload.valueDate,
-        note: payload.note,
-        reconciled: payload.reconciled,
-      });
-    } else {
-      transactionStore.addTransferTransaction(
-        payload.fromAccountId,
-        payload.toAccountId,
-        payload.amount,
-        payload.date,
-        payload.valueDate,
-        payload.note
+  if (payload.type === TransactionType.ACCOUNTTRANSFER) {
+    const getAccountName = (accountId: string) => {
+      const account = accountStore.activeAccounts.find(
+        (a) => a.id === accountId
       );
-    }
+      return account ? account.name : "";
+    };
+    addAccountTransfer(
+      payload.fromAccountId,
+      payload.toAccountId,
+      payload.amount,
+      payload.date,
+      payload.valueDate,
+      payload.note,
+      transactionStore.addTransaction,
+      transactionStore.updateTransaction,
+      getAccountName
+    );
   } else {
     const tx = {
       ...payload,
@@ -463,7 +459,10 @@ watch(selectedCategoryId, (newVal) => {
             class="btn btn-sm btn-ghost btn-circle self-end mb-1"
             @click="clearFilters"
           >
-            <Icon icon="mdi:filter-off" class="text-xl" />
+            <Icon
+              icon="mdi:filter-off"
+              class="text-xl"
+            />
           </button>
         </div>
         <div class="divider px-5 m-0" />
@@ -525,7 +524,10 @@ watch(selectedCategoryId, (newVal) => {
             class="btn btn-sm btn-ghost btn-circle self-end mb-1"
             @click="clearFilters"
           >
-            <Icon icon="mdi:filter-off" class="text-xl" />
+            <Icon
+              icon="mdi:filter-off"
+              class="text-xl"
+            />
           </button>
         </div>
         <div class="divider px-5 m-0" />
@@ -563,7 +565,10 @@ watch(selectedCategoryId, (newVal) => {
     </Teleport>
     <!-- Formular-Modal -->
     <Teleport to="body">
-      <div v-if="showTransactionFormModal" class="modal modal-open">
+      <div
+        v-if="showTransactionFormModal"
+        class="modal modal-open"
+      >
         <div class="modal-box overflow-visible relative w-full max-w-2xl">
           <TransactionForm
             :transaction="selectedTransaction"

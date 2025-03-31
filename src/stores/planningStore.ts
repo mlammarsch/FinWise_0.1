@@ -142,7 +142,7 @@ export const usePlanningStore = defineStore('planning', () => {
       payee: `Transfer zu Konto`,
       amount: -Math.abs(amount),
       description,
-      transactionType: TransactionType.TRANSFER,
+      transactionType: TransactionType.ACCOUNTTRANSFER,
       counterPlanningTransactionId: null, // Wird später aktualisiert
       recurrencePattern,
       endDate,
@@ -157,7 +157,7 @@ export const usePlanningStore = defineStore('planning', () => {
       payee: `Transfer von Konto`,
       amount: Math.abs(amount),
       description,
-      transactionType: TransactionType.TRANSFER,
+      transactionType: TransactionType.ACCOUNTTRANSFER,
       counterPlanningTransactionId: null, // Wird später aktualisiert
       recurrencePattern,
       endDate,
