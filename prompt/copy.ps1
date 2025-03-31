@@ -16,8 +16,8 @@ $excludedDirectories = @(
 )
 
 $includeDirectories = @(
-    "src\components\budget",
-    "src\components\transaction"
+    #"src\components\budget",
+    #"src\components\transaction"
 )
 
 # --------------------------------------------------------------------------
@@ -35,14 +35,16 @@ $searchFiles = @(
 
      "src\stores\accountStore.ts",
     "src\views\AccountsView.vue",
-     "src\components\account\*.vue",
+    # "src\components\account\*.vue",
 
     # Planning
     "src\components\planning\PlanningTransactionForm.vue",
+    "src\views\PlanningView.vue",
+    "src\stores\planningStore.ts",
 
     # ###Transaction
      "src\views\TransactionsView.vue",
-     "./src/components/transaction/TransactionCard.vue",
+    # "./src/components/transaction/TransactionCard.vue",
     # "src\components\transaction\CategoryTransactionList.vue",
     # "src\components\transaction\TransactionList.vue",
      "src\stores\transactionStore.ts",
@@ -99,7 +101,7 @@ if (Test-Path $instructionsPath) {
 
 $output += "## Requirements and Context:`n"
 
-$requirementsPath = Join-Path $baseDirectoryFull "prompt_requirements.md"
+$requirementsPath = Join-Path $baseDirectoryFull "./prompt/prompt_requirements.md"
 if (Test-Path $requirementsPath) {
     $output += Get-Content -Path $requirementsPath -Encoding UTF8 -Raw
 } else {

@@ -48,19 +48,20 @@ export enum RecurrencePattern {
 
 export interface PlanningTransaction {
   id: string
-  startDate: string
   accountId: string
-  categoryId?: string | null
-  payee?: string
+  categoryId: string | null
+  tagIds: string[]
+  payee: string
   amount: number
   description?: string
-  note?: string
-  tagIds: string[]
-  transactionType: TransactionType
-  recurrencePattern: RecurrencePattern
+  startDate: string
   endDate?: string | null
+  recurrencePattern: RecurrencePattern
   recurrenceCount?: number | null
+  transactionType?: TransactionType
   counterPlanningTransactionId?: string | null
+  recipientId?: string
+  transferToAccountId?: string
 }
 
 export interface Transaction {

@@ -240,12 +240,7 @@ const submitForm = () => {
 </script>
 
 <template>
-  <div
-    class="text-center p-4"
-    v-if="!recipientsLoaded"
-  >
-    Lade Empfänger...
-  </div>
+  <div class="text-center p-4" v-if="!recipientsLoaded">Lade Empfänger...</div>
   <form
     ref="formModalRef"
     novalidate
@@ -302,10 +297,7 @@ const submitForm = () => {
       class="alert alert-error p-2"
     >
       <ul class="list-disc list-inside">
-        <li
-          v-for="(err, index) in validationErrors"
-          :key="index"
-        >
+        <li v-for="(err, index) in validationErrors" :key="index">
           {{ err }}
         </li>
       </ul>
@@ -353,15 +345,8 @@ const submitForm = () => {
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <fieldset class="fieldset">
         <legend class="fieldset-legend">Konto (Pflicht)</legend>
-        <select
-          v-model="accountId"
-          class="select select-bordered w-full"
-        >
-          <option
-            v-for="a in accounts"
-            :key="a.id"
-            :value="a.id"
-          >
+        <select v-model="accountId" class="select select-bordered w-full">
+          <option v-for="a in accounts" :key="a.id" :value="a.id">
             {{ a.name }}
           </option>
         </select>
@@ -375,11 +360,7 @@ const submitForm = () => {
           class="select select-bordered w-full"
           :disabled="!isTransfer"
         >
-          <option
-            v-for="a in filteredAccounts"
-            :key="a.id"
-            :value="a.id"
-          >
+          <option v-for="a in filteredAccounts" :key="a.id" :value="a.id">
             {{ a.name }}
           </option>
         </select>
@@ -401,7 +382,7 @@ const submitForm = () => {
 
     <!-- Kategorie & Tags -->
     <div
-      v-if="transactionType !== TransactionType.TRANSFER"
+      v-if="transactionType !== TransactionType.ACCOUNTTRANSFER"
       class="grid grid-cols-1 md:grid-cols-2 gap-4"
     >
       <SearchableSelect

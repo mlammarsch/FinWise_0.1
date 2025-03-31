@@ -36,7 +36,7 @@ Sollte Dir eine ganze Datei zur Verfügung gestellt werden, prüfe, ob die den C
 
 ## Logging-Konventionen für FinWise-Projekt
 ### Ziel
-Einheitliche, zentral steuerbare Debug-Ausgaben, die zur Laufzeit über die SettingsView aktiviert oder deaktiviert werden können.
+Einheitliche, zentral steuerbare Debug-Ausgaben, die zur Laufzeit über die SettingsView aktiviert oder deaktiviert werden können. Solltest Du Code bekommen, bei dem diese Logausgaben noch nicht hinterlegt sind, ergänze diese.
 ### Logger-Modul
 Die zentrale Logging-Funktion befindet sich in:
 // Pfad: src/utils/logger.ts
@@ -64,7 +64,7 @@ Halte Deine Antworten knapp und verzichte auf Einleitungen (Bsp. "Hier ist das g
 - Erste Änderung (Zeige Code Schnipsel der Änderung)
 - ... weitere Änderungen (Zeige Code Schnipsel der Änderung)
 
-Am Ende will ich die geänderte Datei komplett ausgegeben haben.
+Die Dateiausgabe IMMER in kompletter Form. Schreibe vor der Dateiausgabe den Dateinamen und den Zusatz (vollstängig). Wenn widererwarten mal nur eine Teilausgabe erfolgt, dann den Zusatz (nur Teilausgabe). Es ist sehr wichtig, dass Du komplette Files ausgibst, da ich per copy & paste die Files übernehme. Überprüfe auf die Kommentarvollständigkeit in der Ausgabe und ob alle Debug-Ausgaben existieren.
 
 Nach einer Änderung der Datei, prüfe die Datei, ob bestimmte Elemente der Datei Sinn ergeben in eine UI Komponente zu übertragen. Nenne dabei nur die entsprechende Funktion und welche möglichen Optionen als Props hier möglich wären. Das macht natürlich nurbei großen Dateien Sinn.
 

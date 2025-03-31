@@ -1,122 +1,117 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { PlanningTransaction, RecurrencePattern } from '../../types'
-import { useAccountStore } from '../../stores/accountStore'
-import { useCategoryStore } from '../../stores/categoryStore'
-import { useTagStore } from '../../stores/tagStore'
-import { useRecipientStore } from '../../stores/recipientStore'
-import dayjs from 'dayjs'
-import CurrencyDisplay from '../ui/CurrencyDisplay.vue'
+import { ref, computed, onMounted } from "vue";
+import {
+  PlanningTransaction,
+  RecurrencePattern,
+  TransactionType,
+} from "../../types";
+import { useAccountStore } from "../../stores/accountStore";
+import { useCategoryStore } from "../../stores/categoryStore";
+import { useTagStore } from "../../stores/tagStore";
+import { useRecipientStore } from "../../stores/recipientStore";
+import dayjs from "dayjs";
 
 const props = defineProps<{
-  transaction?: PlanningTransaction
-  isEdit?: boolean
-}>()
+  transaction?: PlanningTransaction;
+  isEdit?: boolean;
+}>();
 
-const emit = defineEmits(['save', 'cancel'])
+const emit = defineEmits(["save", "cancel"]);
 
-// Stores
-const accountStore = useAccountStore()
-const categoryStore = useCategoryStore()
-const tagStore = useTagStore()
-const recipientStore = useRecipientStore()
+const accountStore = useAccountStore();
+const categoryStore = useCategoryStore();
+const tagStore = useTagStore();
+const recipientStore = useRecipientStore();
 
-// Formularfelder
-const payee = ref('')
-const note = ref('')
-const amount = ref(0)
-const date = ref(dayjs().format('YYYY-MM-DD'))
-const accountId = ref('')
-const categoryId = ref<string | null>(null)
-const tagIds = ref<string[]>([])
-const recurrencePattern = ref<RecurrencePattern>(RecurrencePattern.MONTHLY)
-const endDate = ref<string | null>(null)
-const isTransfer = ref(false)
-const toAccountId = ref('')
-const recipientId = ref('')
+const payee = ref("");
+const note = ref("");
+const amount = ref(0);
+const date = ref(dayjs().format("YYYY-MM-DD"));
+const accountId = ref("");
+const categoryId = ref<string | null>(null);
+const tagIds = ref<string[]>([]);
+const recurrencePattern = ref<RecurrencePattern>(RecurrencePattern.MONTHLY);
+const endDate = ref<string | null>(null);
+const isTransfer = ref(false);
+const toAccountId = ref("");
+const recipientId = ref("");
 
-// Lade die Daten, wenn eine Transaktion zum Bearbeiten übergeben wurde
 onMounted(() => {
   if (props.transaction) {
-    payee.value = props.transaction.payee
-    note.value = props.transaction.note
-    amount.value = props.transaction.amount
-    date.value = props.transaction.startDate
-    accountId.value = props.transaction.accountId
-    categoryId.value = props.transaction.categoryId
-    tagIds.value = props.transaction.tagIds
-    recurrencePattern.value = props.transaction.recurrencePattern
-    endDate.value = props.transaction.endDate
-    // Bei Edit kann auch ein Empfänger zugewiesen sein, falls vorhanden
-    if ((props.transaction as any).recipientId) {
-      recipientId.value = (props.transaction as any).recipientId
-    }
-    // Prüfe, ob es sich um eine Überweisung handelt
-    if ((props.transaction as any).counterPlanningTransactionId) {
-      isTransfer.value = true
-      // Hier müsste die Gegentransaktion geladen werden, um das Zielkonto zu setzen
+    payee.value = props.transaction.payee;
+    note.value = props.transaction.note;
+    amount.value = props.transaction.amount;
+    date.value = props.transaction.startDate;
+    accountId.value = props.transaction.accountId;
+    categoryId.value = props.transaction.categoryId;
+    tagIds.value = props.transaction.tagIds;
+    recurrencePattern.value = props.transaction.recurrencePattern;
+    endDate.value = props.transaction.endDate;
+    recipientId.value = (props.transaction as any).recipientId || "";
+    if ((props.transaction as any).transactionType === "ACCOUNTTRANSFER") {
+      isTransfer.value = true;
+      toAccountId.value = (props.transaction as any).transferToAccountId || "";
     }
   } else {
-    // Setze Standardwerte für eine neue Transaktion
     if (accountStore.activeAccounts.length > 0) {
-      accountId.value = accountStore.activeAccounts[0].id
+      accountId.value = accountStore.activeAccounts[0].id;
     }
   }
-})
+});
 
-// Konvertiere einen String in eine Zahl
 const parseNumber = (value: string): number => {
-  const normalized = value.replace(/\./g, '').replace(',', '.')
-  return parseFloat(normalized) || 0
-}
+  const normalized = value.replace(/\./g, "").replace(",", ".");
+  return parseFloat(normalized) || 0;
+};
 
-// Formatiere eine Zahl für die Anzeige
 const formatNumber = (value: number): string => {
-  return value.toString().replace('.', ',')
-}
+  return value.toString().replace(".", ",");
+};
 
-// Speichere die Transaktion inklusive Empfänger
 const saveTransaction = () => {
-  const transactionData: Omit<PlanningTransaction, 'id' | 'counterPlanningTransactionId'> & { recipientId?: string } = {
+  const transactionData: Omit<
+    PlanningTransaction,
+    "id" | "counterPlanningTransactionId"
+  > & { recipientId?: string } = {
     payee: payee.value,
     note: note.value,
     amount: amount.value,
     startDate: date.value,
     accountId: accountId.value,
-    categoryId: categoryId.value,
+    categoryId: isTransfer.value ? null : categoryId.value,
     tagIds: tagIds.value,
     recurrencePattern: recurrencePattern.value,
     endDate: endDate.value,
-    recipientId: recipientId.value || undefined
-  }
-  
-  emit('save', transactionData)
-}
+    recipientId: recipientId.value || undefined,
+    transactionType: isTransfer.value
+      ? TransactionType.ACCOUNTTRANSFER
+      : undefined,
+    transferToAccountId: isTransfer.value ? toAccountId.value : undefined,
+  };
 
-// Konten für das Dropdown
-const accounts = computed(() => accountStore.activeAccounts)
-// Kategorien für das Dropdown
-const categories = computed(() => categoryStore.activeCategories)
-// Tags für die Auswahl
-const tags = computed(() => tagStore.tags)
-// Empfänger für das Dropdown
-const recipients = computed(() => recipientStore.recipients)
+  emit("save", transactionData);
+};
+
+const accounts = computed(() => accountStore.activeAccounts);
+const categories = computed(() => categoryStore.activeCategories);
+const tags = computed(() => tagStore.tags);
+const recipients = computed(() => recipientStore.recipients);
 
 const recurrencePatterns = [
-  { value: RecurrencePattern.ONCE, label: 'Einmalig' },
-  { value: RecurrencePattern.DAILY, label: 'Täglich' },
-  { value: RecurrencePattern.WEEKLY, label: 'Wöchentlich' },
-  { value: RecurrencePattern.BIWEEKLY, label: 'Alle 2 Wochen' },
-  { value: RecurrencePattern.MONTHLY, label: 'Monatlich' },
-  { value: RecurrencePattern.QUARTERLY, label: 'Vierteljährlich' },
-  { value: RecurrencePattern.YEARLY, label: 'Jährlich' }
-]
+  { value: RecurrencePattern.ONCE, label: "Einmalig" },
+  { value: RecurrencePattern.DAILY, label: "Täglich" },
+  { value: RecurrencePattern.WEEKLY, label: "Wöchentlich" },
+  { value: RecurrencePattern.BIWEEKLY, label: "Alle 2 Wochen" },
+  { value: RecurrencePattern.MONTHLY, label: "Monatlich" },
+  { value: RecurrencePattern.QUARTERLY, label: "Vierteljährlich" },
+  { value: RecurrencePattern.YEARLY, label: "Jährlich" },
+];
 
 const toggleAmountType = () => {
-  amount.value = -amount.value
-}
+  amount.value = -amount.value;
+};
 
-const isIncome = computed(() => amount.value > 0)
+const isIncome = computed(() => amount.value > 0);
 </script>
 
 <template>
@@ -127,34 +122,33 @@ const isIncome = computed(() => amount.value > 0)
           <span class="label-text">Empfänger/Auftraggeber</span>
           <span class="text-error">*</span>
         </label>
-        <input 
-          type="text" 
-          v-model="payee" 
-          class="input input-bordered" 
+        <input
+          type="text"
+          v-model="payee"
+          class="input input-bordered"
           required
           placeholder="Name des Empfängers/Auftraggebers"
         />
       </div>
-      
       <div class="form-control">
         <label class="label">
           <span class="label-text">Betrag</span>
           <span class="text-error">*</span>
         </label>
         <div class="input-group">
-          <button 
-            type="button" 
-            class="btn" 
+          <button
+            type="button"
+            class="btn"
             :class="isIncome ? 'btn-success' : 'btn-error'"
             @click="toggleAmountType"
           >
-            {{ isIncome ? '+' : '-' }}
+            {{ isIncome ? "+" : "-" }}
           </button>
-          <input 
-            type="text" 
-            :value="formatNumber(Math.abs(amount))" 
-            @input="amount = (isIncome ? 1 : -1) * parseNumber(($event.target as HTMLInputElement).value)" 
-            class="input input-bordered w-full" 
+          <input
+            type="text"
+            :value="formatNumber(Math.abs(amount))"
+            @input="amount = (isIncome ? 1 : -1) * parseNumber(($event.target as HTMLInputElement).value)"
+            class="input input-bordered w-full"
             required
             placeholder="0,00"
           />
@@ -162,85 +156,136 @@ const isIncome = computed(() => amount.value > 0)
         </div>
       </div>
     </div>
-    
+
+    <div class="form-control">
+      <label class="cursor-pointer label">
+        <span class="label-text">Ist dies eine Überweisung?</span>
+        <input type="checkbox" class="toggle" v-model="isTransfer" />
+      </label>
+    </div>
+
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div class="form-control">
         <label class="label">
-          <span class="label-text">Konto</span>
+          <span class="label-text">Quellkonto</span>
           <span class="text-error">*</span>
         </label>
-        <select v-model="accountId" class="select select-bordered w-full" required>
-          <option v-for="account in accounts" :key="account.id" :value="account.id">
+        <select
+          v-model="accountId"
+          class="select select-bordered w-full"
+          required
+        >
+          <option
+            v-for="account in accounts"
+            :key="account.id"
+            :value="account.id"
+          >
             {{ account.name }}
           </option>
         </select>
       </div>
-      
-      <div class="form-control">
+
+      <div v-if="isTransfer" class="form-control">
+        <label class="label">
+          <span class="label-text">Zielkonto</span>
+          <span class="text-error">*</span>
+        </label>
+        <select
+          v-model="toAccountId"
+          class="select select-bordered w-full"
+          required
+        >
+          <option value="" disabled>Bitte wählen</option>
+          <option
+            v-for="account in accounts.filter((a) => a.id !== accountId)"
+            :key="account.id"
+            :value="account.id"
+          >
+            {{ account.name }}
+          </option>
+        </select>
+      </div>
+
+      <div v-if="!isTransfer" class="form-control">
         <label class="label">
           <span class="label-text">Kategorie</span>
         </label>
         <select v-model="categoryId" class="select select-bordered w-full">
           <option :value="null">Keine Kategorie</option>
-          <option v-for="category in categories" :key="category.id" :value="category.id">
+          <option
+            v-for="category in categories"
+            :key="category.id"
+            :value="category.id"
+          >
             {{ category.name }}
           </option>
         </select>
       </div>
     </div>
-    
-    <!-- New Recipient Field -->
+
     <div class="form-control">
       <label class="label">
         <span class="label-text">Empfänger</span>
       </label>
       <select v-model="recipientId" class="select select-bordered w-full">
         <option value="">Kein Empfänger</option>
-        <option v-for="recipient in recipients" :key="recipient.id" :value="recipient.id">
+        <option
+          v-for="recipient in recipients"
+          :key="recipient.id"
+          :value="recipient.id"
+        >
           {{ recipient.name }}
         </option>
       </select>
     </div>
-    
+
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div class="form-control">
         <label class="label">
           <span class="label-text">Startdatum</span>
           <span class="text-error">*</span>
         </label>
-        <input 
-          type="date" 
-          v-model="date" 
-          class="input input-bordered" 
+        <input
+          type="date"
+          v-model="date"
+          class="input input-bordered"
           required
         />
       </div>
-      
+
       <div class="form-control">
         <label class="label">
           <span class="label-text">Wiederholung</span>
           <span class="text-error">*</span>
         </label>
-        <select v-model="recurrencePattern" class="select select-bordered w-full" required>
-          <option v-for="pattern in recurrencePatterns" :key="pattern.value" :value="pattern.value">
+        <select
+          v-model="recurrencePattern"
+          class="select select-bordered w-full"
+          required
+        >
+          <option
+            v-for="pattern in recurrencePatterns"
+            :key="pattern.value"
+            :value="pattern.value"
+          >
             {{ pattern.label }}
           </option>
         </select>
       </div>
     </div>
-    
+
     <div v-if="recurrencePattern !== 'ONCE'" class="form-control">
       <label class="label">
         <span class="label-text">Enddatum (optional)</span>
       </label>
-      <input 
-        type="date" 
-        v-model="endDate" 
-        class="input input-bordered" 
+      <input
+        type="date"
+        v-model="endDate"
+        class="input input-bordered"
         :min="date"
       />
     </div>
-    
+
     <div class="form-control">
       <label class="label">
         <span class="label-text">Tags</span>
@@ -248,11 +293,11 @@ const isIncome = computed(() => amount.value > 0)
       <div class="flex flex-wrap gap-2 p-2 border rounded-lg">
         <div v-for="tag in tags" :key="tag.id" class="form-control">
           <label class="label cursor-pointer">
-            <input 
-              type="checkbox" 
-              :value="tag.id" 
-              v-model="tagIds" 
-              class="checkbox checkbox-sm checkbox-primary mr-2" 
+            <input
+              type="checkbox"
+              :value="tag.id"
+              v-model="tagIds"
+              class="checkbox checkbox-sm checkbox-primary mr-2"
             />
             <span class="label-text">{{ tag.name }}</span>
           </label>
@@ -262,20 +307,22 @@ const isIncome = computed(() => amount.value > 0)
         </div>
       </div>
     </div>
-    
+
     <div class="form-control">
       <label class="label">
         <span class="label-text">Notizen</span>
       </label>
-      <textarea 
-        v-model="note" 
-        class="textarea textarea-bordered h-24" 
+      <textarea
+        v-model="note"
+        class="textarea textarea-bordered h-24"
         placeholder="Zusätzliche Informationen"
-      ></textarea>
+      />
     </div>
-    
+
     <div class="flex justify-end space-x-2 pt-4">
-      <button type="button" class="btn" @click="$emit('cancel')">Abbrechen</button>
+      <button type="button" class="btn" @click="$emit('cancel')">
+        Abbrechen
+      </button>
       <button type="submit" class="btn btn-primary">Speichern</button>
     </div>
   </form>

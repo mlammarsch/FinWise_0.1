@@ -1,108 +1,94 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
-import { usePlanningStore } from "../stores/planningStore";
-import PlanningTransactionForm from "../components/planning/PlanningTransactionForm.vue";
-import { PlanningTransaction } from "../types";
-import CurrencyDisplay from "../components/ui/CurrencyDisplay.vue";
-import Badge from "../components/ui/BadgeSoft.vue";
-import ColorPicker from "../components/ui/ColorPicker.vue";
+import { usePlanningStore } from "@/stores/planningStore";
+import PlanningTransactionForm from "@/components/planning/PlanningTransactionForm.vue";
+import { PlanningTransaction } from "@/types";
+import CurrencyDisplay from "@/components/ui/CurrencyDisplay.vue";
+import { debugLog } from "@/utils/logger";
 
-// Stores
 const planningStore = usePlanningStore();
-
-// State für Modals
 const showNewPlanningModal = ref(false);
 const showEditPlanningModal = ref(false);
-
-// Ausgewählte Plantransaktion
 const selectedPlanning = ref<PlanningTransaction | null>(null);
 
-// Alle Plantransaktionen
-const planningTransactions = computed(() => {
-  return planningStore.planningTransactions;
-});
+const planningTransactions = computed(() => planningStore.planningTransactions);
+const upcomingTransactions = computed(() =>
+  planningStore.getUpcomingTransactions(30)
+);
 
-// Anstehende Transaktionen für die nächsten 30 Tage
-const upcomingTransactions = computed(() => {
-  return planningStore.getUpcomingTransactions(30);
-});
-
-// Neue Plantransaktion erstellen
 const createPlanning = () => {
   selectedPlanning.value = null;
   showNewPlanningModal.value = true;
 };
 
-// Plantransaktion bearbeiten
 const editPlanning = (planning: PlanningTransaction) => {
   selectedPlanning.value = planning;
   showEditPlanningModal.value = true;
+  debugLog("[PlanningView] Edit planning", planning);
 };
 
-// Plantransaktion speichern
 const savePlanning = (data: any) => {
+  const tx = data as PlanningTransaction;
   if (selectedPlanning.value) {
-    planningStore.updatePlanningTransaction(
-      selectedPlanning.value.id,
-      data.planningTransaction
-    );
+    planningStore.updatePlanningTransaction(selectedPlanning.value.id, tx);
+    debugLog("[PlanningView] Updated planning", tx);
   } else {
-    planningStore.addPlanningTransaction(data.planningTransaction);
+    planningStore.addPlanningTransaction(tx);
+    debugLog("[PlanningView] Added planning", tx);
   }
-
   showNewPlanningModal.value = false;
   showEditPlanningModal.value = false;
 };
 
-// Plantransaktion löschen
 const deletePlanning = (planning: PlanningTransaction) => {
   if (confirm("Möchten Sie diese geplante Transaktion wirklich löschen?")) {
     planningStore.deletePlanningTransaction(planning.id);
+    debugLog("[PlanningView] Deleted planning", planning.id);
   }
 };
 
-// Plantransaktion ausführen
 const executePlanning = (planningId: string, date: string) => {
   planningStore.executePlanningTransaction(planningId, date);
 };
-
-// Color Picker Logik
-const showPicker = ref(false);
-const badgeColor = ref("slate-700/45");
-
-function openPicker() {
-  showPicker.value = true;
-}
-
-function updateColor(newColor: string) {
-  badgeColor.value = `${newColor}/45`;
-  showPicker.value = false;
-}
-
-function cancelPicker() {
-  showPicker.value = false;
-}
 </script>
 
 <template>
   <div>
-    <h2 class="text-xl font-bold">Finanzplanung</h2>
-    <button class="btn btn-soft btn-primary" @click="createPlanning">
+    <h2 class="text-xl font-bold mb-2">Geplante Transaktionen</h2>
+    <button class="btn btn-soft btn-primary mb-4" @click="createPlanning">
       Neue geplante Transaktion
     </button>
 
-    <div v-if="upcomingTransactions.length > 0">
-      <h3>Anstehende Transaktionen</h3>
-      <ul>
-        <li v-for="transaction in upcomingTransactions" :key="transaction.id">
-          {{ transaction.description }} -
+    <div v-if="upcomingTransactions.length > 0" class="space-y-2">
+      <div class="font-semibold">Anstehend in den nächsten 30 Tagen:</div>
+      <ul class="list-disc list-inside">
+        <li
+          v-for="entry in upcomingTransactions"
+          :key="entry.transaction.id + entry.date"
+        >
+          {{ entry.date }} – {{ entry.transaction.payee }}
+          <span
+            v-if="entry.transaction.transferToAccountId"
+            class="ml-2 text-xs italic"
+          >
+            (Transfer → {{ entry.transaction.transferToAccountId }})
+          </span>
+          –
           <CurrencyDisplay
-            :amount="transaction.amount"
+            :amount="entry.transaction.amount"
             :show-zero="true"
-            :asInteger="false"
           />
-          <button @click="executePlanning(transaction.id, transaction.date)">
+          <button
+            class="btn btn-xs ml-2"
+            @click="executePlanning(entry.transaction.id, entry.date)"
+          >
             Ausführen
+          </button>
+          <button
+            class="btn btn-xs ml-2"
+            @click="editPlanning(entry.transaction)"
+          >
+            Bearbeiten
           </button>
         </li>
       </ul>
@@ -114,28 +100,11 @@ function cancelPicker() {
       @cancel="showNewPlanningModal = false"
     />
     <PlanningTransactionForm
-      v-if="showEditPlanningModal"
-      :planning-transaction="selectedPlanning"
+      v-if="showEditPlanningModal && selectedPlanning"
+      :transaction="selectedPlanning"
+      isEdit
       @save="savePlanning"
       @cancel="showEditPlanningModal = false"
     />
-
-    <!-- Badge mit dynamischer Farbe -->
-    <div class="mt-6">
-      <Badge
-        label="Kategorie"
-        :colorIntensity="badgeColor"
-        @click="openPicker"
-        class="cursor-pointer"
-      />
-    </div>
-
-    <!-- Color Picker Modal -->
-    <div
-      v-if="showPicker"
-      class="fixed inset-0 flex items-center justify-center bg-black/50 z-50"
-    >
-      <ColorPicker @cancel="cancelPicker" @farbe-intensity="updateColor" />
-    </div>
   </div>
 </template>

@@ -4,15 +4,13 @@ import { v4 as uuidv4 } from 'uuid'
 import dayjs from 'dayjs'
 import { PlanningTransaction, RecurrencePattern, TransactionType } from '../types'
 import { useTransactionStore } from './transactionStore'
+import { toDateOnlyString } from '@/utils/formatters'
+import { debugLog } from '@/utils/logger'
 
 export const usePlanningStore = defineStore('planning', () => {
-  // State
   const planningTransactions = ref<PlanningTransaction[]>([])
-
-  // Stores
   const transactionStore = useTransactionStore()
 
-  // Getters
   const getPlanningTransactionById = computed(() => {
     return (id: string) => planningTransactions.value.find(tx => tx.id === id)
   })
@@ -24,23 +22,21 @@ export const usePlanningStore = defineStore('planning', () => {
       const upcoming: Array<{ date: string, transaction: PlanningTransaction }> = []
 
       planningTransactions.value.forEach(planTx => {
-        // Berechne die nächsten Vorkommen basierend auf dem Wiederholungsmuster
-        const occurrences = calculateNextOccurrences(planTx, today.format('YYYY-MM-DD'), endDate.format('YYYY-MM-DD'))
+        const occurrences = calculateNextOccurrences(
+          planTx,
+          toDateOnlyString(today.toDate()),
+          toDateOnlyString(endDate.toDate())
+        )
 
         occurrences.forEach(date => {
-          upcoming.push({
-            date,
-            transaction: planTx
-          })
+          upcoming.push({ date, transaction: planTx })
         })
       })
 
-      // Sortiere nach Datum
-      return upcoming.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      return upcoming.sort((a, b) => a.date.localeCompare(b.date))
     }
   })
 
-  // Berechnet die nächsten Vorkommen einer geplanten Transaktion
   function calculateNextOccurrences(
     planTx: PlanningTransaction,
     startDate: string,
@@ -49,35 +45,21 @@ export const usePlanningStore = defineStore('planning', () => {
     const occurrences: string[] = []
     const start = dayjs(startDate)
     const end = dayjs(endDate)
-    const txStart = dayjs(planTx.startDate)
+    const txStart = dayjs(toDateOnlyString(planTx.startDate))
 
-    // Wenn die Startdaten der Plantransaktion nach dem Enddatum liegt, gibt es keine Vorkommen
-    if (txStart.isAfter(end)) {
-      return []
-    }
-
-    // Wenn ein Enddatum für die Plantransaktion gesetzt ist und dieses vor dem Startdatum liegt,
-    // gibt es keine Vorkommen
-    if (planTx.endDate && dayjs(planTx.endDate).isBefore(start)) {
-      return []
-    }
+    if (txStart.isAfter(end)) return []
+    if (planTx.endDate && dayjs(toDateOnlyString(planTx.endDate)).isBefore(start)) return []
 
     let currentDate = txStart
     let count = 0
 
-    // Berechne die Vorkommen basierend auf dem Wiederholungsmuster
-    while (currentDate.isBefore(end) || currentDate.isSame(end, 'day')) {
-      // Füge das Datum hinzu, wenn es nach dem Startdatum liegt
-      if (currentDate.isAfter(start, 'day') || currentDate.isSame(start, 'day')) {
-        occurrences.push(currentDate.format('YYYY-MM-DD'))
+    while (currentDate.isSameOrBefore(end)) {
+      if (currentDate.isSameOrAfter(start)) {
+        occurrences.push(toDateOnlyString(currentDate.toDate()))
       }
 
-      // Prüfe, ob die maximale Anzahl an Wiederholungen erreicht ist
-      if (planTx.recurrenceCount !== null && ++count >= planTx.recurrenceCount) {
-        break
-      }
+      if (planTx.recurrenceCount !== null && ++count >= planTx.recurrenceCount) break
 
-      // Berechne das nächste Datum basierend auf dem Wiederholungsmuster
       switch (planTx.recurrencePattern) {
         case RecurrencePattern.DAILY:
           currentDate = currentDate.add(1, 'day')
@@ -98,20 +80,15 @@ export const usePlanningStore = defineStore('planning', () => {
           currentDate = currentDate.add(1, 'year')
           break
         case RecurrencePattern.ONCE:
-          // Bei einmaligen Transaktionen gibt es nur ein Vorkommen
           return occurrences
       }
 
-      // Prüfe, ob das Enddatum der Plantransaktion erreicht ist
-      if (planTx.endDate && currentDate.isAfter(dayjs(planTx.endDate))) {
-        break
-      }
+      if (planTx.endDate && currentDate.isAfter(dayjs(toDateOnlyString(planTx.endDate)))) break
     }
 
     return occurrences
   }
 
-  // Actions
   function addPlanningTransaction(transaction: Omit<PlanningTransaction, 'id'>) {
     const newTransaction: PlanningTransaction = {
       ...transaction,
@@ -120,59 +97,8 @@ export const usePlanningStore = defineStore('planning', () => {
 
     planningTransactions.value.push(newTransaction)
     savePlanningTransactions()
+    debugLog('[planningStore] addPlanningTransaction', newTransaction)
     return newTransaction
-  }
-
-  function addPlanningTransferTransaction(
-    fromAccountId: string,
-    toAccountId: string,
-    amount: number,
-    startDate: string,
-    recurrencePattern: RecurrencePattern,
-    endDate: string | null = null,
-    recurrenceCount: number | null = null,
-    description: string = ''
-  ) {
-    // Erstelle zwei Plantransaktionen für den Transfer
-    const fromTransaction: Omit<PlanningTransaction, 'id'> = {
-      startDate,
-      accountId: fromAccountId,
-      categoryId: null,
-      tagIds: [],
-      payee: `Transfer zu Konto`,
-      amount: -Math.abs(amount),
-      description,
-      transactionType: TransactionType.ACCOUNTTRANSFER,
-      counterPlanningTransactionId: null, // Wird später aktualisiert
-      recurrencePattern,
-      endDate,
-      recurrenceCount
-    }
-
-    const toTransaction: Omit<PlanningTransaction, 'id'> = {
-      startDate,
-      accountId: toAccountId,
-      categoryId: null,
-      tagIds: [],
-      payee: `Transfer von Konto`,
-      amount: Math.abs(amount),
-      description,
-      transactionType: TransactionType.ACCOUNTTRANSFER,
-      counterPlanningTransactionId: null, // Wird später aktualisiert
-      recurrencePattern,
-      endDate,
-      recurrenceCount
-    }
-
-    // Füge die Plantransaktionen hinzu
-    const newFromTx = addPlanningTransaction(fromTransaction)
-    const newToTx = addPlanningTransaction(toTransaction)
-
-    // Aktualisiere die Gegenbuchungs-IDs
-    updatePlanningTransaction(newFromTx.id, { counterPlanningTransactionId: newToTx.id })
-    updatePlanningTransaction(newToTx.id, { counterPlanningTransactionId: newFromTx.id })
-
-    return { fromTransaction: newFromTx, toTransaction: newToTx }
   }
 
   function updatePlanningTransaction(id: string, updates: Partial<PlanningTransaction>) {
@@ -180,6 +106,7 @@ export const usePlanningStore = defineStore('planning', () => {
     if (index !== -1) {
       planningTransactions.value[index] = { ...planningTransactions.value[index], ...updates }
       savePlanningTransactions()
+      debugLog('[planningStore] updatePlanningTransaction', { id, updates })
       return true
     }
     return false
@@ -189,10 +116,8 @@ export const usePlanningStore = defineStore('planning', () => {
     const transaction = planningTransactions.value.find(tx => tx.id === id)
     if (!transaction) return false
 
-    // Lösche die Plantransaktion
     planningTransactions.value = planningTransactions.value.filter(tx => tx.id !== id)
 
-    // Wenn es eine Gegenbuchung gibt, lösche diese auch
     if (transaction.counterPlanningTransactionId) {
       planningTransactions.value = planningTransactions.value.filter(
         tx => tx.id !== transaction.counterPlanningTransactionId
@@ -200,6 +125,7 @@ export const usePlanningStore = defineStore('planning', () => {
     }
 
     savePlanningTransactions()
+    debugLog('[planningStore] deletePlanningTransaction', id)
     return true
   }
 
@@ -207,10 +133,31 @@ export const usePlanningStore = defineStore('planning', () => {
     const planTx = getPlanningTransactionById.value(planningId)
     if (!planTx) return null
 
-    // Erstelle eine reguläre Transaktion aus der Plantransaktion
+    const date = toDateOnlyString(executionDate)
+
+    if (planTx.transactionType === TransactionType.ACCOUNTTRANSFER && planTx.counterPlanningTransactionId) {
+      const counterPlanTx = getPlanningTransactionById.value(planTx.counterPlanningTransactionId)
+      if (counterPlanTx) {
+        debugLog('[planningStore] executePlanningTransaction → ACCOUNTTRANSFER', {
+          from: planTx.accountId,
+          to: counterPlanTx.accountId,
+          amount: planTx.amount,
+          date
+        })
+        return transactionStore.addTransferTransaction(
+          planTx.accountId,
+          counterPlanTx.accountId,
+          Math.abs(planTx.amount),
+          date,
+          date,
+          planTx.description
+        )
+      }
+    }
+
     const transaction = {
-      date: executionDate,
-      valueDate: executionDate,
+      date,
+      valueDate: date,
       accountId: planTx.accountId,
       categoryId: planTx.categoryId,
       tagIds: planTx.tagIds,
@@ -222,30 +169,14 @@ export const usePlanningStore = defineStore('planning', () => {
       isReconciliation: false
     }
 
-    // Wenn es sich um einen Transfer handelt, führe beide Seiten aus
-    if (planTx.transactionType === TransactionType.TRANSFER && planTx.counterPlanningTransactionId) {
-      const counterPlanTx = getPlanningTransactionById.value(planTx.counterPlanningTransactionId)
-      if (counterPlanTx) {
-        return transactionStore.addTransferTransaction(
-          planTx.accountId,
-          counterPlanTx.accountId,
-          Math.abs(planTx.amount),
-          executionDate,
-          executionDate,
-          planTx.description
-        )
-      }
-    }
-
-    // Andernfalls führe eine einzelne Transaktion aus
+    debugLog('[planningStore] executePlanningTransaction → Einzelbuchung', transaction)
     return transactionStore.addTransaction(transaction)
   }
 
-  // Persistenz
   function loadPlanningTransactions() {
-    const savedTransactions = localStorage.getItem('finwise_planning_transactions')
-    if (savedTransactions) {
-      planningTransactions.value = JSON.parse(savedTransactions)
+    const saved = localStorage.getItem('finwise_planning_transactions')
+    if (saved) {
+      planningTransactions.value = JSON.parse(saved)
     }
   }
 
@@ -253,20 +184,18 @@ export const usePlanningStore = defineStore('planning', () => {
     localStorage.setItem('finwise_planning_transactions', JSON.stringify(planningTransactions.value))
   }
 
-  // Initialisiere beim ersten Laden
-  loadPlanningTransactions()
-
   function reset() {
     planningTransactions.value = []
     loadPlanningTransactions()
   }
+
+  loadPlanningTransactions()
 
   return {
     planningTransactions,
     getPlanningTransactionById,
     getUpcomingTransactions,
     addPlanningTransaction,
-    addPlanningTransferTransaction,
     updatePlanningTransaction,
     deletePlanningTransaction,
     executePlanningTransaction,
