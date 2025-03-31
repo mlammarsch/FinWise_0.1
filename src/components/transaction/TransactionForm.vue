@@ -1,18 +1,4 @@
 <script setup lang="ts">
-/**
- * Pfad zur Komponente: components/transaction/TransactionForm.vue
- * Diese Komponente dient zur Erstellung und Bearbeitung einer Transaktion.
- *
- * Komponenten-Props:
- * - transaction?: Transaction - Optional: Bestehende Transaktion zum Bearbeiten.
- * - isEdit?: boolean - Optional: Gibt an, ob die Transaktion bearbeitet wird.
- * - initialAccountId?: string - Optional: Vorausgewähltes Konto.
- * - initialTransactionType?: TransactionType - Optional: Vorausgewählter Transaktionstyp.
- *
- * Emits:
- * - save - Gibt die eingegebene Transaktion zurück.
- * - cancel - Bricht die Bearbeitung ab.
- */
 import { ref, computed, onMounted, watch, nextTick } from "vue";
 import { Transaction, TransactionType } from "../../types";
 import { useAccountStore } from "../../stores/accountStore";
@@ -54,8 +40,6 @@ const recipientId = ref("");
 const reconciled = ref(false);
 const recipientsLoaded = ref(false);
 const submitAttempted = ref(false);
-
-// Flag zur Vermeidung doppelter Submits
 const isSubmitting = ref(false);
 
 const amountInputRef = ref<InstanceType<typeof CurrencyInput> | null>(null);
@@ -82,7 +66,7 @@ const tags = computed(() =>
 );
 
 const isTransfer = computed(
-  () => transactionType.value === TransactionType.TRANSFER
+  () => transactionType.value === TransactionType.ACCOUNTTRANSFER
 );
 
 const accounts = computed(() =>
@@ -117,7 +101,7 @@ onMounted(() => {
     transactionType.value =
       (props.transaction as any).type || TransactionType.EXPENSE;
     reconciled.value = (props.transaction as any).reconciled || false;
-    if (transactionType.value === TransactionType.TRANSFER) {
+    if (transactionType.value === TransactionType.ACCOUNTTRANSFER) {
       toAccountId.value = (props.transaction as any).transferToAccountId || "";
     }
   } else {
@@ -132,23 +116,27 @@ watch(
   () => props.isEdit,
   (newValue) => newValue && focusModalAndAmount()
 );
+
 watch(date, (newDate) => {
   if (!props.transaction || valueDate.value === props.transaction.date) {
     valueDate.value = newDate;
   }
 });
+
 watch(amount, (newAmount) => {
-  if (locked.value) return;
+  if (locked.value || transactionType.value === TransactionType.ACCOUNTTRANSFER)
+    return;
   transactionType.value = toAccountId.value
-    ? TransactionType.TRANSFER
+    ? TransactionType.ACCOUNTTRANSFER
     : newAmount < 0
     ? TransactionType.EXPENSE
     : newAmount > 0
     ? TransactionType.INCOME
     : transactionType.value;
 });
+
 watch(transactionType, (newType) => {
-  if (!locked.value && newType !== TransactionType.TRANSFER) {
+  if (!locked.value && newType !== TransactionType.ACCOUNTTRANSFER) {
     toAccountId.value = "";
   }
   if (newType === TransactionType.EXPENSE && amount.value > 0) {
@@ -157,25 +145,21 @@ watch(transactionType, (newType) => {
     amount.value = Math.abs(amount.value);
   }
 });
+
 watch(toAccountId, (newToAccountId) => {
   if (!locked.value && newToAccountId) {
-    transactionType.value = TransactionType.TRANSFER;
+    transactionType.value = TransactionType.ACCOUNTTRANSFER;
   }
 });
 
 const validationErrors = computed(() => {
   const errors: string[] = [];
-  if (!date.value) {
-    errors.push("Buchungsdatum ist erforderlich");
-  }
-  if (!amount.value || amount.value === 0) {
+  if (!date.value) errors.push("Buchungsdatum ist erforderlich");
+  if (!amount.value || amount.value === 0)
     errors.push("Betrag ist erforderlich");
-  }
-  if (!accountId.value) {
-    errors.push("Konto ist erforderlich");
-  }
+  if (!accountId.value) errors.push("Konto ist erforderlich");
   if (
-    transactionType.value === TransactionType.TRANSFER &&
+    transactionType.value === TransactionType.ACCOUNTTRANSFER &&
     !toAccountId.value
   ) {
     errors.push("Gegenkonto ist erforderlich");
@@ -183,7 +167,6 @@ const validationErrors = computed(() => {
   return errors;
 });
 
-// Funktionen zur Erstellung neuer Kategorie, Tags und Empfänger
 function onCreateCategory(newCategory: { id: string; name: string }) {
   const created = categoryStore.addCategory({
     name: newCategory.name,
@@ -202,15 +185,12 @@ function onCreateTag(newTag: { id: string; name: string }) {
 }
 
 function onCreateRecipient(newRecipient: { id: string; name: string }) {
-  const created = recipientStore.addRecipient({
-    name: newRecipient.name,
-  });
+  const created = recipientStore.addRecipient({ name: newRecipient.name });
   recipientId.value = created.id;
 }
 
-// Unterscheidung zwischen Transfer und normaler Transaktion
 const saveTransaction = () => {
-  if (transactionType.value === TransactionType.TRANSFER) {
+  if (transactionType.value === TransactionType.ACCOUNTTRANSFER) {
     return {
       type: transactionType.value,
       fromAccountId: accountId.value,
@@ -260,7 +240,12 @@ const submitForm = () => {
 </script>
 
 <template>
-  <div class="text-center p-4" v-if="!recipientsLoaded">Lade Empfänger...</div>
+  <div
+    class="text-center p-4"
+    v-if="!recipientsLoaded"
+  >
+    Lade Empfänger...
+  </div>
   <form
     ref="formModalRef"
     novalidate
@@ -270,7 +255,6 @@ const submitForm = () => {
     @keydown.esc.prevent="emit('cancel')"
     class="space-y-4 max-w-[calc(100%-80px)] mx-auto relative"
   >
-    <!-- Transaktionstyp und Abgleich-Checkbox -->
     <div class="flex flex-row justify-between items-start">
       <div class="flex justify-center gap-4 pt-4">
         <label class="flex items-center gap-2">
@@ -298,7 +282,7 @@ const submitForm = () => {
             type="radio"
             class="radio radio-sm border-neutral checked:bg-warning/60 checked:text-warning checked:border-warning"
             v-model="transactionType"
-            :value="TransactionType.TRANSFER"
+            :value="TransactionType.ACCOUNTTRANSFER"
           />
           <span class="text-sm">Transfer</span>
         </label>
@@ -312,14 +296,16 @@ const submitForm = () => {
         abgeglichen?
       </label>
     </div>
-
     <!-- Fehlermeldungen -->
     <div
       v-if="submitAttempted && validationErrors.length > 0"
       class="alert alert-error p-2"
     >
       <ul class="list-disc list-inside">
-        <li v-for="(err, index) in validationErrors" :key="index">
+        <li
+          v-for="(err, index) in validationErrors"
+          :key="index"
+        >
           {{ err }}
         </li>
       </ul>
@@ -367,8 +353,15 @@ const submitForm = () => {
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <fieldset class="fieldset">
         <legend class="fieldset-legend">Konto (Pflicht)</legend>
-        <select v-model="accountId" class="select select-bordered w-full">
-          <option v-for="a in accounts" :key="a.id" :value="a.id">
+        <select
+          v-model="accountId"
+          class="select select-bordered w-full"
+        >
+          <option
+            v-for="a in accounts"
+            :key="a.id"
+            :value="a.id"
+          >
             {{ a.name }}
           </option>
         </select>
@@ -382,7 +375,11 @@ const submitForm = () => {
           class="select select-bordered w-full"
           :disabled="!isTransfer"
         >
-          <option v-for="a in filteredAccounts" :key="a.id" :value="a.id">
+          <option
+            v-for="a in filteredAccounts"
+            :key="a.id"
+            :value="a.id"
+          >
             {{ a.name }}
           </option>
         </select>
