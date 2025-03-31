@@ -74,7 +74,20 @@ watch(selectedCategoryId, (newVal) => {
 // Filterung der Transaktionen: Zeige ACCOUNTTRANSFER, EXPENSE und INCOME
 const filteredTransactions = computed(() => {
   if (!selectedAccount.value) return [];
-  let txs = transactionStore.getTransactionsByAccount(selectedAccount.value.id);
+
+  const accountId = selectedAccount.value.id;
+  const start = dateRange.value.start;
+  const end = dateRange.value.end;
+
+  let txs = transactionStore.transactions.filter((tx) => {
+    // Nur Transaktionen, bei denen das eigene Konto führend ist
+    if (tx.accountId !== accountId) return false;
+
+    // Nur Datum ohne Uhrzeit vergleichen
+    const txDate = tx.date.split("T")[0];
+    return txDate >= start && txDate <= end;
+  });
+
   if (selectedTransactionType.value) {
     const typeMap: Record<string, string> = {
       ausgabe: "EXPENSE",
@@ -85,14 +98,8 @@ const filteredTransactions = computed(() => {
     if (desired) {
       txs = txs.filter((tx) => tx.type === desired);
     }
-  } else {
-    txs = txs.filter(
-      (tx) =>
-        tx.type === TransactionType.ACCOUNTTRANSFER ||
-        tx.type === TransactionType.EXPENSE ||
-        tx.type === TransactionType.INCOME
-    );
   }
+
   if (selectedReconciledFilter.value) {
     txs = txs.filter((tx) =>
       selectedReconciledFilter.value === "abgeglichen"
@@ -100,21 +107,18 @@ const filteredTransactions = computed(() => {
         : !tx.reconciled
     );
   }
+
   if (selectedTagId.value) {
     txs = txs.filter(
       (tx) =>
         Array.isArray(tx.tagIds) && tx.tagIds.includes(selectedTagId.value)
     );
   }
+
   if (selectedCategoryId.value) {
     txs = txs.filter((tx) => tx.categoryId === selectedCategoryId.value);
   }
-  if (dateRange.value.start && dateRange.value.end) {
-    txs = txs.filter((tx) => {
-      const txDate = tx.date.split("T")[0];
-      return txDate >= dateRange.value.start && txDate <= dateRange.value.end;
-    });
-  }
+
   if (searchQuery.value.trim()) {
     const lower = searchQuery.value.toLowerCase();
     const numeric = lower.replace(",", ".");
@@ -143,7 +147,9 @@ const filteredTransactions = computed(() => {
       );
     });
   }
+
   txs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
   debugLog("[AccountView] filteredTransactions count", txs.length);
   return txs;
 });
