@@ -436,6 +436,7 @@ const handleTransactionSave = (payload: any) => {
         <div class="modal-box overflow-visible max-w-2xl">
           <TransactionForm
             :transaction="selectedTransaction"
+            :default-account-id="selectedAccount?.id"
             @cancel="showTransactionFormModal = false"
             @save="handleTransactionSave"
           />

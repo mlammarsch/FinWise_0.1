@@ -1,1 +1,1 @@
-Muss beim Planningstore oder Planningview etwas an die Transfertypen angepasst werden, wie sie bei den Kontotransfers mittlerweile vorkommen? TRANSFER sind mittlerweile ACCOUNTTRANSFER. Normiere dort auch alle Selectionen, die auf Timestamp gehen auf das Datum, wie es die Komponente Monthselektor ausgibt.
+Wir arbeiten in der BudgetView und öffnen mit Rechtsklick das Dropdown "

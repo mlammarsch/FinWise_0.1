@@ -206,6 +206,27 @@ export const useTransactionStore = defineStore('transaction', () => {
     debugLog("[transactionStore] reset - Reset transactions.")
   }
 
+  // Neue Funktion für Ausgleichsbuchungen
+  function addReconcileTransaction(accountId: string, amount: number, date: string, note: string) {
+    const transactionPayload = {
+      date: toDateOnlyString(date),
+      valueDate: toDateOnlyString(date),
+      accountId: accountId,
+      categoryId: null,
+      tagIds: [],
+      amount: amount,
+      note: note,
+      recipientId: "",
+      reconciled: true,
+      type: TransactionType.RECONCILE,
+      counterTransactionId: null,
+      planningTransactionId: null,
+      isReconciliation: true,
+    };
+    const newTransaction = addTransaction(transactionPayload);
+    return newTransaction;
+  }
+
   loadTransactions()
 
   return {
@@ -216,6 +237,7 @@ export const useTransactionStore = defineStore('transaction', () => {
     getTransactionsByDateRange,
     getRecentTransactions,
     addTransaction,
+    addReconcileTransaction,
     updateTransaction,
     deleteTransaction,
     updateRunningBalances,

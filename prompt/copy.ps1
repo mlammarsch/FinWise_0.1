@@ -35,19 +35,20 @@ $searchFiles = @(
 
      "src\stores\accountStore.ts",
     "src\views\AccountsView.vue",
-    # "src\components\account\*.vue",
+     "src\components\account\*.vue",
 
     # Planning
-    "src\components\planning\PlanningTransactionForm.vue",
-    "src\views\PlanningView.vue",
-    "src\stores\planningStore.ts",
+    #"src\components\planning\PlanningTransactionForm.vue",
+    #"src\views\PlanningView.vue",
+    #"src\stores\planningStore.ts",
 
     # ###Transaction
-     "src\views\TransactionsView.vue",
+    # "src\views\TransactionsView.vue",
     # "./src/components/transaction/TransactionCard.vue",
     # "src\components\transaction\CategoryTransactionList.vue",
     # "src\components\transaction\TransactionList.vue",
-     "src\stores\transactionStore.ts",
+    "src\components\transaction\TransactionForm.vue",
+    "src\stores\transactionStore.ts",
     # "src\stores\recipientStore.ts",
 
     # ###Category - Budget
@@ -72,7 +73,7 @@ $searchFiles = @(
     # Components
     # "./src/components/ui/PagingComponent.vue",
     # "src\components\ui\PagingYearComponent.vue",
-     "src\components\ui\MonthSelector.vue",
+    # "src\components\ui\MonthSelector.vue",
 
     #"src\components\ui\CurrencyDisplay.vue",
     #"src\components\ui\CurrencyInput.vue",

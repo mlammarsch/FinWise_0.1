@@ -1,3 +1,4 @@
+<!-- TransactionForm.vue (vollstängig) -->
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, nextTick } from "vue";
 import { Transaction, TransactionType } from "../../types";
@@ -11,10 +12,26 @@ import SearchableSelect from "../ui/SearchableSelect.vue";
 import CurrencyInput from "../ui/CurrencyInput.vue";
 import ButtonGroup from "../ui/ButtonGroup.vue";
 import TagSearchableDropdown from "../ui/TagSearchableDropdown.vue";
+import { debugLog } from "@/utils/logger";
 
+/**
+ * Pfad zur Komponente: src/components/transaction/TransactionForm.vue
+ * Komponente für das Erfassen von Transaktionen.
+ * Komponenten-Props:
+ * - transaction?: Transaction - Bestehende Transaktion, falls Edit.
+ * - isEdit?: boolean - Gibt an, ob die Transaktion bearbeitet wird.
+ * - defaultAccountId?: string - Das vorausgewählte Konto (wird aus der AccountsView übergeben).
+ * - initialAccountId?: string - Alternativ: Erstes Konto, falls kein explizites Konto ausgewählt wurde.
+ * - initialTransactionType?: TransactionType - Optionaler Transaktionstyp.
+ *
+ * Emits:
+ * - save: Gibt die erstellte/aktualisierte Transaktion zurück.
+ * - cancel: Bricht die Transaktionserfassung ab.
+ */
 const props = defineProps<{
   transaction?: Transaction;
   isEdit?: boolean;
+  defaultAccountId?: string;
   initialAccountId?: string;
   initialTransactionType?: TransactionType;
 }>();
@@ -86,7 +103,9 @@ const focusModalAndAmount = () => {
 
 onMounted(() => {
   recipientsLoaded.value = true;
+
   if (props.transaction) {
+    // Bestehende Transaktion → Felder ausfüllen
     date.value = props.transaction.date;
     valueDate.value =
       (props.transaction as any).valueDate || props.transaction.date;
@@ -105,17 +124,41 @@ onMounted(() => {
       toAccountId.value = (props.transaction as any).transferToAccountId || "";
     }
   } else {
+    // Neue Transaktion → Initialwerte setzen
     accountId.value =
-      props.initialAccountId || accountStore.activeAccounts[0]?.id || "";
+      props.defaultAccountId ||
+      props.initialAccountId ||
+      accountStore.activeAccounts[0]?.id ||
+      "";
+    transactionType.value =
+      props.initialTransactionType || TransactionType.EXPENSE;
     reconciled.value = false;
+
+    debugLog("[TransactionForm] initial accountId set", accountId.value);
   }
+
   focusModalAndAmount();
 });
+
+// Watcher für das Prop defaultAccountId
+watch(
+  () => props.defaultAccountId,
+  (newVal) => {
+    if (newVal) {
+      accountId.value = newVal;
+      debugLog("[TransactionForm] defaultAccountId watcher updated", newVal);
+    }
+  }
+);
 
 watch(
   () => props.isEdit,
   (newValue) => newValue && focusModalAndAmount()
 );
+
+watch([date, valueDate, recipientId, categoryId, transactionType], () => {
+  focusModalAndAmount();
+});
 
 watch(date, (newDate) => {
   if (!props.transaction || valueDate.value === props.transaction.date) {
@@ -174,6 +217,7 @@ function onCreateCategory(newCategory: { id: string; name: string }) {
     sortOrder: categoryStore.categories.length,
   });
   categoryId.value = created.id;
+  debugLog("[TransactionForm] onCreateCategory", created);
 }
 
 function onCreateTag(newTag: { id: string; name: string }) {
@@ -182,11 +226,13 @@ function onCreateTag(newTag: { id: string; name: string }) {
     parentTagId: null,
   });
   tagIds.value = [...tagIds.value, created.id];
+  debugLog("[TransactionForm] onCreateTag", created);
 }
 
 function onCreateRecipient(newRecipient: { id: string; name: string }) {
   const created = recipientStore.addRecipient({ name: newRecipient.name });
   recipientId.value = created.id;
+  debugLog("[TransactionForm] onCreateRecipient", created);
 }
 
 const saveTransaction = () => {
@@ -222,7 +268,11 @@ const saveTransaction = () => {
 };
 
 const submitForm = () => {
-  if (isSubmitting.value) return;
+  debugLog("[TransactionForm] submitForm initiated");
+  if (isSubmitting.value) {
+    debugLog("[TransactionForm] submitForm aborted: already submitting");
+    return;
+  }
   isSubmitting.value = true;
 
   submitAttempted.value = true;
@@ -230,10 +280,15 @@ const submitForm = () => {
     alert(
       "Bitte fülle alle Pflichtfelder aus: " + validationErrors.value.join(", ")
     );
+    debugLog(
+      "[TransactionForm] submitForm aborted: validation errors",
+      validationErrors.value
+    );
     isSubmitting.value = false;
     return;
   }
   const transactionPayload = saveTransaction();
+  debugLog("[TransactionForm] submitForm payload", transactionPayload);
   emit("save", transactionPayload);
   isSubmitting.value = false;
 };
@@ -311,19 +366,19 @@ const submitForm = () => {
         v-model="date"
         label="Buchungsdatum (Pflicht)"
         required
-        class="self-end fieldset"
+        class="self-end fieldset focus:outline-none focus:ring-2 focus:ring-accent"
       />
       <DatePicker
         v-model="valueDate"
         label="Wertstellung"
         required
-        class="self-end fieldset"
+        class="self-end fieldset focus:outline-none focus:ring-2 focus:ring-accent"
       />
       <div class="flex justify-end items-center gap-2 self-end">
         <CurrencyInput
           ref="amountInputRef"
           v-model="amount"
-          class="w-[150px]"
+          class="w-[150px] focus:outline-none focus:ring-2 focus:ring-accent"
         />
         <span class="text-3xl">€</span>
       </div>
@@ -334,7 +389,7 @@ const submitForm = () => {
       <Icon icon="mdi:speaker-notes" />
       <textarea
         v-model="note"
-        class="textarea textarea-bordered w-full min-h-[3rem] fieldset"
+        class="textarea textarea-bordered w-full min-h-[3rem] fieldset focus:outline-none focus:ring-2 focus:ring-accent"
         placeholder="Notiz"
       ></textarea>
     </div>
@@ -344,8 +399,11 @@ const submitForm = () => {
     <!-- Konto und Transfer-Konto -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <fieldset class="fieldset">
-        <legend class="fieldset-legend">Konto (Pflicht)</legend>
-        <select v-model="accountId" class="select select-bordered w-full">
+        <legend class="fieldset-legend">Konto</legend>
+        <select
+          v-model="accountId"
+          class="select select-bordered focus:outline-none focus:ring-2 focus:ring-accent w-full"
+        >
           <option v-for="a in accounts" :key="a.id" :value="a.id">
             {{ a.name }}
           </option>
@@ -357,7 +415,7 @@ const submitForm = () => {
         </legend>
         <select
           v-model="toAccountId"
-          class="select select-bordered w-full"
+          class="select select-bordered focus:outline-none focus:ring-2 focus:ring-accent w-full"
           :disabled="!isTransfer"
         >
           <option v-for="a in filteredAccounts" :key="a.id" :value="a.id">
@@ -371,7 +429,7 @@ const submitForm = () => {
 
     <!-- Empfänger -->
     <SearchableSelect
-      class="fieldset"
+      class="fieldset focus:outline-none focus:ring-2 focus:ring-accent"
       v-model="recipientId"
       :options="recipients"
       label="Empfänger"
@@ -386,7 +444,7 @@ const submitForm = () => {
       class="grid grid-cols-1 md:grid-cols-2 gap-4"
     >
       <SearchableSelect
-        class="fieldset"
+        class="fieldset focus:outline-none focus:ring-2 focus:ring-accent"
         v-model="categoryId"
         :options="categories"
         label="Kategorie"
@@ -394,7 +452,7 @@ const submitForm = () => {
         @create="onCreateCategory($event)"
       />
       <TagSearchableDropdown
-        class="fieldset"
+        class="fieldset focus:outline-none focus:ring-2 focus:ring-accent"
         v-model="tagIds"
         :options="tags"
         label="Tags"

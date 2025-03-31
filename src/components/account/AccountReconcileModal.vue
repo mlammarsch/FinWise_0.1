@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
-import { Account } from "../../types";
+import { Account, TransactionType } from "../../types";
 import { useTransactionStore } from "../../stores/transactionStore";
 import DatePicker from "../ui/DatePicker.vue";
 import CurrencyInput from "../ui/CurrencyInput.vue";
 import CurrencyDisplay from "../ui/CurrencyDisplay.vue"; // Neuer Import
+import { formatCurrency } from "../../utils/formatters"; // Importieren Sie hier!
 
 /**
  * Pfad zur Komponente: src/components/account/AccountReconcileModal.vue
@@ -68,13 +69,14 @@ const reconcileAccount = () => {
   const altSaldo = formatCurrency(currentBalance.value);
   note.value = `Kontostandsabgleich: Altsaldo war: ${altSaldo}`;
 
-  const result = transactionStore.addReconciliationTransaction(
+  // Aufruf der neuen Funktion für Ausgleichsbuchungen
+  const newTx = transactionStore.addReconcileTransaction(
     props.account.id,
-    actualBalance.value,
+    differenceValue.value,
     reconcileDate.value,
     note.value
   );
-  if (result) emit("reconciled");
+  if (newTx) emit("reconciled");
   emit("close");
 };
 </script>
@@ -89,23 +91,23 @@ const reconcileAccount = () => {
         <div class="space-y-4">
           <div class="form-control">
             <label class="label">
-              <span class="label-text">Aktueller Kontostand laut FinWise</span>
+              <span class="label-text">Aktueller Kontostand</span>
             </label>
             <!-- Verwendung von CurrencyDisplay statt Input -->
             <CurrencyDisplay :amount="currentBalance" />
           </div>
           <div class="form-control">
             <label class="label">
-              <span class="label-text">Tatsächlicher Kontostand</span>
+              <span class="label-text">Nach Abgleich neuer Kontostand</span>
               <span class="text-error">*</span>
             </label>
-            <CurrencyInput v-model="actualBalance" borderless required />
+            <CurrencyInput v-model="actualBalance" required />
           </div>
           <div class="form-control">
             <label class="label">
               <span class="label-text">Differenz</span>
             </label>
-            <CurrencyInput v-model="differenceValue" borderless readonly />
+            <CurrencyInput v-model="differenceValue" readonly />
           </div>
           <DatePicker
             v-model="reconcileDate"
