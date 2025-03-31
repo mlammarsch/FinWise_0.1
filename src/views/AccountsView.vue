@@ -19,7 +19,9 @@ import { TransactionType } from "../types";
 import { addAccountTransfer } from "@/utils/accountTransfers";
 import { Icon } from "@iconify/vue";
 import { debugLog } from "@/utils/logger";
+import MonthSelector from "../components/ui/MonthSelector.vue";
 
+// Stores
 const accountStore = useAccountStore();
 const router = useRouter();
 const tagStore = useTagStore();
@@ -27,6 +29,7 @@ const categoryStore = useCategoryStore();
 const recipientStore = useRecipientStore();
 const transactionStore = useTransactionStore();
 
+// State
 const showNewAccountModal = ref(false);
 const showNewGroupModal = ref(false);
 const showTransactionFormModal = ref(false);
@@ -34,6 +37,7 @@ const showTransactionFormModal = ref(false);
 const selectedAccount = ref<any>(null);
 const selectedTransaction = ref<any>(null);
 
+//Computed
 const accountGroups = computed(() => accountStore.accountGroups);
 const totalBalance = computed(() => accountStore.totalBalance);
 
@@ -51,6 +55,7 @@ const dateRange = ref({
     .split("T")[0],
 });
 
+// Lifecycle Hooks
 onMounted(() => {
   const savedTag = localStorage.getItem("accountsView_selectedTagId");
   if (savedTag !== null) selectedTagId.value = savedTag;
@@ -64,12 +69,23 @@ onMounted(() => {
     );
   }
 });
+
+// Watchers
 watch(selectedTagId, (newVal) => {
   localStorage.setItem("accountsView_selectedTagId", newVal);
 });
 watch(selectedCategoryId, (newVal) => {
   localStorage.setItem("accountsView_selectedCategoryId", newVal);
 });
+
+//Hilfsfunktion für Datum
+function normalizeDateString(date: string): string {
+  try {
+    return new Date(date).toISOString().split("T")[0];
+  } catch {
+    return "";
+  }
+}
 
 // Filterung der Transaktionen: Zeige ACCOUNTTRANSFER, EXPENSE und INCOME
 const filteredTransactions = computed(() => {
@@ -83,8 +99,7 @@ const filteredTransactions = computed(() => {
     // Nur Transaktionen, bei denen das eigene Konto führend ist
     if (tx.accountId !== accountId) return false;
 
-    // Nur Datum ohne Uhrzeit vergleichen
-    const txDate = tx.date.split("T")[0];
+    const txDate = normalizeDateString(tx.date);
     return txDate >= start && txDate <= end;
   });
 
@@ -187,6 +202,7 @@ const clearFilters = () => {
   searchQuery.value = "";
 };
 
+// Methods
 const createAccount = () => {
   selectedAccount.value = null;
   showNewAccountModal.value = true;
@@ -285,23 +301,41 @@ const handleTransactionSave = (payload: any) => {
     <div class="flex w-full">
       <!-- Linke Spalte: Kontoübersicht -->
       <div class="w-1/2 p-2">
-        <div class="flex justify-between items-center mb-4">
-          <h2 class="text-lg font-bold">Konten</h2>
-          <div>
-            <button
-              class="btn btn-sm"
-              @click="createAccount"
-            >
-              Neues Konto
-            </button>
-            <button
-              class="btn btn-sm"
-              @click="createAccountGroup"
-            >
-              Neue Gruppe
-            </button>
+        <div class="rounded-md bg-base-200/50 backdrop-blur-lg p-2 mb-6">
+          <div class="flex justify-between items-center">
+            <!-- Join Buttons -->
+            <div class="join">
+              <button
+                class="btn join-item rounded-l-full btn-sm btn-soft border border-base-300"
+                @click="createAccountGroup"
+              >
+                <Icon icon="mdi:folder-plus" class="mr-2" />
+                Neue Gruppe
+              </button>
+              <button
+                class="btn join-item rounded-r-full btn-sm btn-soft border border-base-300"
+                @click="createAccount"
+              >
+                <Icon icon="mdi:plus" class="mr-2" />
+                Neues Konto
+              </button>
+            </div>
+            <div class="flex items-center gap-2 text-base text-right">
+              <div class="opacity-50">Gesamtsaldo:</div>
+              <CurrencyDisplay
+                class="text-base"
+                :amount="totalBalance"
+                :show-zero="true"
+                :asInteger="true"
+              />
+              <Icon
+                icon="mdi:scale-balance"
+                class="text-secondary ml-0 mr-5 opacity-50"
+              />
+            </div>
           </div>
         </div>
+
         <div class="grid grid-cols-1 gap-2">
           <AccountGroupCard
             v-for="group in accountGroups"
@@ -315,8 +349,12 @@ const handleTransactionSave = (payload: any) => {
       <!-- Rechte Spalte: Transaktionen des ausgewählten Kontos -->
       <div class="w-1/2 p-2">
         <div
-          class="rounded-md bg-base-200/50 backdrop-blur-lg mb-6 flex justify-end p-2 items-center"
+          class="rounded-md bg-base-200/50 backdrop-blur-lg mb-6 flex justify-between p-2 items-center"
         >
+          <MonthSelector
+            @update-daterange="handleDateRangeUpdate"
+            class="mx-2"
+          />
           <SearchGroup
             btnRight="Neue Transaktion"
             btnRightIcon="mdi:plus"
@@ -340,10 +378,7 @@ const handleTransactionSave = (payload: any) => {
                   {{ formatDate(group.date) }}
                 </div>
               </div>
-              <Icon
-                icon="mdi:square-medium"
-                class="text-base opacity-40"
-              />
+              <Icon icon="mdi:square-medium" class="text-base opacity-40" />
               <div class="flex justify-end items-center">
                 <Icon
                   icon="mdi:scale-balance"
@@ -364,10 +399,7 @@ const handleTransactionSave = (payload: any) => {
                 @click="editTransaction(transaction)"
                 class="cursor-pointer"
               >
-                <TransactionCard
-                  :transaction="transaction"
-                  clickable
-                />
+                <TransactionCard :transaction="transaction" clickable />
               </div>
             </div>
           </div>
@@ -376,10 +408,7 @@ const handleTransactionSave = (payload: any) => {
     </div>
     <!-- Modale -->
     <Teleport to="body">
-      <div
-        v-if="showNewAccountModal"
-        class="modal modal-open"
-      >
+      <div v-if="showNewAccountModal" class="modal modal-open">
         <div class="modal-box max-w-2xl">
           <h3 class="font-bold text-lg mb-4">Neues Konto erstellen</h3>
           <AccountForm
@@ -387,17 +416,11 @@ const handleTransactionSave = (payload: any) => {
             @cancel="showNewAccountModal = false"
           />
         </div>
-        <div
-          class="modal-backdrop"
-          @click="showNewAccountModal = false"
-        ></div>
+        <div class="modal-backdrop" @click="showNewAccountModal = false"></div>
       </div>
     </Teleport>
     <Teleport to="body">
-      <div
-        v-if="showNewGroupModal"
-        class="modal modal-open"
-      >
+      <div v-if="showNewGroupModal" class="modal modal-open">
         <div class="modal-box max-w-2xl">
           <h3 class="font-bold text-lg mb-4">Neue Kontogruppe erstellen</h3>
           <AccountGroupForm
@@ -405,17 +428,11 @@ const handleTransactionSave = (payload: any) => {
             @cancel="showNewGroupModal = false"
           />
         </div>
-        <div
-          class="modal-backdrop"
-          @click="showNewGroupModal = false"
-        ></div>
+        <div class="modal-backdrop" @click="showNewGroupModal = false"></div>
       </div>
     </Teleport>
     <Teleport to="body">
-      <div
-        v-if="showTransactionFormModal"
-        class="modal modal-open"
-      >
+      <div v-if="showTransactionFormModal" class="modal modal-open">
         <div class="modal-box overflow-visible max-w-2xl">
           <TransactionForm
             :transaction="selectedTransaction"
