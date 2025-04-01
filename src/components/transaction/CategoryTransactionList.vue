@@ -7,6 +7,8 @@ import { useCategoryStore } from "../../stores/categoryStore";
 import { formatDate } from "../../utils/formatters";
 import CurrencyDisplay from "../ui/CurrencyDisplay.vue";
 import { Icon } from "@iconify/vue";
+import CategoryTransferModal from "../budget/CategoryTransferModal.vue";
+import { updateCategoryTransfer } from "@/utils/categoryTransfer";
 
 const props = defineProps<{
   transactions: Transaction[];
@@ -92,6 +94,39 @@ function getSelectedTransactions(): Transaction[] {
 }
 
 defineExpose({ getSelectedTransactions });
+
+// Modal-Logik für Bearbeitung von Kategorie-Transfers
+const showTransferModal = ref(false);
+const modalData = ref<{
+  transactionId: string;
+  gegentransactionId: string;
+  prefillAmount: number;
+  fromCategoryId: string;
+  toCategoryId: string;
+  prefillDate: string;
+} | null>(null);
+
+function editTransaction(tx: Transaction, index: number) {
+  if (tx.type === TransactionType.CATEGORYTRANSFER) {
+    // Bei CATEGORYTRANSFER: Ermitteln, ob es sich um den "Von"- oder "Zu"-Eintrag handelt
+    const isFrom = tx.amount < 0;
+    const transactionId = isFrom ? tx.id : tx.counterTransactionId || "";
+    const gegentransactionId = isFrom ? tx.counterTransactionId || "" : tx.id;
+    const fromCatId = isFrom ? tx.categoryId : tx.toCategoryId || "";
+    const toCatId = isFrom ? tx.toCategoryId || "" : tx.categoryId;
+    modalData.value = {
+      transactionId,
+      gegentransactionId,
+      prefillAmount: Math.abs(tx.amount),
+      fromCategoryId: fromCatId,
+      toCategoryId: toCatId,
+      prefillDate: tx.date,
+    };
+    showTransferModal.value = true;
+  } else {
+    emit("edit", tx);
+  }
+}
 </script>
 
 <template>
@@ -226,7 +261,7 @@ defineExpose({ getSelectedTransactions });
             <div class="flex justify-end space-x-1">
               <button
                 class="btn btn-ghost btn-xs border-none"
-                @click="$emit('edit', tx)"
+                @click="editTransaction(tx, index)"
               >
                 <Icon icon="mdi:pencil" class="text-base/75" />
               </button>
@@ -242,4 +277,31 @@ defineExpose({ getSelectedTransactions });
       </tbody>
     </table>
   </div>
+
+  <!-- Kategorie-Transfer Modal für Bearbeitung -->
+  <CategoryTransferModal
+    v-if="showTransferModal"
+    :is-open="showTransferModal"
+    :prefillAmount="modalData?.prefillAmount || 0"
+    :prefillDate="modalData?.prefillDate"
+    :fromCategoryId="modalData?.fromCategoryId"
+    :toCategoryId="modalData?.toCategoryId"
+    :transactionId="modalData?.transactionId"
+    :gegentransactionId="modalData?.gegentransactionId"
+    @close="showTransferModal = false"
+    @transfer="
+      (data) => {
+        updateCategoryTransfer(
+          data.transactionId,
+          data.gegentransactionId,
+          data.fromCategoryId,
+          data.toCategoryId,
+          data.amount,
+          data.date,
+          data.note
+        );
+        showTransferModal = false;
+      }
+    "
+  />
 </template>

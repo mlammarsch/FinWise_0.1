@@ -1,3 +1,4 @@
+<!-- Datei: src/components/ui/SelectCategory.vue (vollständig) -->
 <script setup lang="ts">
 /**
  * Pfad zur Komponente: src/components/ui/SelectCategory.vue
@@ -14,6 +15,8 @@ import { ref, computed, watch, onMounted, defineExpose } from "vue";
 import { useCategoryStore } from "@/stores/categoryStore";
 import CurrencyDisplay from "./CurrencyDisplay.vue";
 import { debugLog } from "@/utils/logger";
+import { useTransactionStore } from "@/stores/transactionStore";
+import { calculateCategorySaldo } from "@/utils/runningBalances";
 
 const props = defineProps<{
   modelValue?: string;
@@ -22,6 +25,7 @@ const props = defineProps<{
 const emit = defineEmits(["update:modelValue", "select"]);
 
 const categoryStore = useCategoryStore();
+const transactionStore = useTransactionStore();
 
 const searchTerm = ref("");
 const dropdownOpen = ref(false);
@@ -127,6 +131,19 @@ const visibleOptions = computed(() =>
   options.value.filter((opt) => !opt.isHeader)
 );
 
+// Berechne aktuellen Monat anhand der Systemzeit
+const currentDate = new Date();
+const currentMonthStart = new Date(
+  currentDate.getFullYear(),
+  currentDate.getMonth(),
+  1
+);
+const currentMonthEnd = new Date(
+  currentDate.getFullYear(),
+  currentDate.getMonth() + 1,
+  0
+);
+
 function onKeyDown(e: KeyboardEvent) {
   if (!dropdownOpen.value) {
     dropdownOpen.value = true;
@@ -225,7 +242,7 @@ defineExpose({ focusInput });
             <span>{{ option.category!.name }}</span>
             <span>
               <CurrencyDisplay
-                :amount="option.category!.balance"
+                :amount="calculateCategorySaldo(transactionStore.transactions, option.category!.id, currentMonthStart, currentMonthEnd).saldo"
                 :as-integer="true"
               />
             </span>

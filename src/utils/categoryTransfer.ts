@@ -48,3 +48,40 @@ export function addCategoryTransfer(
 
   debugLog('[utils] addCategoryTransfer', { fromTransaction: newFromTx, toTransaction: newToTx });
 }
+
+export function updateCategoryTransfer(
+  transactionId: string,
+  gegentransactionId: string,
+  fromCategoryId: string,
+  toCategoryId: string,
+  amount: number,
+  date: string,
+  note: string = ''
+) {
+  const transactionStore = useTransactionStore();
+  const categoryStore = useCategoryStore();
+
+  const updatedFromTx = {
+    categoryId: fromCategoryId,
+    amount: -Math.abs(amount),
+    toCategoryId: toCategoryId,
+    date,
+    valueDate: date,
+    payee: `Kategorientransfer zu ${categoryStore.getCategoryById(toCategoryId)?.name ?? ''}`,
+    note
+  };
+  const updatedToTx = {
+    categoryId: toCategoryId,
+    amount: Math.abs(amount),
+    toCategoryId: fromCategoryId,
+    date,
+    valueDate: date,
+    payee: `Kategorientransfer von ${categoryStore.getCategoryById(fromCategoryId)?.name ?? ''}`,
+    note
+  };
+
+  transactionStore.updateTransaction(transactionId, updatedFromTx);
+  transactionStore.updateTransaction(gegentransactionId, updatedToTx);
+
+  debugLog('[utils] updateCategoryTransfer', { transactionId, gegentransactionId, updatedFromTx, updatedToTx });
+}
