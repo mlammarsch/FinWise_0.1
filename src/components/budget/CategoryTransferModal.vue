@@ -14,7 +14,7 @@
  * - close – Modal schließen
  * - transfer – Übertragung starten
  */
-import { ref, computed, watch, onMounted } from "vue";
+import { ref, computed, watch, onMounted, nextTick } from "vue";
 import { toDateOnlyString } from "@/utils/formatters";
 import CurrencyDisplay from "../ui/CurrencyDisplay.vue";
 import CurrencyInput from "../ui/CurrencyInput.vue";
@@ -43,6 +43,10 @@ const amount = ref(props.prefillAmount || 0);
 const date = ref("");
 const note = ref("");
 
+// Refs für Fokussteuerung
+const fromCategoryRef = ref<InstanceType<typeof SelectCategory> | null>(null);
+const toCategoryRef = ref<InstanceType<typeof SelectCategory> | null>(null);
+
 // Initiales Logging bei Komponentenerstellung
 onMounted(() => {
   debugLog("[CategoryTransferModal] mounted - incoming props", {
@@ -54,7 +58,7 @@ onMounted(() => {
   });
 });
 
-// Datum setzen bei Öffnung
+// Datum setzen & Fokussteuerung bei Öffnung
 watch(
   () => props.isOpen,
   (open) => {
@@ -66,7 +70,6 @@ watch(
       });
     }
 
-    // Führe initiale Kategorieauswertung abhängig vom Modus durch
     if (open && props.preselectedCategoryId) {
       if (props.mode === "transfer") {
         fromCategoryId.value = props.preselectedCategoryId;
@@ -82,6 +85,11 @@ watch(
           id: props.preselectedCategoryId,
         });
       }
+
+      nextTick(() => {
+        if (props.mode != "transfer") fromCategoryRef.value?.focusInput();
+        else if (props.mode === "transfer") toCategoryRef.value?.focusInput();
+      });
     }
   },
   { immediate: true }
@@ -162,6 +170,7 @@ function transferBetweenCategories() {
             Von Kategorie <span class="text-error">*</span>
           </legend>
           <SelectCategory
+            ref="fromCategoryRef"
             v-model="fromCategoryId"
             :filterOutArray="incomeCategoryIds"
           />
@@ -172,6 +181,7 @@ function transferBetweenCategories() {
             Zu Kategorie <span class="text-error">*</span>
           </legend>
           <SelectCategory
+            ref="toCategoryRef"
             v-model="toCategoryId"
             :filterOutArray="incomeCategoryIds.concat(fromCategoryId || '')"
           />

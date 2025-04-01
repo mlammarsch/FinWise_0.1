@@ -10,7 +10,7 @@
  * - update:modelValue - Neue Kategorie-ID
  * - select - Kategorie wurde gewählt
  */
-import { ref, computed, watch, onMounted } from "vue";
+import { ref, computed, watch, onMounted, defineExpose } from "vue";
 import { useCategoryStore } from "@/stores/categoryStore";
 import CurrencyDisplay from "./CurrencyDisplay.vue";
 import { debugLog } from "@/utils/logger";
@@ -179,6 +179,12 @@ function selectCategory(cat: (typeof categoryStore.categories)[0]) {
   searchTerm.value = cat.name;
   debugLog("[SelectCategory] after selection", { selected: selected.value });
 }
+
+// Fokusfunktion für Modal
+function focusInput() {
+  inputRef.value?.focus();
+}
+defineExpose({ focusInput });
 </script>
 
 <template>
