@@ -3,7 +3,7 @@
 # --------------------------------------------------------------------------
 
 # Basisverzeichnis definieren
-$baseDirectory = "D:\_localData\dev\FinWise\FinWise_0.1"
+$baseDirectory = "C:\00_mldata\programming\FinWise\FinWise_0.1"
 $baseDirectoryFull = [System.IO.Path]::GetFullPath($baseDirectory)
 
 # --------------------------------------------------------------------------
@@ -75,8 +75,8 @@ $searchFiles = @(
     # "src\components\ui\PagingYearComponent.vue",
     # "src\components\ui\MonthSelector.vue",
 
-    "src\components\ui\CurrencyDisplay.vue",
-    "src\components\ui\CurrencyInput.vue",
+    #"src\components\ui\CurrencyDisplay.vue",
+    #"src\components\ui\CurrencyInput.vue",
     # "src\components\ui\SearchableSelect.vue",
     "src\components\ui\SelectCategory.vue",
     # "src\components\ui\TagSearchableDropdown.vue",

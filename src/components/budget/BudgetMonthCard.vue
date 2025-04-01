@@ -228,45 +228,55 @@ function handleEscDropdown(event: KeyboardEvent) {
 
 // Option 1: "Fülle auf von …"
 function optionFill() {
-  if (!modalData.value?.clickedCategory) {
-    console.warn("clickedCategory is null in optionFill");
-    return;
-  }
-  modalData.value.mode = "fill";
-  modalData.value.amount = Math.abs(
+  if (!modalData.value?.clickedCategory) return;
+
+  const cat = modalData.value.clickedCategory;
+  const amountValue = Math.abs(
     calculateCategorySaldo(
       transactionStore.transactions,
-      modalData.value.clickedCategory.id,
+      cat.id,
       normalizedMonthStart,
       normalizedMonthEnd
     ).saldo
   );
+
+  modalData.value = {
+    mode: "fill",
+    clickedCategory: cat,
+    amount: amountValue,
+  };
+
   debugLog("[BudgetMonthCard] optionFill", {
-    categoryId: modalData.value.clickedCategory?.id,
-    categoryName: modalData.value.clickedCategory?.name,
-    amount: modalData.value.amount,
-    mode: modalData.value.mode,
+    categoryId: cat.id,
+    categoryName: cat.name,
+    amount: amountValue,
+    mode: "fill",
   });
-  showTransferModal.value = true;
+
   closeDropdown();
+  showTransferModal.value = true; // Direkt – kein nextTick nötig
 }
 
-// Option 2: "Transferiere zu …"
 function optionTransfer() {
-  if (!modalData.value?.clickedCategory) {
-    console.warn("clickedCategory is null in optionTransfer");
-    return;
-  }
-  modalData.value.mode = "transfer";
-  modalData.value.amount = 0;
+  if (!modalData.value?.clickedCategory) return;
+
+  const cat = modalData.value.clickedCategory;
+
+  modalData.value = {
+    mode: "transfer",
+    clickedCategory: cat,
+    amount: 0,
+  };
+
   debugLog("[BudgetMonthCard] optionTransfer", {
-    categoryId: modalData.value.clickedCategory?.id,
-    categoryName: modalData.value.clickedCategory?.name,
-    amount: modalData.value.amount,
-    mode: modalData.value.mode,
+    categoryId: cat.id,
+    categoryName: cat.name,
+    amount: 0,
+    mode: "transfer",
   });
-  showTransferModal.value = true;
+
   closeDropdown();
+  showTransferModal.value = true; // Direkt
 }
 </script>
 
@@ -274,11 +284,17 @@ function optionTransfer() {
   <div class="flex w-full">
     <!-- Vertikaler Divider -->
     <div class="p-1">
-      <div class="w-px h-full" :class="dividerColorClass"></div>
+      <div
+        class="w-px h-full"
+        :class="dividerColorClass"
+      ></div>
     </div>
     <!-- Bestehender Inhalt -->
     <div class="flex-grow">
-      <div ref="containerRef" class="relative w-full p-1 rounded-lg">
+      <div
+        ref="containerRef"
+        class="relative w-full p-1 rounded-lg"
+      >
         <!-- Tabellenheader -->
         <div class="sticky top-0 bg-base-100 z-20 p-2 border-b border-base-300">
           <div class="grid grid-cols-3">
@@ -429,7 +445,10 @@ function optionTransfer() {
         >
           <ul>
             <li>
-              <button class="btn btn-ghost btn-sm w-full" @click="optionFill">
+              <button
+                class="btn btn-ghost btn-sm w-full"
+                @click="optionFill"
+              >
                 Fülle auf von …
               </button>
             </li>
@@ -575,20 +594,9 @@ function optionTransfer() {
         v-if="showTransferModal"
         :is-open="showTransferModal"
         :month="props.month"
-        :mode="modalData.value?.mode || 'transfer'"
-        :prefillAmount="
-          modalData.value?.mode === 'fill' ? modalData.value.amount : 0
-        "
-        :preselectedToCategoryId="
-          modalData.value?.mode === 'fill'
-            ? modalData.value?.clickedCategory?.id
-            : ''
-        "
-        :category="
-          modalData.value?.mode === 'transfer'
-            ? modalData.value?.clickedCategory
-            : undefined
-        "
+        :mode="modalData?.mode"
+        :prefillAmount="modalData?.amount || 0"
+        :preselectedCategoryId="modalData?.clickedCategory?.id"
         @close="showTransferModal = false"
         @transfer="
           (data) => {

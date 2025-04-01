@@ -1,40 +1,35 @@
-<!-- Datei: src/components/budget/CategoryTransferModal.vue -->
 <script setup lang="ts">
 /**
  * Pfad zur Komponente: src/components/budget/CategoryTransferModal.vue
  * Funktion: Übertragung von Beträgen zwischen Kategorien.
- * Komponenten-Props:
- * - category?: Category - Wird als Quelle genutzt (bei Transfer-Modus)
- * - isOpen: boolean - Steuerung der Sichtbarkeit des Modals
- * - month?: { start: Date; end: Date } - Relevanter Monat
- * - preselectedToCategoryId?: string - Vorselektion der Zielkategorie (bei Fill-Modus)
- * - mode?: "fill" | "transfer" | "header" - Steuert, welche Felder sichtbar sind:
- *    - fill: Übernimmt den Saldo der angeklickten Kategorie als Zielwert.
- *    - transfer: Übernimmt die angeklickte Kategorie als Quelle; Betrag 0.
- *    - header: Im Header-Modus ist die Quellkategorie fix (als "Verfügbare Mittel"), Ziel wählbar.
- * - prefillAmount?: number - Initialwert für das Betragsfeld
+ *
+ * Props:
+ * - preselectedCategoryId?: string – ID der Kategorie, die je nach Modus in from oder to übernommen wird
+ * - isOpen: boolean – Sichtbarkeit
+ * - month?: { start: Date; end: Date }
+ * - mode?: "fill" | "transfer"
+ * - prefillAmount?: number
  *
  * Emits:
- * - close - Schließt das Modal (auch per ESC)
- * - transfer - Löst den Transfer aus
+ * - close – Modal schließen
+ * - transfer – Übertragung starten
  */
-import { ref, computed, watch } from "vue";
+import { ref, computed, watch, onMounted } from "vue";
 import { toDateOnlyString } from "@/utils/formatters";
 import CurrencyDisplay from "../ui/CurrencyDisplay.vue";
 import CurrencyInput from "../ui/CurrencyInput.vue";
 import SelectCategory from "../ui/SelectCategory.vue";
-import { useCategoryStore } from "../../stores/categoryStore";
-import { useTransactionStore } from "../../stores/transactionStore";
+import { useCategoryStore } from "@/stores/categoryStore";
+import { useTransactionStore } from "@/stores/transactionStore";
 import { calculateCategorySaldo } from "@/utils/runningBalances";
 import { debugLog } from "@/utils/logger";
 
 const props = defineProps<{
-  category?: any;
   isOpen: boolean;
   month?: { start: Date; end: Date };
-  preselectedToCategoryId?: string;
-  mode?: "fill" | "transfer" | "header";
+  mode?: "fill" | "transfer";
   prefillAmount?: number;
+  preselectedCategoryId?: string;
 }>();
 
 const emit = defineEmits(["close", "transfer"]);
@@ -45,70 +40,53 @@ const transactionStore = useTransactionStore();
 const fromCategoryId = ref("");
 const toCategoryId = ref("");
 const amount = ref(props.prefillAmount || 0);
-
-// Datum: Setze immer den letzten Tag des übergebenen Monats
-function computeDefaultDate(): string {
-  if (props.month) {
-    const lastDay = new Date(props.month.end);
-    return lastDay.toISOString().split("T")[0];
-  }
-  return new Date().toISOString().split("T")[0];
-}
-const date = ref(computeDefaultDate());
+const date = ref("");
 const note = ref("");
 
-// Alte Logik zur Initialbefüllung beibehalten
-if (props.mode === "transfer" && props.category) {
-  fromCategoryId.value = props.category.id;
-}
-if (props.mode === "fill" && props.preselectedToCategoryId) {
-  toCategoryId.value = props.preselectedToCategoryId;
-}
-
-watch(
-  () => props.category,
-  (cat) => {
-    if (cat && props.mode === "transfer") {
-      fromCategoryId.value = cat.id;
-    }
-  },
-  { immediate: true }
-);
-
-watch(
-  () => props.preselectedToCategoryId,
-  (toCat) => {
-    if (toCat && props.mode === "fill") {
-      toCategoryId.value = toCat;
-    }
-  },
-  { immediate: true }
-);
-
-const parseNumber = (value: string): number => {
-  const normalized = value.replace(/\./g, "").replace(",", ".");
-  return parseFloat(normalized) || 0;
-};
-
-const formatNumber = (value: number): string => {
-  return value.toString().replace(".", ",");
-};
-
-const isExpenseCategory = (cat: any) => {
-  return (
-    cat.name.trim().toLowerCase() === "verfügbare mittel" ||
-    !cat.isIncomeCategory
-  );
-};
-
-// Computed für Einkommen-Kategorien (werden ausgeschlossen)
-const incomeCategoryIds = computed(() => {
-  return categoryStore.categories
-    .filter((cat) => cat.isIncomeCategory)
-    .map((cat) => cat.id);
+// Initiales Logging bei Komponentenerstellung
+onMounted(() => {
+  debugLog("[CategoryTransferModal] mounted - incoming props", {
+    isOpen: props.isOpen,
+    mode: props.mode,
+    prefillAmount: props.prefillAmount,
+    preselectedCategoryId: props.preselectedCategoryId,
+    month: props.month,
+  });
 });
 
-// Beibehaltung der alten Computed für Verfügbar-Anzeige
+// Datum setzen bei Öffnung
+watch(
+  () => props.isOpen,
+  (open) => {
+    if (open && props.month) {
+      const computed = new Date(props.month.end).toISOString().split("T")[0];
+      date.value = computed;
+      debugLog("[CategoryTransferModal] isOpen watcher → set date", {
+        computed,
+      });
+    }
+
+    // Führe initiale Kategorieauswertung abhängig vom Modus durch
+    if (open && props.preselectedCategoryId) {
+      if (props.mode === "transfer") {
+        fromCategoryId.value = props.preselectedCategoryId;
+        debugLog(
+          "[CategoryTransferModal] isOpen → set fromCategoryId (transfer)",
+          {
+            id: props.preselectedCategoryId,
+          }
+        );
+      } else if (props.mode === "fill") {
+        toCategoryId.value = props.preselectedCategoryId;
+        debugLog("[CategoryTransferModal] isOpen → set toCategoryId (fill)", {
+          id: props.preselectedCategoryId,
+        });
+      }
+    }
+  },
+  { immediate: true }
+);
+
 const normalizedMonthStart = computed(() =>
   props.month ? new Date(toDateOnlyString(props.month.start)) : new Date()
 );
@@ -116,9 +94,19 @@ const normalizedMonthEnd = computed(() =>
   props.month ? new Date(toDateOnlyString(props.month.end)) : new Date()
 );
 
-const comboboxFromOptions = computed(() => {
-  const opts = categoryStore.categories
-    .filter((cat) => isExpenseCategory(cat))
+const incomeCategoryIds = computed(() =>
+  categoryStore.categories
+    .filter((cat) => cat.isIncomeCategory)
+    .map((cat) => cat.id)
+);
+
+const comboboxFromOptions = computed(() =>
+  categoryStore.categories
+    .filter(
+      (cat) =>
+        !cat.isIncomeCategory ||
+        cat.name.trim().toLowerCase() === "verfügbare mittel"
+    )
     .map((cat) => ({
       id: cat.id,
       name: cat.name,
@@ -130,15 +118,12 @@ const comboboxFromOptions = computed(() => {
             normalizedMonthEnd.value
           ).saldo
         : 0,
-    }));
-  return opts.sort((a, b) => a.name.localeCompare(b.name));
-});
+    }))
+);
 
-// Übertragung auslösen (bei Enter oder Button)
-const transferBetweenCategories = () => {
-  if (!fromCategoryId.value || !toCategoryId.value || amount.value <= 0) {
-    return;
-  }
+function transferBetweenCategories() {
+  if (!fromCategoryId.value || !toCategoryId.value || amount.value <= 0) return;
+
   debugLog("[CategoryTransferModal] transferBetweenCategories", {
     fromCategoryId: fromCategoryId.value,
     toCategoryId: toCategoryId.value,
@@ -146,6 +131,7 @@ const transferBetweenCategories = () => {
     date: date.value,
     note: note.value,
   });
+
   emit("transfer", {
     fromCategoryId: fromCategoryId.value,
     toCategoryId: toCategoryId.value,
@@ -153,8 +139,9 @@ const transferBetweenCategories = () => {
     date: date.value,
     note: note.value,
   });
+
   emit("close");
-};
+}
 </script>
 
 <template>
@@ -164,45 +151,38 @@ const transferBetweenCategories = () => {
     tabindex="0"
     @keydown.escape="$emit('close')"
   >
-    <div class="modal-box w-2/3">
+    <div class="modal-box w-2/3 max-w-2xl">
       <h3 class="font-bold text-lg mb-4">Zwischen Kategorien übertragen</h3>
       <form
         @submit.prevent="transferBetweenCategories"
         class="flex flex-col space-y-4 w-full"
       >
-        <!-- Von Kategorie -->
         <fieldset class="form-control">
           <legend class="label font-bold select-none">
             Von Kategorie <span class="text-error">*</span>
           </legend>
           <SelectCategory
-            v-model:modelValue="fromCategoryId"
-            :initialID="
-              props.mode === 'transfer' && props.category
-                ? props.category.id
-                : ''
-            "
+            v-model="fromCategoryId"
             :filterOutArray="incomeCategoryIds"
           />
+          <div class="text-xs text-gray-500">
+            Debug: fromCategoryId = {{ fromCategoryId }}
+          </div>
         </fieldset>
-        <!-- Zu Kategorie -->
+
         <fieldset class="form-control">
           <legend class="label font-bold select-none">
             Zu Kategorie <span class="text-error">*</span>
           </legend>
           <SelectCategory
-            v-model:modelValue="toCategoryId"
-            :initialID="
-              props.mode === 'fill' && props.preselectedToCategoryId
-                ? props.preselectedToCategoryId
-                : ''
-            "
-            :filterOutArray="
-              incomeCategoryIds.concat(fromCategoryId ? [fromCategoryId] : [])
-            "
+            v-model="toCategoryId"
+            :filterOutArray="incomeCategoryIds.concat(fromCategoryId || '')"
           />
+          <div class="text-xs text-gray-500">
+            Debug: toCategoryId = {{ toCategoryId }}
+          </div>
         </fieldset>
-        <!-- Betrag -->
+
         <fieldset class="form-control">
           <legend class="label font-bold select-none">
             Betrag <span class="text-error">*</span>
@@ -222,11 +202,9 @@ const transferBetweenCategories = () => {
             </span>
           </label>
         </fieldset>
-        <!-- Datum -->
+
         <fieldset class="form-control">
-          <legend class="label font-bold select-none">
-            Datum <span class="text-error">*</span>
-          </legend>
+          <legend class="label font-bold select-none">Datum</legend>
           <input
             type="date"
             v-model="date"
@@ -234,7 +212,7 @@ const transferBetweenCategories = () => {
             required
           />
         </fieldset>
-        <!-- Notiz -->
+
         <fieldset class="form-control">
           <legend class="label font-bold select-none">Notiz</legend>
           <input
@@ -244,18 +222,29 @@ const transferBetweenCategories = () => {
             placeholder="Grund für die Übertragung"
           />
         </fieldset>
+
         <div class="modal-action">
-          <button type="button" class="btn" @click="$emit('close')">
+          <button
+            type="button"
+            class="btn"
+            @click="$emit('close')"
+          >
             Abbrechen
           </button>
-          <button type="submit" class="btn btn-primary">Übertragen</button>
+          <button
+            type="submit"
+            class="btn btn-primary"
+          >
+            Übertragen
+          </button>
         </div>
       </form>
     </div>
-    <div class="modal-backdrop" @click="$emit('close')"></div>
+    <div
+      class="modal-backdrop"
+      @click="$emit('close')"
+    ></div>
   </div>
 </template>
 
-<style scoped>
-/* Keine zusätzlichen Styles benötigt */
-</style>
+<style scoped></style>
