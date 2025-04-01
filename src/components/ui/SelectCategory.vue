@@ -30,7 +30,6 @@ const inputRef = ref<HTMLInputElement | null>(null);
 
 const selected = ref(props.modelValue || "");
 
-// Initial: Suchtext setzen, wenn eine gültige ID vorhanden ist
 onMounted(() => {
   if (selected.value) {
     const cat = categoryStore.categories.find((c) => c.id === selected.value);
@@ -44,7 +43,6 @@ onMounted(() => {
   }
 });
 
-// Reaktiv auf modelValue reagieren
 watch(
   () => props.modelValue,
   (newVal) => {
@@ -60,7 +58,6 @@ watch(
   }
 );
 
-// Weiterreichen bei Auswahl + Log der Übergabe
 watch(selected, (newVal) => {
   debugLog("[SelectCategory] watch:selected → emit update:modelValue", {
     newVal,
@@ -69,10 +66,17 @@ watch(selected, (newVal) => {
   emit("select", newVal);
 });
 
+const availableCategory = computed(() =>
+  categoryStore.getAvailableFundsCategory()
+);
+
 const filteredCategories = computed(() => {
   let cats = categoryStore.categories;
   if (props.filterOutArray?.length) {
     cats = cats.filter((cat) => !props.filterOutArray!.includes(cat.id));
+  }
+  if (availableCategory.value) {
+    cats = cats.filter((cat) => cat.id !== availableCategory.value!.id);
   }
   if (searchTerm.value.trim()) {
     const term = searchTerm.value.toLowerCase();
@@ -81,29 +85,15 @@ const filteredCategories = computed(() => {
   return cats;
 });
 
-const availableCategory = computed(() =>
-  filteredCategories.value.find(
-    (cat) => cat.name.trim().toLowerCase() === "verfügbare mittel"
-  )
-);
-
 const expenseCategories = computed(() =>
   filteredCategories.value
-    .filter(
-      (cat) =>
-        !cat.isIncomeCategory &&
-        cat.name.trim().toLowerCase() !== "verfügbare mittel"
-    )
+    .filter((cat) => !cat.isIncomeCategory)
     .sort((a, b) => a.name.localeCompare(b.name))
 );
 
 const incomeCategories = computed(() =>
   filteredCategories.value
-    .filter(
-      (cat) =>
-        cat.isIncomeCategory &&
-        cat.name.trim().toLowerCase() !== "verfügbare mittel"
-    )
+    .filter((cat) => cat.isIncomeCategory)
     .sort((a, b) => a.name.localeCompare(b.name))
 );
 

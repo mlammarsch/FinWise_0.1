@@ -188,9 +188,14 @@ export const useCategoryStore = defineStore('category', () => {
     saveCategories()
   }
 
+  function getAvailableFundsCategory(): Category | undefined {
+    return categories.value.find(c => c.name === "Verfügbare Mittel");
+  }
+
   loadCategories()
 
   return {
+    getAvailableFundsCategory,
     categories,
     categoryGroups,
     getCategoryById,

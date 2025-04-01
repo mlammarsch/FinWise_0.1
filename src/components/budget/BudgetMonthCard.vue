@@ -52,8 +52,9 @@ const filteredTxs = computed(() =>
   )
 );
 
+const availableFundsCategory = categoryStore.getAvailableFundsCategory();
 const isVerfuegbareMittel = (cat: Category) =>
-  cat.name.trim().toLowerCase() === "verfügbare mittel";
+  availableFundsCategory?.id === cat.id;
 
 const sumExpensesSummary = computed(() => {
   let budgeted = 0,

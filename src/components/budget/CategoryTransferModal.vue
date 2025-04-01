@@ -151,40 +151,34 @@ function transferBetweenCategories() {
     tabindex="0"
     @keydown.escape="$emit('close')"
   >
-    <div class="modal-box w-2/3 max-w-2xl">
+    <div class="modal-box w-full max-w-sm">
       <h3 class="font-bold text-lg mb-4">Zwischen Kategorien übertragen</h3>
       <form
         @submit.prevent="transferBetweenCategories"
         class="flex flex-col space-y-4 w-full"
       >
-        <fieldset class="form-control">
-          <legend class="label font-bold select-none">
+        <fieldset v-show="mode == 'fill'">
+          <legend class="text-sm font-semibold mb-1 select-none">
             Von Kategorie <span class="text-error">*</span>
           </legend>
           <SelectCategory
             v-model="fromCategoryId"
             :filterOutArray="incomeCategoryIds"
           />
-          <div class="text-xs text-gray-500">
-            Debug: fromCategoryId = {{ fromCategoryId }}
-          </div>
         </fieldset>
 
-        <fieldset class="form-control">
-          <legend class="label font-bold select-none">
+        <fieldset v-show="mode == 'transfer'">
+          <legend class="text-sm font-semibold mb-1 select-none">
             Zu Kategorie <span class="text-error">*</span>
           </legend>
           <SelectCategory
             v-model="toCategoryId"
             :filterOutArray="incomeCategoryIds.concat(fromCategoryId || '')"
           />
-          <div class="text-xs text-gray-500">
-            Debug: toCategoryId = {{ toCategoryId }}
-          </div>
         </fieldset>
 
-        <fieldset class="form-control">
-          <legend class="label font-bold select-none">
+        <fieldset>
+          <legend class="text-sm font-semibold mb-1 select-none">
             Betrag <span class="text-error">*</span>
           </legend>
           <CurrencyInput v-model="amount" />
@@ -203,22 +197,22 @@ function transferBetweenCategories() {
           </label>
         </fieldset>
 
-        <fieldset class="form-control">
-          <legend class="label font-bold select-none">Datum</legend>
+        <fieldset>
+          <legend class="text-sm font-semibold mb-1 select-none">Datum</legend>
           <input
             type="date"
             v-model="date"
-            class="input input-bordered w-full"
+            class="input input-bordered w-full focus:outline-none focus:ring-2 focus:ring-accent"
             required
           />
         </fieldset>
 
-        <fieldset class="form-control">
-          <legend class="label font-bold select-none">Notiz</legend>
+        <fieldset>
+          <legend class="text-sm font-semibold mb-1 select-none">Notiz</legend>
           <input
             type="text"
             v-model="note"
-            class="input input-bordered w-full"
+            class="input input-bordered w-full focus:outline-none focus:ring-2 focus:ring-accent"
             placeholder="Grund für die Übertragung"
           />
         </fieldset>
