@@ -12,6 +12,7 @@
 import { ref } from "vue";
 import { useCategoryStore } from "../../stores/categoryStore";
 import { debugLog } from "@/utils/logger";
+import { Icon } from "@iconify/vue"; // Neuer Import für Icons
 
 const categoryStore = useCategoryStore();
 const expanded = defineModel<Set<string>>("expanded", { required: true });
@@ -47,7 +48,7 @@ const rootCategories = categoryStore.categories.filter(
       v-for="cat in rootCategories.filter((c) => !c.isIncomeCategory)"
       :key="cat.id"
     >
-      <div class="p-2 border-b border-base-200">
+      <div class="p-2 border-b border-base-200 flex items-center">
         <button
           v-if="
             categoryStore
@@ -57,9 +58,10 @@ const rootCategories = categoryStore.categories.filter(
           class="btn btn-ghost btn-xs px-1 mr-1"
           @click="toggleExpand(cat.id)"
         >
-          <span v-if="expanded.has(cat.id)">-</span><span v-else>+</span>
+          <Icon v-if="expanded.has(cat.id)" icon="mdi:chevron-up" />
+          <Icon v-else icon="mdi:chevron-down" />
         </button>
-        {{ cat.name }}
+        <span>{{ cat.name }}</span>
       </div>
       <template v-if="expanded.has(cat.id)">
         <div
@@ -80,7 +82,7 @@ const rootCategories = categoryStore.categories.filter(
       v-for="cat in rootCategories.filter((c) => c.isIncomeCategory)"
       :key="cat.id"
     >
-      <div class="p-2 border-b border-base-200">
+      <div class="p-2 border-b border-base-200 flex items-center">
         <button
           v-if="
             categoryStore
@@ -90,9 +92,10 @@ const rootCategories = categoryStore.categories.filter(
           class="btn btn-ghost btn-xs px-1 mr-1"
           @click="toggleExpand(cat.id)"
         >
-          <span v-if="expanded.has(cat.id)">-</span><span v-else>+</span>
+          <Icon v-if="expanded.has(cat.id)" icon="mdi:chevron-up" />
+          <Icon v-else icon="mdi:chevron-down" />
         </button>
-        {{ cat.name }}
+        <span>{{ cat.name }}</span>
       </div>
       <template v-if="expanded.has(cat.id)">
         <div

@@ -13,12 +13,24 @@ const categoryStore = useCategoryStore();
 const transactionStore = useTransactionStore();
 
 const localStorageKey = "finwise_budget_months";
+const expandedStorageKey = "finwise_expanded_categories";
 const numMonths = ref<number>(3);
 const monthOffset = ref<number>(0);
+
+const expanded = ref<Set<string>>(new Set());
 
 onMounted(() => {
   const stored = localStorage.getItem(localStorageKey);
   if (stored) numMonths.value = parseInt(stored);
+  const storedExpanded = localStorage.getItem(expandedStorageKey);
+  if (storedExpanded) {
+    try {
+      const ids = JSON.parse(storedExpanded);
+      expanded.value = new Set(ids);
+    } catch (error) {
+      console.error("Error parsing expanded state:", error);
+    }
+  }
   recalcStores();
 });
 
@@ -26,6 +38,17 @@ watch([numMonths, monthOffset], () => {
   localStorage.setItem(localStorageKey, numMonths.value.toString());
   recalcStores();
 });
+
+watch(
+  expanded,
+  () => {
+    localStorage.setItem(
+      expandedStorageKey,
+      JSON.stringify([...expanded.value])
+    );
+  },
+  { deep: true }
+);
 
 function recalcStores() {
   transactionStore.loadTransactions();
@@ -51,9 +74,7 @@ const months = computed(() => {
 
   for (let i = 0; i < numMonths.value; i++) {
     const d = new Date(leftDate.getFullYear(), leftDate.getMonth() + i, 1);
-    // Normiere Datum: Erster Tag im Monat
     const normalizedStart = new Date(toDateOnlyString(d));
-    // Letzter Tag im Monat: Errechne anhand des normalisierten Monats
     const lastDay = new Date(
       normalizedStart.getFullYear(),
       normalizedStart.getMonth() + 1,
@@ -72,8 +93,6 @@ const months = computed(() => {
   }
   return result;
 });
-
-const expanded = ref<Set<string>>(new Set());
 
 const categories = computed(() => {
   return categoryStore.categories.filter((cat) => !cat.parentCategoryId);
@@ -118,15 +137,14 @@ const availableByMonth = computed(() => {
     <!-- Header -->
     <div class="flex-shrink-0">
       <div class="p-4 flex flex-col">
-        <!-- Kopfzeile -->
         <div
-          class="mb-4 items-center"
           :class="'grid grid-cols-' + totalColumns"
+          class="mb-4 items-center"
         >
           <h1 class="text-2xl font-bold col-span-1">Budgetübersicht</h1>
           <div
-            class="flex justify-center"
             :class="'col-span-' + (totalColumns - 1) + ' col-start-2'"
+            class="flex justify-center"
           >
             <PagingYearComponent
               :displayedMonths="numMonths"
@@ -137,15 +155,12 @@ const availableByMonth = computed(() => {
           </div>
         </div>
       </div>
-
       <!-- Tabellenkopf -->
       <div class="flex overflow-y-scroll">
-        <!-- Leere Kategorie-Spalte (Header) -->
         <div
           :style="{ flex: '0 0 calc(100% / ' + totalColumns + ')' }"
           class="flex flex-col"
         ></div>
-        <!-- Monats-Spalten Header -->
         <div
           v-for="(month, i) in months"
           :key="month.key"
@@ -164,7 +179,6 @@ const availableByMonth = computed(() => {
         </div>
       </div>
     </div>
-
     <!-- Scrollbarer Datenbereich -->
     <div class="flex-grow overflow-y-scroll">
       <div class="flex">

@@ -1,3 +1,4 @@
+<!-- Datei: src/components/budget/BudgetMonthCard.vue -->
 <script setup lang="ts">
 /**
  * Pfad zur Komponente: src/components/budget/BudgetMonthCard.vue
@@ -28,6 +29,7 @@ import { toDateOnlyString } from "@/utils/formatters";
 import CategoryTransferModal from "./CategoryTransferModal.vue";
 import { addCategoryTransfer } from "@/utils/categoryTransfer";
 import { debugLog } from "@/utils/logger";
+import { Icon } from "@iconify/vue"; // Neuer Import für Icons
 
 const props = defineProps<{
   month: { start: Date; end: Date; label: string };
@@ -84,24 +86,24 @@ const sumExpensesSummary = computed(() => {
     budgeted += dataMiddle.budgeted;
     spentMiddle += dataMiddle.spent;
     saldoFull += dataFull.saldo;
-    for (const child of cat.children || []) {
-      if (child.isActive && !isVerfuegbareMittel(child)) {
-        const childDataMiddle = calculateCategorySaldo(
-          txsMiddle,
-          child.id,
-          normalizedMonthStart,
-          normalizedMonthEnd
-        );
-        const childDataFull = calculateCategorySaldo(
-          txsFull,
-          child.id,
-          normalizedMonthStart,
-          normalizedMonthEnd
-        );
-        budgeted += childDataMiddle.budgeted;
-        spentMiddle += childDataMiddle.spent;
-        saldoFull += childDataFull.saldo;
-      }
+    for (const child of categoryStore
+      .getChildCategories(cat.id)
+      .filter((c) => c.isActive && !isVerfuegbareMittel(c))) {
+      const childDataMiddle = calculateCategorySaldo(
+        txsMiddle,
+        child.id,
+        normalizedMonthStart,
+        normalizedMonthEnd
+      );
+      const childDataFull = calculateCategorySaldo(
+        txsFull,
+        child.id,
+        normalizedMonthStart,
+        normalizedMonthEnd
+      );
+      budgeted += childDataMiddle.budgeted;
+      spentMiddle += childDataMiddle.spent;
+      saldoFull += childDataFull.saldo;
     }
   }
   return { budgeted, spentMiddle, saldoFull };
@@ -135,24 +137,24 @@ const sumIncomesSummary = computed(() => {
     budgeted += dataMiddle.budgeted;
     spentMiddle += dataMiddle.spent;
     saldoFull += dataFull.saldo;
-    for (const child of cat.children || []) {
-      if (child.isActive && !isVerfuegbareMittel(child)) {
-        const childDataMiddle = calculateIncomeCategorySaldo(
-          txsMiddle,
-          child.id,
-          normalizedMonthStart,
-          normalizedMonthEnd
-        );
-        const childDataFull = calculateIncomeCategorySaldo(
-          txsFull,
-          child.id,
-          normalizedMonthStart,
-          normalizedMonthEnd
-        );
-        budgeted += childDataMiddle.budgeted;
-        spentMiddle += childDataMiddle.spent;
-        saldoFull += childDataFull.saldo;
-      }
+    for (const child of categoryStore
+      .getChildCategories(cat.id)
+      .filter((c) => c.isActive && !isVerfuegbareMittel(c))) {
+      const childDataMiddle = calculateIncomeCategorySaldo(
+        txsMiddle,
+        child.id,
+        normalizedMonthStart,
+        normalizedMonthEnd
+      );
+      const childDataFull = calculateIncomeCategorySaldo(
+        txsFull,
+        child.id,
+        normalizedMonthStart,
+        normalizedMonthEnd
+      );
+      budgeted += childDataMiddle.budgeted;
+      spentMiddle += childDataMiddle.spent;
+      saldoFull += childDataFull.saldo;
     }
   }
   return { budgeted, spentMiddle, saldoFull };
@@ -191,7 +193,6 @@ const dropdownRef = ref<HTMLElement | null>(null);
 
 function openDropdown(event: MouseEvent, cat: Category) {
   event.preventDefault();
-  // Berechne relative Position im Container
   if (containerRef.value) {
     const rect = containerRef.value.getBoundingClientRect();
     dropdownX.value = event.clientX - rect.left;
@@ -201,7 +202,7 @@ function openDropdown(event: MouseEvent, cat: Category) {
     dropdownY.value = event.clientY;
   }
   modalData.value = {
-    mode: "transfer", // Default mode
+    mode: "transfer",
     clickedCategory: cat,
     amount: 0,
   };
@@ -227,10 +228,8 @@ function handleEscDropdown(event: KeyboardEvent) {
   }
 }
 
-// Option 1: "Fülle auf von …"
 function optionFill() {
   if (!modalData.value?.clickedCategory) return;
-
   const cat = modalData.value.clickedCategory;
   const amountValue = Math.abs(
     calculateCategorySaldo(
@@ -240,62 +239,60 @@ function optionFill() {
       normalizedMonthEnd
     ).saldo
   );
-
   modalData.value = {
     mode: "fill",
     clickedCategory: cat,
     amount: amountValue,
   };
-
   debugLog("[BudgetMonthCard] optionFill", {
     categoryId: cat.id,
     categoryName: cat.name,
     amount: amountValue,
     mode: "fill",
   });
-
   closeDropdown();
-  showTransferModal.value = true; // Direkt – kein nextTick nötig
+  showTransferModal.value = true;
 }
 
 function optionTransfer() {
   if (!modalData.value?.clickedCategory) return;
-
   const cat = modalData.value.clickedCategory;
-
   modalData.value = {
     mode: "transfer",
     clickedCategory: cat,
     amount: 0,
   };
-
   debugLog("[BudgetMonthCard] optionTransfer", {
     categoryId: cat.id,
     categoryName: cat.name,
     amount: 0,
     mode: "transfer",
   });
-
   closeDropdown();
-  showTransferModal.value = true; // Direkt
+  showTransferModal.value = true;
 }
+
+// Neuer Toggle-Funktion für kaskadierende Kategorien
+const toggleExpand = (id: string) => {
+  if (props.expanded.has(id)) {
+    props.expanded.delete(id);
+    debugLog("[BudgetMonthCard] toggleExpand - Collapsed category:", id);
+  } else {
+    props.expanded.add(id);
+    debugLog("[BudgetMonthCard] toggleExpand - Expanded category:", id);
+  }
+};
 </script>
 
 <template>
   <div class="flex w-full">
     <!-- Vertikaler Divider -->
     <div class="p-1">
-      <div
-        class="w-px h-full"
-        :class="dividerColorClass"
-      ></div>
+      <div class="w-px h-full" :class="dividerColorClass"></div>
     </div>
     <!-- Bestehender Inhalt -->
     <div class="flex-grow">
-      <div
-        ref="containerRef"
-        class="relative w-full p-1 rounded-lg"
-      >
+      <div ref="containerRef" class="relative w-full p-1 rounded-lg">
         <!-- Tabellenheader -->
         <div class="sticky top-0 bg-base-100 z-20 p-2 border-b border-base-300">
           <div class="grid grid-cols-3">
@@ -304,7 +301,7 @@ function optionTransfer() {
             <div class="text-right font-bold">Saldo</div>
           </div>
         </div>
-        <!-- Überschrift Ausgaben -->
+        <!-- Überschrift Ausgaben (Aggregatsumme) -->
         <div class="p-2 font-bold border-b border-base-300 mt-2">
           <div class="grid grid-cols-3 font-bold">
             <div class="text-right">
@@ -327,7 +324,7 @@ function optionTransfer() {
             </div>
           </div>
         </div>
-        <!-- Liste der Kategorien -->
+        <!-- Liste der Ausgabenkategorien -->
         <div class="grid grid-rows-auto">
           <template
             v-for="cat in props.categories.filter(
@@ -343,7 +340,23 @@ function optionTransfer() {
               class="grid grid-cols-3 p-2 border-b border-base-200"
               @contextmenu="openDropdown($event, cat)"
             >
-              <div class="text-right">
+              <div class="text-right flex items-center justify-end">
+                <button
+                  v-if="
+                    categoryStore
+                      .getChildCategories(cat.id)
+                      .filter((c) => c.isActive && !isVerfuegbareMittel(c))
+                      .length > 0
+                  "
+                  class="btn btn-ghost btn-xs px-1 mr-1"
+                  @click.stop="toggleExpand(cat.id)"
+                >
+                  <Icon
+                    v-if="props.expanded.has(cat.id)"
+                    icon="mdi:chevron-up"
+                  />
+                  <Icon v-else icon="mdi:chevron-down" />
+                </button>
                 <CurrencyDisplay
                   :amount="
                     calculateCategorySaldo(
@@ -385,9 +398,9 @@ function optionTransfer() {
             </div>
             <template v-if="props.expanded.has(cat.id)">
               <div
-                v-for="child in cat.children.filter(
-                  (c) => c.isActive && !isVerfuegbareMittel(c)
-                )"
+                v-for="child in categoryStore
+                  .getChildCategories(cat.id)
+                  .filter((c) => c.isActive && !isVerfuegbareMittel(c))"
                 :key="child.id"
                 class="grid grid-cols-3 pl-6 text-sm p-2 border-b border-base-200"
                 @contextmenu="openDropdown($event, child)"
@@ -446,10 +459,7 @@ function optionTransfer() {
         >
           <ul>
             <li>
-              <button
-                class="btn btn-ghost btn-sm w-full"
-                @click="optionFill"
-              >
+              <button class="btn btn-ghost btn-sm w-full" @click="optionFill">
                 Fülle auf von …
               </button>
             </li>
@@ -463,7 +473,7 @@ function optionTransfer() {
             </li>
           </ul>
         </div>
-        <!-- Überschrift Einnahmen -->
+        <!-- Überschrift Einnahmen (Aggregatsumme) -->
         <div class="p-2 font-bold border-b border-base-300 mt-4">
           <div class="grid grid-cols-3 font-bold">
             <div class="text-right">
@@ -486,6 +496,7 @@ function optionTransfer() {
             </div>
           </div>
         </div>
+        <!-- Liste der Einnahmekategorien -->
         <div class="grid grid-rows-auto">
           <template
             v-for="cat in props.categories.filter(
@@ -498,7 +509,23 @@ function optionTransfer() {
             :key="cat.id"
           >
             <div class="grid grid-cols-3 p-2 border-b border-base-200">
-              <div class="text-right">
+              <div class="text-right flex items-center justify-end">
+                <button
+                  v-if="
+                    categoryStore
+                      .getChildCategories(cat.id)
+                      .filter((c) => c.isActive && !isVerfuegbareMittel(c))
+                      .length > 0
+                  "
+                  class="btn btn-ghost btn-xs px-1 mr-1"
+                  @click.stop="toggleExpand(cat.id)"
+                >
+                  <Icon
+                    v-if="props.expanded.has(cat.id)"
+                    icon="mdi:chevron-up"
+                  />
+                  <Icon v-else icon="mdi:chevron-down" />
+                </button>
                 <CurrencyDisplay
                   :amount="
                     calculateIncomeCategorySaldo(
@@ -540,9 +567,9 @@ function optionTransfer() {
             </div>
             <template v-if="props.expanded.has(cat.id)">
               <div
-                v-for="child in cat.children.filter(
-                  (c) => c.isActive && !isVerfuegbareMittel(c)
-                )"
+                v-for="child in categoryStore
+                  .getChildCategories(cat.id)
+                  .filter((c) => c.isActive && !isVerfuegbareMittel(c))"
                 :key="child.id"
                 class="grid grid-cols-3 pl-6 text-sm p-2 border-b border-base-200"
               >

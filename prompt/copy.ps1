@@ -52,13 +52,13 @@ $searchFiles = @(
     # "src\stores\recipientStore.ts",
 
     # ###Category - Budget
-    # "src\stores\categoryStore.ts",
+     "src\stores\categoryStore.ts",
      "src\views\BudgetsView.vue",
     #"src\views\BudgetsView2.vue",
-    # "src\components\budget\BudgetCategoryColumn.vue",
+     "src\components\budget\BudgetCategoryColumn.vue",
      "src\components\budget\BudgetMonthCard.vue",
     # "src\components\budget\BudgetMonthHeaderCard.vue",
-     "src\components\budget\CategoryTransferModal.vue",
+    # "src\components\budget\CategoryTransferModal.vue",
     # "src\components\budget\CategoryForm.vue",
 
     # ###Tags
@@ -78,7 +78,7 @@ $searchFiles = @(
     #"src\components\ui\CurrencyDisplay.vue",
     #"src\components\ui\CurrencyInput.vue",
     # "src\components\ui\SearchableSelect.vue",
-     "src\components\ui\SelectCategory.vue",
+    # "src\components\ui\SelectCategory.vue",
     # "src\components\ui\TagSearchableDropdown.vue",
     # "src\components\ui\SearchGroup.vue",
     # "src\components\ui\MainNavigation.vue",
@@ -87,7 +87,8 @@ $searchFiles = @(
     # "./src/stores/*.ts"
     # "src\utils\*.ts",
     # "src\utils\formatters.ts",
-    "src\utils\categoryTransfer.ts",
+    # "src\utils\categoryTransfer.ts",
+    "src\utils\runningBalances.ts",
     # "src\types\*.ts"
     # "*.vue",
     "*.ts"
