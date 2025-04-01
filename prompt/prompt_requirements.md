@@ -1,23 +1,51 @@
-## Anpassung der Budget Category Column und Budget Month Card für kaskadierende Kategorien
+**Fehleranalyse und Korrektur der Saldo- und Transaktionsberechnung**
 
-Ziel ist die Implementierung von kaskadierenden Kategorien (Kategorien mit Eltern- und Kindbeziehungen) innerhalb der Budget View, und zwar sowohl in der `Budget Category Column` als auch in der `Budget Month Card`, sodass diese beiden Komponenten ein konsistentes Verhalten aufweisen.
+Ein Test mit initialen Salden und Transaktionen von 0€ hat folgendes ergeben:
 
-**Änderungen an der Darstellung von Kategorien mit Unterkategorien:**
+*   **Kindkategorien:** Saldo wird korrekt angezeigt.
+*   **Mutter- und Eigenständige Kategorien:** Saldo wird mit 0€ angezeigt, was fehlerhaft ist. Mutterkategorie sollte 20€ und eigenständige Kategorie 10€ anzeigen.
 
-*   **Ersatz der Plus-/Minuszeichen:**  Die derzeitigen Plus- und Minuszeichen zur Anzeige des Ausklappzustands von Kategorien mit Unterkategorien sollen durch Chevron-Icons ersetzt werden.
-    *   **Chevron nach unten (↓):**  Zeigt an, dass die Kategorie geschlossen ist und die Unterkategorien nicht sichtbar sind.
-    *   **Chevron nach oben (↑):**  Zeigt an, dass die Kategorie geöffnet ist und die Unterkategorien angezeigt werden.
+**Ursachenanalyse:**
 
-**Synchronisierung des Ausklappzustands:**
+Das Problem scheint darin zu liegen, dass bei der Saldo-Berechnung Kategorie-Transfers nicht berücksichtigt werden. Im Gegensatz dazu werden ACCOUNTTRANSFERS berücksichtigt.
 
-*   **Paralleles Collapse/Expand:** Der Ausklappzustand von Kategorien mit Unterkategorien muss zwischen der `Budget Category Column` und der `Budget Month Card` synchronisiert werden. Das bedeutet:
-    *   Wenn eine Kategorie mit Unterkategorien in der `Budget Category Column` geöffnet/geschlossen wird, muss diese Änderung sich auch in den entsprechenden `Budget Month Cards` widerspiegeln und die Unterkategorien anzeigen/verbergen.
-    *   Umgekehrt gilt dies auch: Wird eine Kategorie mit Unterkategorien in einer `Budget Month Card` geöffnet/geschlossen, muss dies sich auch in der `Budget Category Column` und den restlichen `Budget Month Cards` widerspiegeln.
+**Korrektur der Saldo-Berechnung:**
 
-**Aggregierte Salden und Transaktionen:**
+Die korrigierte Saldo-Berechnung muss folgende Transaktionsarten berücksichtigen:
 
-*   **Inklusion von Kindkategorien:** Beim Anzeigen von Saldo und Transaktionen für eine Kategorie mit Unterkategorien in der `Budget Month Card` soll Folgendes berücksichtigt werden:
-    *   **Eigene Buchungen:** Die Buchungen, die direkt auf die Mutterkategorie gebucht wurden, sollen wie bisher angezeigt werden.
-    *   **Buchungen der Kindkategorien:** Zusätzlich zu den eigenen Buchungen sollen auch alle Buchungen, die auf die Kindkategorien der Mutterkategorie gebucht wurden, in der Saldo- und Transaktionsansicht mit aufsummiert werden. Die Aufsummierung muss ebenso angezeigt bleiben, wenn die Kindskategorien nicht sichtbar sind. Eine Elternkategorie trägt in dieseer Ansicht also grundsätzlich die Salden und Transaktionen von sich selbst zzgl. aller Kindskategorien aufsummiert.
+*   **ACCOUNTTRANSFER:**  Geldtransfers zwischen Konten.
+*   **CATEGORYTRANSFER:** Geldtransfers zwischen Kategorien.
+*   **EXPENSES:** Ausgaben.
+*   **INCOME:** Einnahmen.
 
-**Zusammenfassend:** Die `Budget Month Card` soll den Gesamtsaldo und die Gesamttransaktionen anzeigen, die sich aus den direkten Buchungen auf die ausgewählte (Mutter-)Kategorie sowie den aggregierten Buchungen aller zugehörigen Kindskategorien zusammensetzen.
+Die **korrigierte Saldo Formel** lautet demnach:
+
+`Saldo aktueller Monat = Saldo Vormonat + ACCOUNTTRANSFER + CATEGORYTRANSFER + EXPENSES + INCOME`
+
+**Korrektur der Transaktions-Berechnung:**
+
+Entgegen meiner vorherigen Aussage (Spezifikationsfehler) dürfen **CATEGORYTRANSFER**s nicht in den Einzeltransaktionen auftauchen. Die angezeigten Transaktionen bestehen also nur aus Konto Transaktionen und Ausgaben und Einnahmen. Der korrigierte Text:
+
+Die korrigierte Formel lautet demnach:
+
+`Transaktionen aktueller Monat = ACCOUNTTRANSFER + EXPENSES + INCOME`
+
+**Berücksichtigung von Eltern-Kind-Beziehungen (Wiederholung zur Vollständigkeit):**
+
+Die obigen Formeln gelten für **Eigene Kategorien** sowie Buchungen, welche direkt auf die **Elternkategorie** gebucht wurden. Ist eine Elternkategorie vorhanden so werden die Ergbnisse der direkten Kinder in die Anzeige mit einberechnet.
+
+Die korrigierte Saldo-Berechnung für die **Elternkategorie** mit Berücksichtigung der Kindkategorien lautet:
+
+`Saldo aktueller Monat = Saldo Vormonat (Mutterkategorie) + ACCOUNTTRANSFER + CATEGORYTRANSFER + EXPENSES + INCOME (Mutterkategorie) + Σ Saldo aktueller Monat (alle Kindkategorien)`
+
+`Transaktionen aktueller Monat = ACCOUNTTRANSFER + EXPENSES + INCOME (Mutterkategorie) + Σ Transaktionen aktueller Monat (alle Kindkategorien)`
+
+**Test-Szenario:**
+
+*   **Eigene Kategorie:** Summe aus aus ACCOUNTTRANSFER + EXPENSES + INCOME + Saldo Vormonat
+*   **Elternkategorie:** Summe aus Saldo aller direkten Kinder. Zusätzlich wie Eigene Kategorie die ACCOUNTTRANSFER + EXPENSES + INCOME + Saldo Vormonat der Elternkategorie selbst.
+*   **Kindskategorie:** Summe aus ACCOUNTTRANSFER + EXPENSES + INCOME + Saldo Vormonat
+
+**Zusammenfassung:**
+
+Die Saldo-Berechnung muss um die Einbeziehung von `CATEGORYTRANSFER`s erweitert werden. Die Transaktionsberechnung sollte weiterhin nur `ACCOUNTTRANSFER`, `EXPENSES` und `INCOME` berücksichtigen. Elter- und Kindkategorien addieren gemäß der Beschreibung ihren Wert. Dies sollte die fehlerhaften Saldo-Anzeigen für Mutter- und eigenständige Kategorien beheben.

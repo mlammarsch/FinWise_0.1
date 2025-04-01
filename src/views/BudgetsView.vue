@@ -13,24 +13,12 @@ const categoryStore = useCategoryStore();
 const transactionStore = useTransactionStore();
 
 const localStorageKey = "finwise_budget_months";
-const expandedStorageKey = "finwise_expanded_categories";
 const numMonths = ref<number>(3);
 const monthOffset = ref<number>(0);
-
-const expanded = ref<Set<string>>(new Set());
 
 onMounted(() => {
   const stored = localStorage.getItem(localStorageKey);
   if (stored) numMonths.value = parseInt(stored);
-  const storedExpanded = localStorage.getItem(expandedStorageKey);
-  if (storedExpanded) {
-    try {
-      const ids = JSON.parse(storedExpanded);
-      expanded.value = new Set(ids);
-    } catch (error) {
-      console.error("Error parsing expanded state:", error);
-    }
-  }
   recalcStores();
 });
 
@@ -38,17 +26,6 @@ watch([numMonths, monthOffset], () => {
   localStorage.setItem(localStorageKey, numMonths.value.toString());
   recalcStores();
 });
-
-watch(
-  expanded,
-  () => {
-    localStorage.setItem(
-      expandedStorageKey,
-      JSON.stringify([...expanded.value])
-    );
-  },
-  { deep: true }
-);
 
 function recalcStores() {
   transactionStore.loadTransactions();
@@ -100,6 +77,17 @@ const categories = computed(() => {
 
 const totalColumns = computed(() => months.value.length + 1);
 
+// Nutzt den zentralen Expanded-State aus dem CategoryStore
+const expanded = categoryStore.expandedCategories;
+
+function toggleAll() {
+  if (expanded.value.size > 0) {
+    categoryStore.collapseAllCategories();
+  } else {
+    categoryStore.expandAllCategories();
+  }
+}
+
 const availableByMonth = computed(() => {
   return months.value.map((month) => {
     const availableCat = categoryStore.categories.find(
@@ -142,10 +130,23 @@ const availableByMonth = computed(() => {
           class="mb-4 items-center"
         >
           <h1 class="text-2xl font-bold col-span-1">Budgetübersicht</h1>
-          <div
-            :class="'col-span-' + (totalColumns - 1) + ' col-start-2'"
-            class="flex justify-center"
-          >
+          <div class="col-span-1 flex items-end">
+            <div
+              class="text-sm flex items-center cursor-pointer"
+              @click="toggleAll"
+            >
+              <Icon
+                :icon="
+                  expanded.size > 0 ? 'mdi:chevron-up' : 'mdi:chevron-down'
+                "
+                class="text-md mr-1"
+              />
+              <span>{{
+                expanded.size > 0 ? "alle einklappen" : "alle ausklappen"
+              }}</span>
+            </div>
+          </div>
+          <div class="col-span-[calc(var(--cols)-2)] flex justify-center">
             <PagingYearComponent
               :displayedMonths="numMonths"
               :currentStartMonthOffset="monthOffset"
@@ -160,7 +161,9 @@ const availableByMonth = computed(() => {
         <div
           :style="{ flex: '0 0 calc(100% / ' + totalColumns + ')' }"
           class="flex flex-col"
-        ></div>
+        >
+          <!-- Toggle-Control bereits im Header integriert -->
+        </div>
         <div
           v-for="(month, i) in months"
           :key="month.key"
@@ -187,7 +190,7 @@ const availableByMonth = computed(() => {
           :style="{ flex: '0 0 calc(100% / ' + totalColumns + ')' }"
           class="flex flex-col"
         >
-          <BudgetCategoryColumn v-model:expanded="expanded" />
+          <BudgetCategoryColumn />
         </div>
         <!-- Monats-Spalten -->
         <div
@@ -196,11 +199,7 @@ const availableByMonth = computed(() => {
           :style="{ flex: '0 0 calc(100% / ' + totalColumns + ')' }"
           class="flex flex-col"
         >
-          <BudgetMonthCard
-            :month="month"
-            :categories="categories"
-            :expanded="expanded"
-          />
+          <BudgetMonthCard :month="month" :categories="categories" />
         </div>
       </div>
     </div>

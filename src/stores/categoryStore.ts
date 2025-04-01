@@ -158,6 +158,7 @@ export const useCategoryStore = defineStore('category', () => {
       });
       debugLog("[categoryStore] loadCategories - 'Verfügbare Mittel' Kategorie angelegt.");
     }
+    loadExpandedCategories()
   }
 
   function saveCategories() {
@@ -192,6 +193,51 @@ export const useCategoryStore = defineStore('category', () => {
     return categories.value.find(c => c.name === "Verfügbare Mittel");
   }
 
+  // Neuer Expanded-State mit Persistierung
+  const expandedCategories = ref<Set<string>>(new Set())
+
+  function loadExpandedCategories() {
+    const stored = localStorage.getItem('finwise_expanded_categories')
+    if (stored) {
+      try {
+        const ids = JSON.parse(stored)
+        expandedCategories.value = new Set(ids)
+        debugLog("[categoryStore] loadExpandedCategories - Loaded expanded categories:", [...expandedCategories.value])
+      } catch (error) {
+        debugLog("[categoryStore] loadExpandedCategories - Error parsing expanded state:", error)
+      }
+    }
+  }
+
+  function saveExpandedCategories() {
+    localStorage.setItem('finwise_expanded_categories', JSON.stringify([...expandedCategories.value]))
+    debugLog("[categoryStore] saveExpandedCategories - Saved expanded categories:", [...expandedCategories.value])
+  }
+
+  function toggleCategoryExpanded(id: string) {
+    if (expandedCategories.value.has(id)) {
+      expandedCategories.value.delete(id)
+      debugLog("[categoryStore] toggleCategoryExpanded - Collapsed:", id)
+    } else {
+      expandedCategories.value.add(id)
+      debugLog("[categoryStore] toggleCategoryExpanded - Expanded:", id)
+    }
+    saveExpandedCategories()
+  }
+
+  function expandAllCategories() {
+    const parentIds = categories.value.filter(c => !c.parentCategoryId).map(c => c.id)
+    expandedCategories.value = new Set(parentIds)
+    debugLog("[categoryStore] expandAllCategories", [...expandedCategories.value])
+    saveExpandedCategories()
+  }
+
+  function collapseAllCategories() {
+    expandedCategories.value.clear()
+    debugLog("[categoryStore] collapseAllCategories")
+    saveExpandedCategories()
+  }
+
   loadCategories()
 
   return {
@@ -213,6 +259,11 @@ export const useCategoryStore = defineStore('category', () => {
     deleteCategoryGroup,
     loadCategories,
     reset,
-    setMonthlySnapshot
+    setMonthlySnapshot,
+    // Exportierter Expanded-State und zugehörige Funktionen
+    expandedCategories,
+    toggleCategoryExpanded,
+    expandAllCategories,
+    collapseAllCategories
   }
 })

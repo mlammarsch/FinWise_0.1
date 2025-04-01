@@ -4,28 +4,16 @@
  * Pfad zur Komponente: src/components/budget/BudgetCategoryColumn.vue
  * Zeigt links die Kategorien an, unterteilt in Ausgaben und Einnahmen.
  * Komponenten-Props:
- * - expanded: Set<string> - Enthält IDs aufgeklappter Kategorien
+ * - Keine, da der Expanded-State nun zentral im CategoryStore verwaltet wird.
  *
  * Emits:
  * - Keine Emits
  */
-import { ref } from "vue";
 import { useCategoryStore } from "../../stores/categoryStore";
 import { debugLog } from "@/utils/logger";
-import { Icon } from "@iconify/vue"; // Neuer Import für Icons
+import { Icon } from "@iconify/vue";
 
 const categoryStore = useCategoryStore();
-const expanded = defineModel<Set<string>>("expanded", { required: true });
-
-const toggleExpand = (id: string) => {
-  if (expanded.value.has(id)) {
-    expanded.value.delete(id);
-    debugLog("[BudgetCategoryColumn] toggleExpand - Collapsed category:", id);
-  } else {
-    expanded.value.add(id);
-    debugLog("[BudgetCategoryColumn] toggleExpand - Expanded category:", id);
-  }
-};
 
 const isVerfuegbareMittel = (cat: { name: string }) =>
   cat.name.trim().toLowerCase() === "verfügbare mittel";
@@ -33,6 +21,10 @@ const isVerfuegbareMittel = (cat: { name: string }) =>
 const rootCategories = categoryStore.categories.filter(
   (c) => c.isActive && !c.parentCategoryId && !isVerfuegbareMittel(c)
 );
+
+const toggleExpand = (id: string) => {
+  categoryStore.toggleCategoryExpanded(id);
+};
 </script>
 
 <template>
@@ -58,12 +50,15 @@ const rootCategories = categoryStore.categories.filter(
           class="btn btn-ghost btn-xs px-1 mr-1"
           @click="toggleExpand(cat.id)"
         >
-          <Icon v-if="expanded.has(cat.id)" icon="mdi:chevron-up" />
+          <Icon
+            v-if="categoryStore.expandedCategories.has(cat.id)"
+            icon="mdi:chevron-up"
+          />
           <Icon v-else icon="mdi:chevron-down" />
         </button>
         <span>{{ cat.name }}</span>
       </div>
-      <template v-if="expanded.has(cat.id)">
+      <template v-if="categoryStore.expandedCategories.has(cat.id)">
         <div
           v-for="child in categoryStore
             .getChildCategories(cat.id)
@@ -92,12 +87,15 @@ const rootCategories = categoryStore.categories.filter(
           class="btn btn-ghost btn-xs px-1 mr-1"
           @click="toggleExpand(cat.id)"
         >
-          <Icon v-if="expanded.has(cat.id)" icon="mdi:chevron-up" />
+          <Icon
+            v-if="categoryStore.expandedCategories.has(cat.id)"
+            icon="mdi:chevron-up"
+          />
           <Icon v-else icon="mdi:chevron-down" />
         </button>
         <span>{{ cat.name }}</span>
       </div>
-      <template v-if="expanded.has(cat.id)">
+      <template v-if="categoryStore.expandedCategories.has(cat.id)">
         <div
           v-for="child in categoryStore
             .getChildCategories(cat.id)

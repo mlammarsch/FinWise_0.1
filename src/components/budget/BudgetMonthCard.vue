@@ -7,14 +7,9 @@
  * Komponenten-Props:
  * - month: { start: Date; end: Date; label: string } – Der aktuelle Anzeigemonat
  * - categories: Category[] – Liste aller Kategorien
- * - expanded: Set<string> – IDs der aufgeklappten Kategorien
  *
  * Emit-Verarbeitung:
- * Beim Rechtsklick auf eine Kategorie erscheint ein Dropdown-Menü (mit z‑40 und w-40)
- * mit zwei Einträgen:
- * 1. "Fülle auf von …": Modus "fill" – übernimmt den offenen Saldo der geklickten Kategorie.
- * 2. "Transferiere zu …": Modus "transfer" – Betrag wird auf 0 gesetzt, Quell fix = geklickte Kategorie.
- * Beide Optionen öffnen das Transfer-Modal mit entsprechender Vorbefüllung.
+ * Beim Rechtsklick auf eine Kategorie erscheint ein Dropdown-Menü mit zwei Einträgen.
  */
 import { computed, ref, nextTick } from "vue";
 import { useTransactionStore } from "../../stores/transactionStore";
@@ -29,12 +24,11 @@ import { toDateOnlyString } from "@/utils/formatters";
 import CategoryTransferModal from "./CategoryTransferModal.vue";
 import { addCategoryTransfer } from "@/utils/categoryTransfer";
 import { debugLog } from "@/utils/logger";
-import { Icon } from "@iconify/vue"; // Neuer Import für Icons
+// Chevron in BudgetMonthCard wird entfernt, da Toggle ausschließlich in der Category Column erfolgt.
 
 const props = defineProps<{
   month: { start: Date; end: Date; label: string };
   categories: Category[];
-  expanded: Set<string>;
 }>();
 
 const transactionStore = useTransactionStore();
@@ -44,7 +38,7 @@ const categoryStore = useCategoryStore();
 const normalizedMonthStart = new Date(toDateOnlyString(props.month.start));
 const normalizedMonthEnd = new Date(toDateOnlyString(props.month.end));
 
-// Filter: Buchungen (ohne CATEGORYTRANSFER)
+// Für Transaktions-Berechnung (ohne CATEGORYTRANSFER)
 const filteredTxs = computed(() =>
   transactionStore.transactions.filter(
     (tx) =>
@@ -54,113 +48,128 @@ const filteredTxs = computed(() =>
   )
 );
 
+// Für Saldo-Berechnung (inklusive CATEGORYTRANSFER)
+const filteredTxsForSaldo = computed(() =>
+  transactionStore.transactions.filter(
+    (tx) =>
+      tx.type === TransactionType.EXPENSE ||
+      tx.type === TransactionType.INCOME ||
+      tx.type === TransactionType.ACCOUNTTRANSFER ||
+      tx.type === TransactionType.CATEGORYTRANSFER
+  )
+);
+
 const availableFundsCategory = categoryStore.getAvailableFundsCategory();
 const isVerfuegbareMittel = (cat: Category) =>
   availableFundsCategory?.id === cat.id;
 
-const sumExpensesSummary = computed(() => {
-  let budgeted = 0,
-    spentMiddle = 0,
-    saldoFull = 0;
-  const txsMiddle = filteredTxs.value;
-  const txsFull = transactionStore.transactions;
-  for (const cat of props.categories.filter(
-    (c) =>
-      c.isActive &&
-      !c.isIncomeCategory &&
-      !c.parentCategoryId &&
-      !isVerfuegbareMittel(c)
-  )) {
-    const dataMiddle = calculateCategorySaldo(
-      txsMiddle,
-      cat.id,
+/**
+ * Aggregiert Daten für Ausgabenkategorien.
+ *
+ * Berechnet:
+ *   Saldo aktueller Monat = Saldo Vormonat + (ACCOUNTTRANSFER + CATEGORYTRANSFER + EXPENSES + INCOME)
+ *   Transaktionen aktueller Monat = ACCOUNTTRANSFER + EXPENSES + INCOME
+ *   plus Aggregation der Werte der Kindkategorien.
+ */
+function aggregateExpense(cat: Category) {
+  const parentDataSaldo = calculateCategorySaldo(
+    filteredTxsForSaldo.value,
+    cat.id,
+    normalizedMonthStart,
+    normalizedMonthEnd,
+    cat.startBalance || 0
+  );
+  const parentDataTrans = calculateCategorySaldo(
+    filteredTxs.value,
+    cat.id,
+    normalizedMonthStart,
+    normalizedMonthEnd,
+    cat.startBalance || 0
+  );
+  let agg = {
+    budgeted: parentDataSaldo.budgeted,
+    spent: parentDataTrans.spent,
+    saldo: parentDataSaldo.saldo,
+  };
+  const children = categoryStore
+    .getChildCategories(cat.id)
+    .filter((c) => c.isActive && !isVerfuegbareMittel(c));
+  children.forEach((child) => {
+    const childDataSaldo = calculateCategorySaldo(
+      filteredTxsForSaldo.value,
+      child.id,
       normalizedMonthStart,
-      normalizedMonthEnd
+      normalizedMonthEnd,
+      child.startBalance || 0
     );
-    const dataFull = calculateCategorySaldo(
-      txsFull,
-      cat.id,
+    const childDataTrans = calculateCategorySaldo(
+      filteredTxs.value,
+      child.id,
       normalizedMonthStart,
-      normalizedMonthEnd
+      normalizedMonthEnd,
+      child.startBalance || 0
     );
-    budgeted += dataMiddle.budgeted;
-    spentMiddle += dataMiddle.spent;
-    saldoFull += dataFull.saldo;
-    for (const child of categoryStore
-      .getChildCategories(cat.id)
-      .filter((c) => c.isActive && !isVerfuegbareMittel(c))) {
-      const childDataMiddle = calculateCategorySaldo(
-        txsMiddle,
-        child.id,
-        normalizedMonthStart,
-        normalizedMonthEnd
-      );
-      const childDataFull = calculateCategorySaldo(
-        txsFull,
-        child.id,
-        normalizedMonthStart,
-        normalizedMonthEnd
-      );
-      budgeted += childDataMiddle.budgeted;
-      spentMiddle += childDataMiddle.spent;
-      saldoFull += childDataFull.saldo;
-    }
-  }
-  return { budgeted, spentMiddle, saldoFull };
-});
+    agg.budgeted += childDataSaldo.budgeted;
+    agg.spent += childDataTrans.spent;
+    agg.saldo += childDataSaldo.saldo;
+  });
+  return agg;
+}
 
-const sumIncomesSummary = computed(() => {
-  let budgeted = 0,
-    spentMiddle = 0,
-    saldoFull = 0;
-  const txsMiddle = filteredTxs.value;
-  const txsFull = transactionStore.transactions;
-  for (const cat of props.categories.filter(
-    (c) =>
-      c.isActive &&
-      c.isIncomeCategory &&
-      !c.parentCategoryId &&
-      !isVerfuegbareMittel(c)
-  )) {
-    const dataMiddle = calculateIncomeCategorySaldo(
-      txsMiddle,
-      cat.id,
+/**
+ * Aggregiert Daten für Einnahmekategorien.
+ *
+ * Berechnet:
+ *   Saldo aktueller Monat = Saldo Vormonat - (ACCOUNTTRANSFER + EXPENSES + INCOME) (inkl. CATEGORYTRANSFER bei Saldo)
+ *   Transaktionen aktueller Monat = ACCOUNTTRANSFER + EXPENSES + INCOME
+ *   plus Aggregation der Werte der Kindkategorien.
+ */
+function aggregateIncome(cat: Category) {
+  const parentDataSaldo = calculateIncomeCategorySaldo(
+    filteredTxsForSaldo.value,
+    cat.id,
+    normalizedMonthStart,
+    normalizedMonthEnd,
+    cat.startBalance || 0
+  );
+  const parentDataTrans = calculateIncomeCategorySaldo(
+    filteredTxs.value,
+    cat.id,
+    normalizedMonthStart,
+    normalizedMonthEnd,
+    cat.startBalance || 0
+  );
+  let agg = {
+    budgeted: parentDataSaldo.budgeted,
+    spent: parentDataTrans.spent,
+    saldo: parentDataSaldo.saldo,
+  };
+  const children = categoryStore
+    .getChildCategories(cat.id)
+    .filter((c) => c.isActive && !isVerfuegbareMittel(c));
+  children.forEach((child) => {
+    const childDataSaldo = calculateIncomeCategorySaldo(
+      filteredTxsForSaldo.value,
+      child.id,
       normalizedMonthStart,
-      normalizedMonthEnd
+      normalizedMonthEnd,
+      child.startBalance || 0
     );
-    const dataFull = calculateIncomeCategorySaldo(
-      txsFull,
-      cat.id,
+    const childDataTrans = calculateIncomeCategorySaldo(
+      filteredTxs.value,
+      child.id,
       normalizedMonthStart,
-      normalizedMonthEnd
+      normalizedMonthEnd,
+      child.startBalance || 0
     );
-    budgeted += dataMiddle.budgeted;
-    spentMiddle += dataMiddle.spent;
-    saldoFull += dataFull.saldo;
-    for (const child of categoryStore
-      .getChildCategories(cat.id)
-      .filter((c) => c.isActive && !isVerfuegbareMittel(c))) {
-      const childDataMiddle = calculateIncomeCategorySaldo(
-        txsMiddle,
-        child.id,
-        normalizedMonthStart,
-        normalizedMonthEnd
-      );
-      const childDataFull = calculateIncomeCategorySaldo(
-        txsFull,
-        child.id,
-        normalizedMonthStart,
-        normalizedMonthEnd
-      );
-      budgeted += childDataMiddle.budgeted;
-      spentMiddle += childDataMiddle.spent;
-      saldoFull += childDataFull.saldo;
-    }
-  }
-  return { budgeted, spentMiddle, saldoFull };
-});
+    agg.budgeted += childDataSaldo.budgeted;
+    agg.spent += childDataTrans.spent;
+    agg.saldo += childDataSaldo.saldo;
+  });
+  return agg;
+}
 
-// Neuer Computed: Prüft, ob der angezeigte Monat aktuell ist
+// Computed: Prüft, ob der angezeigte Monat aktuell ist
 const isCurrentMonth = computed(() => {
   const now = new Date();
   return (
@@ -169,11 +178,44 @@ const isCurrentMonth = computed(() => {
   );
 });
 
-// Computed für Divider-Farbe
-const dividerColorClass = computed(() => {
-  return isCurrentMonth.value
-    ? "bg-accent opacity-75 border-1 border-accent/75"
-    : "bg-base-300";
+// Computed: Aggregierte Werte für Ausgaben (Eltern + Kinder)
+const sumExpensesSummary = computed(() => {
+  let agg = { budgeted: 0, spentMiddle: 0, saldoFull: 0 };
+  props.categories
+    .filter(
+      (c) =>
+        c.isActive &&
+        !c.isIncomeCategory &&
+        !c.parentCategoryId &&
+        !isVerfuegbareMittel(c)
+    )
+    .forEach((cat) => {
+      const data = aggregateExpense(cat);
+      agg.budgeted += data.budgeted;
+      agg.spentMiddle += data.spent;
+      agg.saldoFull += data.saldo;
+    });
+  return agg;
+});
+
+// Computed: Aggregierte Werte für Einnahmen (Eltern + Kinder)
+const sumIncomesSummary = computed(() => {
+  let agg = { budgeted: 0, spentMiddle: 0, saldoFull: 0 };
+  props.categories
+    .filter(
+      (c) =>
+        c.isActive &&
+        c.isIncomeCategory &&
+        !c.parentCategoryId &&
+        !isVerfuegbareMittel(c)
+    )
+    .forEach((cat) => {
+      const data = aggregateIncome(cat);
+      agg.budgeted += data.budgeted;
+      agg.spentMiddle += data.spent;
+      agg.saldoFull += data.saldo;
+    });
+  return agg;
 });
 
 // Zustand für Transfer-Modal und Dropdown
@@ -184,7 +226,6 @@ const modalData = ref<{
   amount: number;
 } | null>(null);
 
-// Für exakte Positionierung: Container als relative
 const containerRef = ref<HTMLElement | null>(null);
 const showDropdown = ref(false);
 const dropdownX = ref(0);
@@ -236,7 +277,8 @@ function optionFill() {
       transactionStore.transactions,
       cat.id,
       normalizedMonthStart,
-      normalizedMonthEnd
+      normalizedMonthEnd,
+      cat.startBalance || 0
     ).saldo
   );
   modalData.value = {
@@ -271,24 +313,20 @@ function optionTransfer() {
   closeDropdown();
   showTransferModal.value = true;
 }
-
-// Neuer Toggle-Funktion für kaskadierende Kategorien
-const toggleExpand = (id: string) => {
-  if (props.expanded.has(id)) {
-    props.expanded.delete(id);
-    debugLog("[BudgetMonthCard] toggleExpand - Collapsed category:", id);
-  } else {
-    props.expanded.add(id);
-    debugLog("[BudgetMonthCard] toggleExpand - Expanded category:", id);
-  }
-};
 </script>
 
 <template>
   <div class="flex w-full">
     <!-- Vertikaler Divider -->
     <div class="p-1">
-      <div class="w-px h-full" :class="dividerColorClass"></div>
+      <div
+        class="w-px h-full"
+        :class="
+          isCurrentMonth
+            ? 'bg-accent opacity-75 border-1 border-accent/75'
+            : 'bg-base-300'
+        "
+      ></div>
     </div>
     <!-- Bestehender Inhalt -->
     <div class="flex-grow">
@@ -340,63 +378,26 @@ const toggleExpand = (id: string) => {
               class="grid grid-cols-3 p-2 border-b border-base-200"
               @contextmenu="openDropdown($event, cat)"
             >
-              <div class="text-right flex items-center justify-end">
-                <button
-                  v-if="
-                    categoryStore
-                      .getChildCategories(cat.id)
-                      .filter((c) => c.isActive && !isVerfuegbareMittel(c))
-                      .length > 0
-                  "
-                  class="btn btn-ghost btn-xs px-1 mr-1"
-                  @click.stop="toggleExpand(cat.id)"
-                >
-                  <Icon
-                    v-if="props.expanded.has(cat.id)"
-                    icon="mdi:chevron-up"
-                  />
-                  <Icon v-else icon="mdi:chevron-down" />
-                </button>
+              <div class="text-right">
                 <CurrencyDisplay
-                  :amount="
-                    calculateCategorySaldo(
-                      filteredTxs,
-                      cat.id,
-                      normalizedMonthStart,
-                      normalizedMonthEnd
-                    ).budgeted
-                  "
+                  :amount="aggregateExpense(cat).budgeted"
                   :as-integer="true"
                 />
               </div>
               <div class="text-right">
                 <CurrencyDisplay
-                  :amount="
-                    calculateCategorySaldo(
-                      filteredTxs,
-                      cat.id,
-                      normalizedMonthStart,
-                      normalizedMonthEnd
-                    ).spent
-                  "
+                  :amount="aggregateExpense(cat).spent"
                   :as-integer="true"
                 />
               </div>
               <div class="text-right">
                 <CurrencyDisplay
-                  :amount="
-                    calculateCategorySaldo(
-                      transactionStore.transactions,
-                      cat.id,
-                      normalizedMonthStart,
-                      normalizedMonthEnd
-                    ).saldo
-                  "
+                  :amount="aggregateExpense(cat).saldo"
                   :as-integer="true"
                 />
               </div>
             </div>
-            <template v-if="props.expanded.has(cat.id)">
+            <template v-if="categoryStore.expandedCategories.has(cat.id)">
               <div
                 v-for="child in categoryStore
                   .getChildCategories(cat.id)
@@ -409,10 +410,11 @@ const toggleExpand = (id: string) => {
                   <CurrencyDisplay
                     :amount="
                       calculateCategorySaldo(
-                        filteredTxs,
+                        filteredTxsForSaldo,
                         child.id,
                         normalizedMonthStart,
-                        normalizedMonthEnd
+                        normalizedMonthEnd,
+                        child.startBalance || 0
                       ).budgeted
                     "
                     :as-integer="true"
@@ -425,7 +427,8 @@ const toggleExpand = (id: string) => {
                         filteredTxs,
                         child.id,
                         normalizedMonthStart,
-                        normalizedMonthEnd
+                        normalizedMonthEnd,
+                        child.startBalance || 0
                       ).spent
                     "
                     :as-integer="true"
@@ -435,10 +438,11 @@ const toggleExpand = (id: string) => {
                   <CurrencyDisplay
                     :amount="
                       calculateCategorySaldo(
-                        transactionStore.transactions,
+                        filteredTxsForSaldo,
                         child.id,
                         normalizedMonthStart,
-                        normalizedMonthEnd
+                        normalizedMonthEnd,
+                        child.startBalance || 0
                       ).saldo
                     "
                     :as-integer="true"
@@ -496,7 +500,6 @@ const toggleExpand = (id: string) => {
             </div>
           </div>
         </div>
-        <!-- Liste der Einnahmekategorien -->
         <div class="grid grid-rows-auto">
           <template
             v-for="cat in props.categories.filter(
@@ -509,63 +512,26 @@ const toggleExpand = (id: string) => {
             :key="cat.id"
           >
             <div class="grid grid-cols-3 p-2 border-b border-base-200">
-              <div class="text-right flex items-center justify-end">
-                <button
-                  v-if="
-                    categoryStore
-                      .getChildCategories(cat.id)
-                      .filter((c) => c.isActive && !isVerfuegbareMittel(c))
-                      .length > 0
-                  "
-                  class="btn btn-ghost btn-xs px-1 mr-1"
-                  @click.stop="toggleExpand(cat.id)"
-                >
-                  <Icon
-                    v-if="props.expanded.has(cat.id)"
-                    icon="mdi:chevron-up"
-                  />
-                  <Icon v-else icon="mdi:chevron-down" />
-                </button>
+              <div class="text-right">
                 <CurrencyDisplay
-                  :amount="
-                    calculateIncomeCategorySaldo(
-                      filteredTxs,
-                      cat.id,
-                      normalizedMonthStart,
-                      normalizedMonthEnd
-                    ).budgeted
-                  "
+                  :amount="aggregateIncome(cat).budgeted"
                   :as-integer="true"
                 />
               </div>
               <div class="text-right">
                 <CurrencyDisplay
-                  :amount="
-                    calculateIncomeCategorySaldo(
-                      filteredTxs,
-                      cat.id,
-                      normalizedMonthStart,
-                      normalizedMonthEnd
-                    ).spent
-                  "
+                  :amount="aggregateIncome(cat).spent"
                   :as-integer="true"
                 />
               </div>
               <div class="text-right">
                 <CurrencyDisplay
-                  :amount="
-                    calculateIncomeCategorySaldo(
-                      transactionStore.transactions,
-                      cat.id,
-                      normalizedMonthStart,
-                      normalizedMonthEnd
-                    ).saldo
-                  "
+                  :amount="aggregateIncome(cat).saldo"
                   :as-integer="true"
                 />
               </div>
             </div>
-            <template v-if="props.expanded.has(cat.id)">
+            <template v-if="categoryStore.expandedCategories.has(cat.id)">
               <div
                 v-for="child in categoryStore
                   .getChildCategories(cat.id)
@@ -577,10 +543,11 @@ const toggleExpand = (id: string) => {
                   <CurrencyDisplay
                     :amount="
                       calculateIncomeCategorySaldo(
-                        filteredTxs,
+                        filteredTxsForSaldo,
                         child.id,
                         normalizedMonthStart,
-                        normalizedMonthEnd
+                        normalizedMonthEnd,
+                        child.startBalance || 0
                       ).budgeted
                     "
                     :as-integer="true"
@@ -593,7 +560,8 @@ const toggleExpand = (id: string) => {
                         filteredTxs,
                         child.id,
                         normalizedMonthStart,
-                        normalizedMonthEnd
+                        normalizedMonthEnd,
+                        child.startBalance || 0
                       ).spent
                     "
                     :as-integer="true"
@@ -603,10 +571,11 @@ const toggleExpand = (id: string) => {
                   <CurrencyDisplay
                     :amount="
                       calculateIncomeCategorySaldo(
-                        transactionStore.transactions,
+                        filteredTxsForSaldo,
                         child.id,
                         normalizedMonthStart,
-                        normalizedMonthEnd
+                        normalizedMonthEnd,
+                        child.startBalance || 0
                       ).saldo
                     "
                     :as-integer="true"
