@@ -67,7 +67,7 @@ $searchFiles = @(
     # ###Admin
     #"src\views\admin\AdminAccountsView.vue",
     # "src\views\admin\AdminRecipientsView.vue",
-    # "src\views\admin\AdminCategoriesView.vue",
+     "src\views\admin\AdminCategoriesView.vue",
     # "src\layouts\AppLayout.vue",
 
     # Components

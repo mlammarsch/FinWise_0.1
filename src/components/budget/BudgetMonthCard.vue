@@ -1,14 +1,13 @@
-<!-- Datei: src/components/budget/BudgetMonthCard.vue -->
+<!-- Datei: src/components/budget/BudgetMonthCard.vue (vollständig) -->
 <script setup lang="ts">
 /**
  * Pfad zur Komponente: src/components/budget/BudgetMonthCard.vue
- * Zeigt pro Monat die Budget-, Transaktions- und Saldo-Werte an.
+ * Zeigt pro Monat die Budget-, Transaktions- und Saldo-Werte an, gruppiert nach Kategoriegruppen.
  *
  * Komponenten-Props:
  * - month: { start: Date; end: Date; label: string } – Der aktuelle Anzeigemonat
  * - categories: Category[] – Liste aller Kategorien
  *
- * Emit-Verarbeitung:
  * Beim Rechtsklick auf eine Kategorie erscheint ein Dropdown-Menü mit zwei Einträgen.
  */
 import { computed, ref, nextTick } from "vue";
@@ -24,7 +23,6 @@ import { toDateOnlyString } from "@/utils/formatters";
 import CategoryTransferModal from "./CategoryTransferModal.vue";
 import { addCategoryTransfer } from "@/utils/categoryTransfer";
 import { debugLog } from "@/utils/logger";
-// Chevron in BudgetMonthCard wird entfernt, da Toggle ausschließlich in der Category Column erfolgt.
 
 const props = defineProps<{
   month: { start: Date; end: Date; label: string };
@@ -38,7 +36,7 @@ const categoryStore = useCategoryStore();
 const normalizedMonthStart = new Date(toDateOnlyString(props.month.start));
 const normalizedMonthEnd = new Date(toDateOnlyString(props.month.end));
 
-// Für Transaktions-Berechnung (ohne CATEGORYTRANSFER)
+// Filter: Buchungen (ohne CATEGORYTRANSFER)
 const filteredTxs = computed(() =>
   transactionStore.transactions.filter(
     (tx) =>
@@ -48,123 +46,70 @@ const filteredTxs = computed(() =>
   )
 );
 
-// Für Saldo-Berechnung (inklusive CATEGORYTRANSFER)
-const filteredTxsForSaldo = computed(() =>
-  transactionStore.transactions.filter(
-    (tx) =>
-      tx.type === TransactionType.EXPENSE ||
-      tx.type === TransactionType.INCOME ||
-      tx.type === TransactionType.ACCOUNTTRANSFER ||
-      tx.type === TransactionType.CATEGORYTRANSFER
-  )
-);
-
 const availableFundsCategory = categoryStore.getAvailableFundsCategory();
 const isVerfuegbareMittel = (cat: Category) =>
   availableFundsCategory?.id === cat.id;
 
 /**
- * Aggregiert Daten für Ausgabenkategorien.
- *
- * Berechnet:
- *   Saldo aktueller Monat = Saldo Vormonat + (ACCOUNTTRANSFER + CATEGORYTRANSFER + EXPENSES + INCOME)
- *   Transaktionen aktueller Monat = ACCOUNTTRANSFER + EXPENSES + INCOME
- *   plus Aggregation der Werte der Kindkategorien.
+ * Aggregiert Daten für Ausgabenkategorien (Mutter + Kinder).
  */
 function aggregateExpense(cat: Category) {
-  const parentDataSaldo = calculateCategorySaldo(
-    filteredTxsForSaldo.value,
-    cat.id,
-    normalizedMonthStart,
-    normalizedMonthEnd,
-    cat.startBalance || 0
-  );
-  const parentDataTrans = calculateCategorySaldo(
+  const parentData = calculateCategorySaldo(
     filteredTxs.value,
     cat.id,
     normalizedMonthStart,
-    normalizedMonthEnd,
-    cat.startBalance || 0
+    normalizedMonthEnd
   );
   let agg = {
-    budgeted: parentDataSaldo.budgeted,
-    spent: parentDataTrans.spent,
-    saldo: parentDataSaldo.saldo,
+    budgeted: parentData.budgeted,
+    spent: parentData.spent,
+    saldo: parentData.saldo,
   };
   const children = categoryStore
     .getChildCategories(cat.id)
     .filter((c) => c.isActive && !isVerfuegbareMittel(c));
   children.forEach((child) => {
-    const childDataSaldo = calculateCategorySaldo(
-      filteredTxsForSaldo.value,
-      child.id,
-      normalizedMonthStart,
-      normalizedMonthEnd,
-      child.startBalance || 0
-    );
-    const childDataTrans = calculateCategorySaldo(
+    const childData = calculateCategorySaldo(
       filteredTxs.value,
       child.id,
       normalizedMonthStart,
-      normalizedMonthEnd,
-      child.startBalance || 0
+      normalizedMonthEnd
     );
-    agg.budgeted += childDataSaldo.budgeted;
-    agg.spent += childDataTrans.spent;
-    agg.saldo += childDataSaldo.saldo;
+    agg.budgeted += childData.budgeted;
+    agg.spent += childData.spent;
+    agg.saldo += childData.saldo;
   });
   return agg;
 }
 
 /**
- * Aggregiert Daten für Einnahmekategorien.
- *
- * Berechnet:
- *   Saldo aktueller Monat = Saldo Vormonat - (ACCOUNTTRANSFER + EXPENSES + INCOME) (inkl. CATEGORYTRANSFER bei Saldo)
- *   Transaktionen aktueller Monat = ACCOUNTTRANSFER + EXPENSES + INCOME
- *   plus Aggregation der Werte der Kindkategorien.
+ * Aggregiert Daten für Einnahmekategorien (Mutter + Kinder).
  */
 function aggregateIncome(cat: Category) {
-  const parentDataSaldo = calculateIncomeCategorySaldo(
-    filteredTxsForSaldo.value,
-    cat.id,
-    normalizedMonthStart,
-    normalizedMonthEnd,
-    cat.startBalance || 0
-  );
-  const parentDataTrans = calculateIncomeCategorySaldo(
+  const parentData = calculateIncomeCategorySaldo(
     filteredTxs.value,
     cat.id,
     normalizedMonthStart,
-    normalizedMonthEnd,
-    cat.startBalance || 0
+    normalizedMonthEnd
   );
   let agg = {
-    budgeted: parentDataSaldo.budgeted,
-    spent: parentDataTrans.spent,
-    saldo: parentDataSaldo.saldo,
+    budgeted: parentData.budgeted,
+    spent: parentData.spent,
+    saldo: parentData.saldo,
   };
   const children = categoryStore
     .getChildCategories(cat.id)
     .filter((c) => c.isActive && !isVerfuegbareMittel(c));
   children.forEach((child) => {
-    const childDataSaldo = calculateIncomeCategorySaldo(
-      filteredTxsForSaldo.value,
-      child.id,
-      normalizedMonthStart,
-      normalizedMonthEnd,
-      child.startBalance || 0
-    );
-    const childDataTrans = calculateIncomeCategorySaldo(
+    const childData = calculateIncomeCategorySaldo(
       filteredTxs.value,
       child.id,
       normalizedMonthStart,
-      normalizedMonthEnd,
-      child.startBalance || 0
+      normalizedMonthEnd
     );
-    agg.budgeted += childDataSaldo.budgeted;
-    agg.spent += childDataTrans.spent;
-    agg.saldo += childDataSaldo.saldo;
+    agg.budgeted += childData.budgeted;
+    agg.spent += childData.spent;
+    agg.saldo += childData.saldo;
   });
   return agg;
 }
@@ -178,47 +123,89 @@ const isCurrentMonth = computed(() => {
   );
 });
 
-// Computed: Aggregierte Werte für Ausgaben (Eltern + Kinder)
-const sumExpensesSummary = computed(() => {
-  let agg = { budgeted: 0, spentMiddle: 0, saldoFull: 0 };
-  props.categories
-    .filter(
-      (c) =>
-        c.isActive &&
-        !c.isIncomeCategory &&
-        !c.parentCategoryId &&
-        !isVerfuegbareMittel(c)
-    )
-    .forEach((cat) => {
+// Expense- und Income-Gruppen (sortiert)
+const expenseGroups = computed(() =>
+  categoryStore.categoryGroups
+    .filter((g) => !g.isIncomeGroup)
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+);
+const incomeGroups = computed(() =>
+  categoryStore.categoryGroups
+    .filter((g) => g.isIncomeGroup)
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+);
+
+// Summiert alle Ausgaben-Gruppen
+function groupExpense(group: any) {
+  const cats = props.categories.filter(
+    (c) =>
+      c.isActive &&
+      !c.isIncomeCategory &&
+      !c.parentCategoryId &&
+      c.categoryGroupId === group.id &&
+      !isVerfuegbareMittel(c)
+  );
+  return cats.reduce(
+    (agg, cat) => {
       const data = aggregateExpense(cat);
-      agg.budgeted += data.budgeted;
-      agg.spentMiddle += data.spent;
-      agg.saldoFull += data.saldo;
-    });
-  return agg;
-});
+      return {
+        budgeted: agg.budgeted + data.budgeted,
+        spent: agg.spent + data.spent,
+        saldo: agg.saldo + data.saldo,
+      };
+    },
+    { budgeted: 0, spent: 0, saldo: 0 }
+  );
+}
 
-// Computed: Aggregierte Werte für Einnahmen (Eltern + Kinder)
-const sumIncomesSummary = computed(() => {
-  let agg = { budgeted: 0, spentMiddle: 0, saldoFull: 0 };
-  props.categories
-    .filter(
-      (c) =>
-        c.isActive &&
-        c.isIncomeCategory &&
-        !c.parentCategoryId &&
-        !isVerfuegbareMittel(c)
-    )
-    .forEach((cat) => {
+// Summiert alle Einnahmen-Gruppen
+function groupIncome(group: any) {
+  const cats = props.categories.filter(
+    (c) =>
+      c.isActive &&
+      c.isIncomeCategory &&
+      !c.parentCategoryId &&
+      c.categoryGroupId === group.id &&
+      !isVerfuegbareMittel(c)
+  );
+  return cats.reduce(
+    (agg, cat) => {
       const data = aggregateIncome(cat);
-      agg.budgeted += data.budgeted;
-      agg.spentMiddle += data.spent;
-      agg.saldoFull += data.saldo;
-    });
+      return {
+        budgeted: agg.budgeted + data.budgeted,
+        spent: agg.spent + data.spent,
+        saldo: agg.saldo + data.saldo,
+      };
+    },
+    { budgeted: 0, spent: 0, saldo: 0 }
+  );
+}
+
+// Gesamtsumme Ausgaben
+const sumExpensesSummary = computed(() => {
+  let agg = { budgeted: 0, spent: 0, saldo: 0 };
+  expenseGroups.value.forEach((group) => {
+    const groupAgg = groupExpense(group);
+    agg.budgeted += groupAgg.budgeted;
+    agg.spent += groupAgg.spent;
+    agg.saldo += groupAgg.saldo;
+  });
   return agg;
 });
 
-// Zustand für Transfer-Modal und Dropdown
+// Gesamtsumme Einnahmen
+const sumIncomesSummary = computed(() => {
+  let agg = { budgeted: 0, spent: 0, saldo: 0 };
+  incomeGroups.value.forEach((group) => {
+    const groupAgg = groupIncome(group);
+    agg.budgeted += groupAgg.budgeted;
+    agg.spent += groupAgg.spent;
+    agg.saldo += groupAgg.saldo;
+  });
+  return agg;
+});
+
+// Transfer-Modal und Dropdown
 const showTransferModal = ref(false);
 const modalData = ref<{
   mode: "fill" | "transfer";
@@ -277,8 +264,7 @@ function optionFill() {
       transactionStore.transactions,
       cat.id,
       normalizedMonthStart,
-      normalizedMonthEnd,
-      cat.startBalance || 0
+      normalizedMonthEnd
     ).saldo
   );
   modalData.value = {
@@ -328,7 +314,8 @@ function optionTransfer() {
         "
       ></div>
     </div>
-    <!-- Bestehender Inhalt -->
+
+    <!-- Inhalt -->
     <div class="flex-grow">
       <div ref="containerRef" class="relative w-full p-1 rounded-lg">
         <!-- Tabellenheader -->
@@ -339,9 +326,11 @@ function optionTransfer() {
             <div class="text-right font-bold">Saldo</div>
           </div>
         </div>
-        <!-- Überschrift Ausgaben (Aggregatsumme) -->
-        <div class="p-2 font-bold border-b border-base-300 mt-2">
-          <div class="grid grid-cols-3 font-bold">
+
+        <!-- Ausgaben -->
+        <!-- Summenzeile Ausgaben -->
+        <div class="p-2 border-b border-base-300 bg-base-300 mt-2">
+          <div class="grid grid-cols-3">
             <div class="text-right">
               <CurrencyDisplay
                 :amount="sumExpensesSummary.budgeted"
@@ -350,34 +339,58 @@ function optionTransfer() {
             </div>
             <div class="text-right">
               <CurrencyDisplay
-                :amount="sumExpensesSummary.spentMiddle"
+                :amount="sumExpensesSummary.spent"
                 :as-integer="true"
               />
             </div>
             <div class="text-right">
               <CurrencyDisplay
-                :amount="sumExpensesSummary.saldoFull"
+                :amount="sumExpensesSummary.saldo"
                 :as-integer="true"
               />
             </div>
           </div>
         </div>
-        <!-- Liste der Ausgabenkategorien -->
-        <div class="grid grid-rows-auto">
-          <template
+        <!-- Gruppen für Ausgaben -->
+        <template v-for="group in expenseGroups" :key="group.id">
+          <div class="p-2 border-b border-base-300 bg-base-200 font-bold">
+            <div class="grid grid-cols-3">
+              <div class="text-right">
+                <CurrencyDisplay
+                  :amount="groupExpense(group).budgeted"
+                  :as-integer="true"
+                />
+              </div>
+              <div class="text-right">
+                <CurrencyDisplay
+                  :amount="groupExpense(group).spent"
+                  :as-integer="true"
+                />
+              </div>
+              <div class="text-right">
+                <CurrencyDisplay
+                  :amount="groupExpense(group).saldo"
+                  :as-integer="true"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- Kategorien innerhalb der Gruppe -->
+          <div
             v-for="cat in props.categories.filter(
               (c) =>
                 c.isActive &&
                 !c.isIncomeCategory &&
                 !c.parentCategoryId &&
+                c.categoryGroupId === group.id &&
                 !isVerfuegbareMittel(c)
             )"
             :key="cat.id"
+            class="cursor-pointer"
+            @contextmenu="openDropdown($event, cat)"
           >
-            <div
-              class="grid grid-cols-3 p-2 border-b border-base-200"
-              @contextmenu="openDropdown($event, cat)"
-            >
+            <div class="grid grid-cols-3 p-2 border-b border-base-200">
               <div class="text-right">
                 <CurrencyDisplay
                   :amount="aggregateExpense(cat).budgeted"
@@ -410,11 +423,10 @@ function optionTransfer() {
                   <CurrencyDisplay
                     :amount="
                       calculateCategorySaldo(
-                        filteredTxsForSaldo,
+                        filteredTxs,
                         child.id,
                         normalizedMonthStart,
-                        normalizedMonthEnd,
-                        child.startBalance || 0
+                        normalizedMonthEnd
                       ).budgeted
                     "
                     :as-integer="true"
@@ -427,8 +439,7 @@ function optionTransfer() {
                         filteredTxs,
                         child.id,
                         normalizedMonthStart,
-                        normalizedMonthEnd,
-                        child.startBalance || 0
+                        normalizedMonthEnd
                       ).spent
                     "
                     :as-integer="true"
@@ -438,11 +449,10 @@ function optionTransfer() {
                   <CurrencyDisplay
                     :amount="
                       calculateCategorySaldo(
-                        filteredTxsForSaldo,
+                        transactionStore.transactions,
                         child.id,
                         normalizedMonthStart,
-                        normalizedMonthEnd,
-                        child.startBalance || 0
+                        normalizedMonthEnd
                       ).saldo
                     "
                     :as-integer="true"
@@ -450,36 +460,13 @@ function optionTransfer() {
                 </div>
               </div>
             </template>
-          </template>
-        </div>
-        <!-- Dropdown-Menü (per Rechtsklick) -->
-        <div
-          v-if="showDropdown"
-          class="absolute z-40 w-40 bg-base-100 border border-base-300 rounded shadow p-2"
-          :style="{ left: `${dropdownX}px`, top: `${dropdownY}px` }"
-          tabindex="0"
-          @keydown.escape="closeDropdown"
-          @click.outside="closeDropdown"
-        >
-          <ul>
-            <li>
-              <button class="btn btn-ghost btn-sm w-full" @click="optionFill">
-                Fülle auf von …
-              </button>
-            </li>
-            <li>
-              <button
-                class="btn btn-ghost btn-sm w-full"
-                @click="optionTransfer"
-              >
-                Transferiere zu …
-              </button>
-            </li>
-          </ul>
-        </div>
-        <!-- Überschrift Einnahmen (Aggregatsumme) -->
-        <div class="p-2 font-bold border-b border-base-300 mt-4">
-          <div class="grid grid-cols-3 font-bold">
+          </div>
+        </template>
+
+        <!-- Einnahmen -->
+        <!-- Summenzeile Einnahmen -->
+        <div class="p-2 border-b border-base-300 bg-base-300 mt-4">
+          <div class="grid grid-cols-3">
             <div class="text-right">
               <CurrencyDisplay
                 :amount="sumIncomesSummary.budgeted"
@@ -488,28 +475,55 @@ function optionTransfer() {
             </div>
             <div class="text-right">
               <CurrencyDisplay
-                :amount="sumIncomesSummary.spentMiddle"
+                :amount="sumIncomesSummary.spent"
                 :as-integer="true"
               />
             </div>
             <div class="text-right">
               <CurrencyDisplay
-                :amount="sumIncomesSummary.saldoFull"
+                :amount="sumIncomesSummary.saldo"
                 :as-integer="true"
               />
             </div>
           </div>
         </div>
-        <div class="grid grid-rows-auto">
-          <template
+        <!-- Gruppen für Einnahmen -->
+        <template v-for="group in incomeGroups" :key="group.id">
+          <div class="p-2 border-b border-base-300 bg-base-200 font-bold">
+            <div class="grid grid-cols-3">
+              <div class="text-right">
+                <CurrencyDisplay
+                  :amount="groupIncome(group).budgeted"
+                  :as-integer="true"
+                />
+              </div>
+              <div class="text-right">
+                <CurrencyDisplay
+                  :amount="groupIncome(group).spent"
+                  :as-integer="true"
+                />
+              </div>
+              <div class="text-right">
+                <CurrencyDisplay
+                  :amount="groupIncome(group).saldo"
+                  :as-integer="true"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- Kategorien innerhalb der Gruppe -->
+          <div
             v-for="cat in props.categories.filter(
               (c) =>
                 c.isActive &&
                 c.isIncomeCategory &&
                 !c.parentCategoryId &&
+                c.categoryGroupId === group.id &&
                 !isVerfuegbareMittel(c)
             )"
             :key="cat.id"
+            class="cursor-pointer"
           >
             <div class="grid grid-cols-3 p-2 border-b border-base-200">
               <div class="text-right">
@@ -543,11 +557,10 @@ function optionTransfer() {
                   <CurrencyDisplay
                     :amount="
                       calculateIncomeCategorySaldo(
-                        filteredTxsForSaldo,
+                        filteredTxs,
                         child.id,
                         normalizedMonthStart,
-                        normalizedMonthEnd,
-                        child.startBalance || 0
+                        normalizedMonthEnd
                       ).budgeted
                     "
                     :as-integer="true"
@@ -560,8 +573,7 @@ function optionTransfer() {
                         filteredTxs,
                         child.id,
                         normalizedMonthStart,
-                        normalizedMonthEnd,
-                        child.startBalance || 0
+                        normalizedMonthEnd
                       ).spent
                     "
                     :as-integer="true"
@@ -571,11 +583,10 @@ function optionTransfer() {
                   <CurrencyDisplay
                     :amount="
                       calculateIncomeCategorySaldo(
-                        filteredTxsForSaldo,
+                        transactionStore.transactions,
                         child.id,
                         normalizedMonthStart,
-                        normalizedMonthEnd,
-                        child.startBalance || 0
+                        normalizedMonthEnd
                       ).saldo
                     "
                     :as-integer="true"
@@ -583,9 +594,36 @@ function optionTransfer() {
                 </div>
               </div>
             </template>
-          </template>
+          </div>
+        </template>
+
+        <!-- Dropdown-Menü (per Rechtsklick) -->
+        <div
+          v-if="showDropdown"
+          class="absolute z-40 w-40 bg-base-100 border border-base-300 rounded shadow p-2"
+          :style="{ left: `${dropdownX}px`, top: `${dropdownY}px` }"
+          tabindex="0"
+          @keydown.escape="closeDropdown"
+          @click.outside="closeDropdown"
+        >
+          <ul>
+            <li>
+              <button class="btn btn-ghost btn-sm w-full" @click="optionFill">
+                Fülle auf von …
+              </button>
+            </li>
+            <li>
+              <button
+                class="btn btn-ghost btn-sm w-full"
+                @click="optionTransfer"
+              >
+                Transferiere zu …
+              </button>
+            </li>
+          </ul>
         </div>
       </div>
+
       <!-- Transfer Modal -->
       <CategoryTransferModal
         v-if="showTransferModal"
@@ -604,7 +642,7 @@ function optionTransfer() {
               data.date,
               data.note
             );
-            showTransferModal = false;
+            showTransferModal.value = false;
           }
         "
       />
@@ -612,6 +650,4 @@ function optionTransfer() {
   </div>
 </template>
 
-<style scoped>
-/* Keine zusätzlichen Styles benötigt */
-</style>
+<style scoped></style>
