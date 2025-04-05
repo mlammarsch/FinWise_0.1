@@ -5,10 +5,13 @@ import AccountForm from "../../components/account/AccountForm.vue";
 import CurrencyDisplay from "../../components/ui/CurrencyDisplay.vue";
 import { Account, AccountType, AccountGroup } from "../../types";
 import AccountGroupForm from "../../components/account/AccountGroupForm.vue"; // Import AccountGroupForm
-import { useRouter } from 'vue-router';
+import { useRouter } from "vue-router";
+import { useMonthlyBalanceStore } from "@/stores/monthlyBalanceStore"; // Neuer Import
+import { Icon } from "@iconify/vue";
 
 // Stores
 const accountStore = useAccountStore();
+const monthlyBalanceStore = useMonthlyBalanceStore();
 const router = useRouter();
 
 // State für Modals
@@ -124,6 +127,11 @@ const deleteAccountGroup = (groupId: string) => {
     accountStore.deleteAccountGroup(groupId);
   }
 };
+
+// Button-Funktion: Monatssalden aktualisieren
+const updateMonthlyBalances = () => {
+  monthlyBalanceStore.calculateMonthlyBalances();
+};
 </script>
 
 <template>
@@ -150,6 +158,14 @@ const deleteAccountGroup = (groupId: string) => {
             Neues Konto
           </button>
         </div>
+        <!-- Neuer Button für manuelle Aktualisierung der Monatssalden -->
+        <button
+          class="btn btn-soft btn-sm ml-4 border border-base-300"
+          @click="updateMonthlyBalances"
+        >
+          <Icon icon="mdi:refresh" class="mr-2 text-base" />
+          Monatssalden aktualisieren
+        </button>
       </div>
     </div>
 

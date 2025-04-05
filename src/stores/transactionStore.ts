@@ -8,6 +8,7 @@ import { useCategoryStore } from './categoryStore'
 import { debugLog } from '@/utils/logger'
 import { addAccountTransfer } from '@/utils/accountTransfers'
 import { calculateRunningBalances } from '@/utils/runningBalances'
+import { useMonthlyBalanceStore } from '@/stores/monthlyBalanceStore'  // Neuer Import
 
 export interface ExtendedTransaction extends Transaction {
   tagIds: string[],
@@ -27,6 +28,7 @@ export const useTransactionStore = defineStore('transaction', () => {
   const transactions = ref<ExtendedTransaction[]>([])
   const accountStore = useAccountStore()
   const categoryStore = useCategoryStore()
+  const monthlyBalanceStore = useMonthlyBalanceStore()  // Instanz des neuen Stores
 
   const getTransactionById = computed(() => {
     return (id: string) => transactions.value.find(transaction => transaction.id === id)
@@ -92,23 +94,8 @@ export const useTransactionStore = defineStore('transaction', () => {
       }
     }
 
-    if (newTransaction.type === TransactionType.INCOME) {
-      const verfgMittel = categoryStore.categories.find((c) => c.name === "Verfügbare Mittel")
-      const incomeCat = categoryStore.findCategoryById(newTransaction.categoryId!)
-      if (verfgMittel && incomeCat?.isIncomeCategory) {
-        import('@/utils/categoryTransfer').then(module => {
-          module.addCategoryTransfer(
-            incomeCat.id,
-            verfgMittel.id,
-            newTransaction.amount,
-            newTransaction.date,
-            `Auto-Kategorientransfer von ${incomeCat.name} zu Verfügbare Mittel`
-          )
-        })
-      }
-    }
-
     saveTransactions()
+    monthlyBalanceStore.calculateMonthlyBalances()  // Aktualisierung auslösen
     return newTransaction
   }
 
@@ -140,6 +127,7 @@ export const useTransactionStore = defineStore('transaction', () => {
       saveTransactions()
       updateRunningBalances(transactions.value[index].accountId)
       debugLog("[transactionStore] updateTransaction", { id, updates })
+      monthlyBalanceStore.calculateMonthlyBalances()  // Aktualisierung auslösen
       return true
     }
     return false
@@ -159,6 +147,7 @@ export const useTransactionStore = defineStore('transaction', () => {
     updateRunningBalances(accountId)
     saveTransactions()
     debugLog("[transactionStore] deleteTransaction", id)
+    monthlyBalanceStore.calculateMonthlyBalances()  // Aktualisierung auslösen
     return true
   }
 

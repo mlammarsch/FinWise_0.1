@@ -1,51 +1,49 @@
-**Fehleranalyse und Korrektur der Saldo- und Transaktionsberechnung**
+## Spezifikation: Phase 2 - Erstellung und Validierung von Planbuchungen
 
-Ein Test mit initialen Salden und Transaktionen von 0€ hat folgendes ergeben:
+Diese Spezifikation beschreibt die zweite Phase der Implementierung von Prognosebuchungen in der Finanzapplikation. Ziel dieser Phase ist die Entwicklung einer Benutzeroberfläche (UI) zur Erstellung von Planbuchungen sowie die Implementierung der notwendigen Validierungsmechanismen, um die Datenintegrität sicherzustellen.
 
-*   **Kindkategorien:** Saldo wird korrekt angezeigt.
-*   **Mutter- und Eigenständige Kategorien:** Saldo wird mit 0€ angezeigt, was fehlerhaft ist. Mutterkategorie sollte 20€ und eigenständige Kategorie 10€ anzeigen.
+**I.  Benutzeroberfläche (UI) zur Erstellung von Planbuchungen:**
 
-**Ursachenanalyse:**
+Es wird eine Benutzeroberfläche entwickelt, die es dem Benutzer ermöglicht, Planbuchungen gemäß den in der vorherigen Spezifikation definierten Datenmodellen zu erstellen und zu bearbeiten. Die UI soll intuitiv und benutzerfreundlich sein und alle notwendigen Felder zur Erfassung der Planbuchungsdaten bereitstellen. Prüfe dazu die bestehende src\views\PlanningView.vue und src\views\admin\AdminPlanningView.vue. Diese UIs sollen dahingehend funktional gemacht werden.
 
-Das Problem scheint darin zu liegen, dass bei der Saldo-Berechnung Kategorie-Transfers nicht berücksichtigt werden. Im Gegensatz dazu werden ACCOUNTTRANSFERS berücksichtigt.
+*   **Layout und Navigation:**
+    *   Die UI wird als eigener Bereich innerhalb der Applikation implementiert (z.B. "Planung" oder "Prognosen").
+    *   Die Navigation soll einfach und übersichtlich sein, um das Erstellen, Bearbeiten und Anzeigen von Planbuchungen zu erleichtern.
+*   **Formularelemente:**
+    *   Für jedes Datenfeld im Planbuchungs-Store werden entsprechende Formularelemente bereitgestellt:
+        *   Textfelder für `recipient`, `name`, `notes`.
+        *   Dropdown-Menüs für `accountId`, `categoryId`, `type`, `frequency`, `endType`, `dayOfWeek`.
+        *   Zahlenfelder für `amount`, `interval`, `dayOfMonth`, `count`, `amountFrom`, `amountTo`.
+        *   Datumsauswahl für `date`, `endDate`.
+        *   Checkbox für `shiftWeekend`.
 
-**Korrektur der Saldo-Berechnung:**
+      Erstelle für das Dropdown Account ebenso eine neue Komponente wie es SelectCategories.vue bereits ist in selbem Style und selber Funktion. Nur auf Konten bezogen. Splitte hier auch mit Überschriften, die aus den Accountgroups kommen.
+      Zahlenfelder schau in die CurrencyInput für Formularfelder und Currency Display für die Darstellung.
+*   **Wiederholungsoptionen:**
+    *   Die UI soll die Möglichkeit bieten, die Wiederholungsoptionen (Recurrence) übersichtlich darzustellen und einfach zu konfigurieren.
+    *   Abhängig von der gewählten `frequency` (täglich, wöchentlich, monatlich, jährlich) werden die entsprechenden Felder zur Konfiguration der Wiederholung angezeigt (z.B. `dayOfWeek` für wöchentliche Wiederholung, `dayOfMonth` für monatliche Wiederholung).
+*   **Validierungshinweise:**
+    *   Die UI soll Validierungshinweise in Echtzeit anzeigen, um den Benutzer auf fehlerhafte oder fehlende Eingaben hinzuweisen.
+*   **Speichern und Abbrechen:**
+    *   Buttons zum Speichern der Planbuchung und zum Abbrechen der Erstellung/Bearbeitung sind vorhanden.
+*   **Responsives Design:** Die UI muss responsiv sein und auf verschiedenen Bildschirmgrößen (Desktop, Tablet, Smartphone) optimal dargestellt werden.
 
-Die korrigierte Saldo-Berechnung muss folgende Transaktionsarten berücksichtigen:
+**II.  Validierungsmechanismen:**
 
-*   **ACCOUNTTRANSFER:**  Geldtransfers zwischen Konten.
-*   **CATEGORYTRANSFER:** Geldtransfers zwischen Kategorien.
-*   **EXPENSES:** Ausgaben.
-*   **INCOME:** Einnahmen.
+Um die Datenintegrität im Planning Store sicherzustellen, werden die folgenden Validierungsmechanismen implementiert:
 
-Die **korrigierte Saldo Formel** lautet demnach:
+*   **Client-seitige Validierung:**
+    *   Die UI validiert die Eingaben des Benutzers bereits beim Ausfüllen des Formulars.
+    *   Folgende Validierungen werden durchgeführt:
+        *   **Pflichtfelder:** Überprüfung, ob alle Pflichtfelder ausgefüllt sind.
+        *   **Datentypen:** Überprüfung, ob die eingegebenen Werte den richtigen Datentypen entsprechen (z.B. Zahlen in Zahlenfeldern, Datumsangaben im Datumsfeld).
+        *   **Wertebereiche:** Überprüfung, ob die eingegebenen Werte innerhalb der zulässigen Wertebereiche liegen (z.B. `dayOfMonth` zwischen 1 und 31).
+        *   **Logische Zusammenhänge:** Überprüfung logischer Zusammenhänge zwischen den Feldern (z.B. `endDate` muss nach `date` liegen, wenn `endType` auf `DATE` gesetzt ist; `dayOfMonth` ist nur relevant, wenn `frequency` auf `MONTHLY` gesetzt ist).
 
-`Saldo aktueller Monat = Saldo Vormonat + ACCOUNTTRANSFER + CATEGORYTRANSFER + EXPENSES + INCOME`
 
-**Korrektur der Transaktions-Berechnung:**
 
-Entgegen meiner vorherigen Aussage (Spezifikationsfehler) dürfen **CATEGORYTRANSFER**s nicht in den Einzeltransaktionen auftauchen. Die angezeigten Transaktionen bestehen also nur aus Konto Transaktionen und Ausgaben und Einnahmen. Der korrigierte Text:
+**V.  Nächste Schritte:**
 
-Die korrigierte Formel lautet demnach:
-
-`Transaktionen aktueller Monat = ACCOUNTTRANSFER + EXPENSES + INCOME`
-
-**Berücksichtigung von Eltern-Kind-Beziehungen (Wiederholung zur Vollständigkeit):**
-
-Die obigen Formeln gelten für **Eigene Kategorien** sowie Buchungen, welche direkt auf die **Elternkategorie** gebucht wurden. Ist eine Elternkategorie vorhanden so werden die Ergbnisse der direkten Kinder in die Anzeige mit einberechnet.
-
-Die korrigierte Saldo-Berechnung für die **Elternkategorie** mit Berücksichtigung der Kindkategorien lautet:
-
-`Saldo aktueller Monat = Saldo Vormonat (Mutterkategorie) + ACCOUNTTRANSFER + CATEGORYTRANSFER + EXPENSES + INCOME (Mutterkategorie) + Σ Saldo aktueller Monat (alle Kindkategorien)`
-
-`Transaktionen aktueller Monat = ACCOUNTTRANSFER + EXPENSES + INCOME (Mutterkategorie) + Σ Transaktionen aktueller Monat (alle Kindkategorien)`
-
-**Test-Szenario:**
-
-*   **Eigene Kategorie:** Summe aus aus ACCOUNTTRANSFER + EXPENSES + INCOME + Saldo Vormonat
-*   **Elternkategorie:** Summe aus Saldo aller direkten Kinder. Zusätzlich wie Eigene Kategorie die ACCOUNTTRANSFER + EXPENSES + INCOME + Saldo Vormonat der Elternkategorie selbst.
-*   **Kindskategorie:** Summe aus ACCOUNTTRANSFER + EXPENSES + INCOME + Saldo Vormonat
-
-**Zusammenfassung:**
-
-Die Saldo-Berechnung muss um die Einbeziehung von `CATEGORYTRANSFER`s erweitert werden. Die Transaktionsberechnung sollte weiterhin nur `ACCOUNTTRANSFER`, `EXPENSES` und `INCOME` berücksichtigen. Elter- und Kindkategorien addieren gemäß der Beschreibung ihren Wert. Dies sollte die fehlerhaften Saldo-Anzeigen für Mutter- und eigenständige Kategorien beheben.
+1.  **UI Design:** Erstellung eines detaillierten UI-Designs für die Planbuchungs-Funktionalität.
+2.  **Implementierung der UI:** Entwicklung der UI basierend auf dem UI-Design und den oben genannten Anforderungen.
+3.  **Implementierung der Validierungen:** Implementierung der Client-seitigen und Server-seitigen Validierungsmechanismen.

@@ -1,3 +1,4 @@
+// Datei: src/stores/planningStore.ts
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { v4 as uuidv4 } from 'uuid'
@@ -6,10 +7,12 @@ import { PlanningTransaction, RecurrencePattern, TransactionType } from '../type
 import { useTransactionStore } from './transactionStore'
 import { toDateOnlyString } from '@/utils/formatters'
 import { debugLog } from '@/utils/logger'
+import { useMonthlyBalanceStore } from '@/stores/monthlyBalanceStore'  // Neuer Import
 
 export const usePlanningStore = defineStore('planning', () => {
   const planningTransactions = ref<PlanningTransaction[]>([])
   const transactionStore = useTransactionStore()
+  const monthlyBalanceStore = useMonthlyBalanceStore()  // Instanz des neuen Stores
 
   const getPlanningTransactionById = computed(() => {
     return (id: string) => planningTransactions.value.find(tx => tx.id === id)
@@ -98,6 +101,7 @@ export const usePlanningStore = defineStore('planning', () => {
     planningTransactions.value.push(newTransaction)
     savePlanningTransactions()
     debugLog('[planningStore] addPlanningTransaction', newTransaction)
+    monthlyBalanceStore.calculateMonthlyBalances()  // Aktualisierung auslösen
     return newTransaction
   }
 
@@ -107,6 +111,7 @@ export const usePlanningStore = defineStore('planning', () => {
       planningTransactions.value[index] = { ...planningTransactions.value[index], ...updates }
       savePlanningTransactions()
       debugLog('[planningStore] updatePlanningTransaction', { id, updates })
+      monthlyBalanceStore.calculateMonthlyBalances()  // Aktualisierung auslösen
       return true
     }
     return false
@@ -117,15 +122,9 @@ export const usePlanningStore = defineStore('planning', () => {
     if (!transaction) return false
 
     planningTransactions.value = planningTransactions.value.filter(tx => tx.id !== id)
-
-    if (transaction.counterPlanningTransactionId) {
-      planningTransactions.value = planningTransactions.value.filter(
-        tx => tx.id !== transaction.counterPlanningTransactionId
-      )
-    }
-
     savePlanningTransactions()
     debugLog('[planningStore] deletePlanningTransaction', id)
+    monthlyBalanceStore.calculateMonthlyBalances()  // Aktualisierung auslösen
     return true
   }
 
