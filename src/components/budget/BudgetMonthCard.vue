@@ -14,6 +14,7 @@
 import { computed, ref, nextTick } from "vue";
 import { useTransactionStore } from "../../stores/transactionStore";
 import { useCategoryStore } from "../../stores/categoryStore";
+import { useMonthlyBalanceStore } from "@/stores/monthlyBalanceStore";
 import { Category, TransactionType } from "../../types";
 import CurrencyDisplay from "../ui/CurrencyDisplay.vue";
 import {
@@ -24,7 +25,6 @@ import { toDateOnlyString } from "@/utils/formatters";
 import CategoryTransferModal from "./CategoryTransferModal.vue";
 import { addCategoryTransfer } from "@/utils/categoryTransfer";
 import { debugLog } from "@/utils/logger";
-// Chevron in BudgetMonthCard wird entfernt, da Toggle ausschließlich in der Category Column erfolgt.
 
 const props = defineProps<{
   month: { start: Date; end: Date; label: string };
@@ -33,12 +33,11 @@ const props = defineProps<{
 
 const transactionStore = useTransactionStore();
 const categoryStore = useCategoryStore();
+const monthlyBalanceStore = useMonthlyBalanceStore();
 
-// Normierung der Monatsdaten
 const normalizedMonthStart = new Date(toDateOnlyString(props.month.start));
 const normalizedMonthEnd = new Date(toDateOnlyString(props.month.end));
 
-// Für Transaktions-Berechnung (ohne CATEGORYTRANSFER)
 const filteredTxs = computed(() =>
   transactionStore.transactions.filter(
     (tx) =>
@@ -48,7 +47,6 @@ const filteredTxs = computed(() =>
   )
 );
 
-// Für Saldo-Berechnung (inklusive CATEGORYTRANSFER)
 const filteredTxsForSaldo = computed(() =>
   transactionStore.transactions.filter(
     (tx) =>
@@ -63,28 +61,25 @@ const availableFundsCategory = categoryStore.getAvailableFundsCategory();
 const isVerfuegbareMittel = (cat: Category) =>
   availableFundsCategory?.id === cat.id;
 
-/**
- * Aggregiert Daten für Ausgabenkategorien.
- *
- * Berechnet:
- *   Saldo aktueller Monat = Saldo Vormonat + (ACCOUNTTRANSFER + CATEGORYTRANSFER + EXPENSES + INCOME)
- *   Transaktionen aktueller Monat = ACCOUNTTRANSFER + EXPENSES + INCOME
- *   plus Aggregation der Werte der Kindkategorien.
- */
 function aggregateExpense(cat: Category) {
+  const startBalanceInfo =
+    monthlyBalanceStore.getLatestPersistedCategoryBalance(
+      cat.id,
+      normalizedMonthStart
+    ) || { balance: cat.startBalance || 0, date: normalizedMonthStart };
   const parentDataSaldo = calculateCategorySaldo(
     filteredTxsForSaldo.value,
     cat.id,
     normalizedMonthStart,
     normalizedMonthEnd,
-    cat.startBalance || 0
+    startBalanceInfo
   );
   const parentDataTrans = calculateCategorySaldo(
     filteredTxs.value,
     cat.id,
     normalizedMonthStart,
     normalizedMonthEnd,
-    cat.startBalance || 0
+    startBalanceInfo
   );
   let agg = {
     budgeted: parentDataSaldo.budgeted,
@@ -95,19 +90,24 @@ function aggregateExpense(cat: Category) {
     .getChildCategories(cat.id)
     .filter((c) => c.isActive && !isVerfuegbareMittel(c));
   children.forEach((child) => {
+    const childStartBalanceInfo =
+      monthlyBalanceStore.getLatestPersistedCategoryBalance(
+        child.id,
+        normalizedMonthStart
+      ) || { balance: child.startBalance || 0, date: normalizedMonthStart };
     const childDataSaldo = calculateCategorySaldo(
       filteredTxsForSaldo.value,
       child.id,
       normalizedMonthStart,
       normalizedMonthEnd,
-      child.startBalance || 0
+      childStartBalanceInfo
     );
     const childDataTrans = calculateCategorySaldo(
       filteredTxs.value,
       child.id,
       normalizedMonthStart,
       normalizedMonthEnd,
-      child.startBalance || 0
+      childStartBalanceInfo
     );
     agg.budgeted += childDataSaldo.budgeted;
     agg.spent += childDataTrans.spent;
@@ -116,28 +116,25 @@ function aggregateExpense(cat: Category) {
   return agg;
 }
 
-/**
- * Aggregiert Daten für Einnahmekategorien.
- *
- * Berechnet:
- *   Saldo aktueller Monat = Saldo Vormonat - (ACCOUNTTRANSFER + EXPENSES + INCOME) (inkl. CATEGORYTRANSFER bei Saldo)
- *   Transaktionen aktueller Monat = ACCOUNTTRANSFER + EXPENSES + INCOME
- *   plus Aggregation der Werte der Kindkategorien.
- */
 function aggregateIncome(cat: Category) {
+  const startBalanceInfo =
+    monthlyBalanceStore.getLatestPersistedCategoryBalance(
+      cat.id,
+      normalizedMonthStart
+    ) || { balance: cat.startBalance || 0, date: normalizedMonthStart };
   const parentDataSaldo = calculateIncomeCategorySaldo(
     filteredTxsForSaldo.value,
     cat.id,
     normalizedMonthStart,
     normalizedMonthEnd,
-    cat.startBalance || 0
+    startBalanceInfo
   );
   const parentDataTrans = calculateIncomeCategorySaldo(
     filteredTxs.value,
     cat.id,
     normalizedMonthStart,
     normalizedMonthEnd,
-    cat.startBalance || 0
+    startBalanceInfo
   );
   let agg = {
     budgeted: parentDataSaldo.budgeted,
@@ -148,19 +145,24 @@ function aggregateIncome(cat: Category) {
     .getChildCategories(cat.id)
     .filter((c) => c.isActive && !isVerfuegbareMittel(c));
   children.forEach((child) => {
+    const childStartBalanceInfo =
+      monthlyBalanceStore.getLatestPersistedCategoryBalance(
+        child.id,
+        normalizedMonthStart
+      ) || { balance: child.startBalance || 0, date: normalizedMonthStart };
     const childDataSaldo = calculateIncomeCategorySaldo(
       filteredTxsForSaldo.value,
       child.id,
       normalizedMonthStart,
       normalizedMonthEnd,
-      child.startBalance || 0
+      childStartBalanceInfo
     );
     const childDataTrans = calculateIncomeCategorySaldo(
       filteredTxs.value,
       child.id,
       normalizedMonthStart,
       normalizedMonthEnd,
-      child.startBalance || 0
+      childStartBalanceInfo
     );
     agg.budgeted += childDataSaldo.budgeted;
     agg.spent += childDataTrans.spent;
@@ -169,7 +171,6 @@ function aggregateIncome(cat: Category) {
   return agg;
 }
 
-// Computed: Prüft, ob der angezeigte Monat aktuell ist
 const isCurrentMonth = computed(() => {
   const now = new Date();
   return (
@@ -178,7 +179,6 @@ const isCurrentMonth = computed(() => {
   );
 });
 
-// Computed: Aggregierte Werte für Ausgaben (Eltern + Kinder)
 const sumExpensesSummary = computed(() => {
   let agg = { budgeted: 0, spentMiddle: 0, saldoFull: 0 };
   props.categories
@@ -198,7 +198,6 @@ const sumExpensesSummary = computed(() => {
   return agg;
 });
 
-// Computed: Aggregierte Werte für Einnahmen (Eltern + Kinder)
 const sumIncomesSummary = computed(() => {
   let agg = { budgeted: 0, spentMiddle: 0, saldoFull: 0 };
   props.categories
@@ -218,7 +217,6 @@ const sumIncomesSummary = computed(() => {
   return agg;
 });
 
-// Zustand für Transfer-Modal und Dropdown
 const showTransferModal = ref(false);
 const modalData = ref<{
   mode: "fill" | "transfer";
@@ -272,13 +270,18 @@ function handleEscDropdown(event: KeyboardEvent) {
 function optionFill() {
   if (!modalData.value?.clickedCategory) return;
   const cat = modalData.value.clickedCategory;
+  const startBalanceInfo =
+    monthlyBalanceStore.getLatestPersistedCategoryBalance(
+      cat.id,
+      normalizedMonthStart
+    ) || { balance: cat.startBalance || 0, date: normalizedMonthStart };
   const amountValue = Math.abs(
     calculateCategorySaldo(
       transactionStore.transactions,
       cat.id,
       normalizedMonthStart,
       normalizedMonthEnd,
-      cat.startBalance || 0
+      startBalanceInfo
     ).saldo
   );
   modalData.value = {
@@ -314,6 +317,7 @@ function optionTransfer() {
   showTransferModal.value = true;
 }
 </script>
+
 
 <template>
   <div class="flex w-full">
@@ -414,7 +418,13 @@ function optionTransfer() {
                         child.id,
                         normalizedMonthStart,
                         normalizedMonthEnd,
-                        child.startBalance || 0
+                        monthlyBalanceStore.getLatestPersistedCategoryBalance(
+                          child.id,
+                          normalizedMonthStart
+                        ) || {
+                          balance: child.startBalance || 0,
+                          date: normalizedMonthStart,
+                        }
                       ).budgeted
                     "
                     :as-integer="true"
@@ -428,7 +438,13 @@ function optionTransfer() {
                         child.id,
                         normalizedMonthStart,
                         normalizedMonthEnd,
-                        child.startBalance || 0
+                        monthlyBalanceStore.getLatestPersistedCategoryBalance(
+                          child.id,
+                          normalizedMonthStart
+                        ) || {
+                          balance: child.startBalance || 0,
+                          date: normalizedMonthStart,
+                        }
                       ).spent
                     "
                     :as-integer="true"
@@ -442,7 +458,13 @@ function optionTransfer() {
                         child.id,
                         normalizedMonthStart,
                         normalizedMonthEnd,
-                        child.startBalance || 0
+                        monthlyBalanceStore.getLatestPersistedCategoryBalance(
+                          child.id,
+                          normalizedMonthStart
+                        ) || {
+                          balance: child.startBalance || 0,
+                          date: normalizedMonthStart,
+                        }
                       ).saldo
                     "
                     :as-integer="true"
@@ -547,7 +569,13 @@ function optionTransfer() {
                         child.id,
                         normalizedMonthStart,
                         normalizedMonthEnd,
-                        child.startBalance || 0
+                        monthlyBalanceStore.getLatestPersistedCategoryBalance(
+                          child.id,
+                          normalizedMonthStart
+                        ) || {
+                          balance: child.startBalance || 0,
+                          date: normalizedMonthStart,
+                        }
                       ).budgeted
                     "
                     :as-integer="true"
@@ -561,7 +589,13 @@ function optionTransfer() {
                         child.id,
                         normalizedMonthStart,
                         normalizedMonthEnd,
-                        child.startBalance || 0
+                        monthlyBalanceStore.getLatestPersistedCategoryBalance(
+                          child.id,
+                          normalizedMonthStart
+                        ) || {
+                          balance: child.startBalance || 0,
+                          date: normalizedMonthStart,
+                        }
                       ).spent
                     "
                     :as-integer="true"
@@ -575,7 +609,13 @@ function optionTransfer() {
                         child.id,
                         normalizedMonthStart,
                         normalizedMonthEnd,
-                        child.startBalance || 0
+                        monthlyBalanceStore.getLatestPersistedCategoryBalance(
+                          child.id,
+                          normalizedMonthStart
+                        ) || {
+                          balance: child.startBalance || 0,
+                          date: normalizedMonthStart,
+                        }
                       ).saldo
                     "
                     :as-integer="true"

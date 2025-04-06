@@ -1,4 +1,3 @@
-<!-- src/components/rules/RuleForm.vue -->
 <script setup lang="ts">
 /**
  * Pfad zur Komponente: src/components/rules/RuleForm.vue
@@ -14,7 +13,7 @@
  * - cancel: Bricht den Vorgang ab
  * - apply: Testet die Regel auf vorhandene Transaktionen an
  */
-import { ref, computed, onMounted, nextTick } from "vue";
+import { ref, computed, onMounted } from "vue";
 import {
   RuleConditionType,
   RuleActionType,
@@ -39,7 +38,6 @@ const props = defineProps<{
 
 const emit = defineEmits(["save", "cancel", "apply"]);
 
-// Stores
 const accountStore = useAccountStore();
 const categoryStore = useCategoryStore();
 const tagStore = useTagStore();
@@ -47,7 +45,6 @@ const recipientStore = useRecipientStore();
 const planningStore = usePlanningStore();
 const transactionStore = useTransactionStore();
 
-// Formularfelder
 const name = ref("");
 const description = ref("");
 const isActive = ref(true);
@@ -56,10 +53,8 @@ const priority = ref(100);
 const conditions = ref<RuleCondition[]>([]);
 const actions = ref<RuleAction[]>([]);
 
-// Füge initial eine leere Bedingung und Aktion hinzu
 onMounted(() => {
   if (props.rule) {
-    // Bearbeiten einer bestehenden Regel
     name.value = props.rule.name;
     description.value = props.rule.description || "";
     isActive.value = props.rule.isActive;
@@ -68,7 +63,6 @@ onMounted(() => {
     conditions.value = [...props.rule.conditions];
     actions.value = [...props.rule.actions];
   } else if (props.initialValues) {
-    // Neue Regel mit vorausgefüllten Werten
     name.value = props.initialValues.name || "";
     description.value = props.initialValues.description || "";
     isActive.value =
@@ -85,7 +79,6 @@ onMounted(() => {
       : [];
   }
 
-  // Stelle sicher, dass mindestens eine Bedingung und Aktion vorhanden ist
   if (conditions.value.length === 0) {
     conditions.value.push({
       type: RuleConditionType.ACCOUNT_IS,
@@ -103,7 +96,6 @@ onMounted(() => {
   }
 });
 
-// Verfügbare Optionen für Bedingungen und Aktionen
 const conditionTypeOptions = [
   { value: RuleConditionType.ACCOUNT_IS, label: "Konto ist" },
   { value: RuleConditionType.PAYEE_EQUALS, label: "Empfänger ist genau" },
@@ -126,20 +118,17 @@ const actionTypeOptions = [
   { value: RuleActionType.LINK_SCHEDULE, label: "Mit Planung verknüpfen" },
 ];
 
-const operatorOptions = computed(() => {
-  return [
-    { value: "is", label: "ist" },
-    { value: "contains", label: "enthält" },
-    { value: "starts_with", label: "beginnt mit" },
-    { value: "ends_with", label: "endet mit" },
-    { value: "equals", label: "genau gleich" },
-    { value: "greater", label: "größer als" },
-    { value: "less", label: "kleiner als" },
-    { value: "approx", label: "ungefähr" },
-  ];
-});
+const operatorOptions = computed(() => [
+  { value: "is", label: "ist" },
+  { value: "contains", label: "enthält" },
+  { value: "starts_with", label: "beginnt mit" },
+  { value: "ends_with", label: "endet mit" },
+  { value: "equals", label: "genau gleich" },
+  { value: "greater", label: "größer als" },
+  { value: "less", label: "kleiner als" },
+  { value: "approx", label: "ungefähr" },
+]);
 
-// Hilfsfunktionen für Bedingungen und Aktionen
 function addCondition() {
   conditions.value.push({
     type: RuleConditionType.PAYEE_CONTAINS,
@@ -168,7 +157,6 @@ function removeAction(index: number) {
   }
 }
 
-// Speichern der Regel
 function saveRule() {
   const ruleData: Omit<AutomationRule, "id"> = {
     name: name.value,
@@ -184,7 +172,6 @@ function saveRule() {
   emit("save", ruleData);
 }
 
-// Testen der Regel auf bestehende Transaktionen
 function applyRuleToExistingTransactions() {
   const ruleData: AutomationRule = {
     id: props.rule?.id || uuidv4(),
@@ -199,116 +186,6 @@ function applyRuleToExistingTransactions() {
 
   debugLog("[RuleForm] applyRuleToExistingTransactions", ruleData);
   emit("apply", ruleData);
-}
-
-// Hilfsmethode für die bedingte Anzeige von Wertauswahlen je nach Bedingungstyp
-function getConditionValueInput(condition: RuleCondition, index: number) {
-  switch (condition.type) {
-    case RuleConditionType.ACCOUNT_IS:
-      return (
-        <select v-model={condition.value} class="select select-bordered w-full">
-          <option value="" disabled>
-            Konto auswählen
-          </option>
-          {accountStore.accounts.map((account) => (
-            <option key={account.id} value={account.id}>
-              {account.name}
-            </option>
-          ))}
-        </select>
-      );
-
-    case RuleConditionType.AMOUNT_EQUALS:
-    case RuleConditionType.AMOUNT_GREATER:
-    case RuleConditionType.AMOUNT_LESS:
-      return (
-        <input
-          type="number"
-          step="0.01"
-          v-model={condition.value}
-          class="input input-bordered w-full"
-          placeholder="Betrag (z.B. 42.99)"
-        />
-      );
-
-    case RuleConditionType.DATE_IS:
-    case RuleConditionType.DATE_APPROX:
-      return (
-        <input
-          type="date"
-          v-model={condition.value}
-          class="input input-bordered w-full"
-        />
-      );
-
-    default:
-      return (
-        <input
-          type="text"
-          v-model={condition.value}
-          class="input input-bordered w-full"
-          placeholder="Wert eingeben"
-        />
-      );
-  }
-}
-
-// Hilfsmethode für die bedingte Anzeige von Wertauswahlen je nach Aktionstyp
-function getActionValueInput(action: RuleAction, index: number) {
-  switch (action.type) {
-    case RuleActionType.SET_CATEGORY:
-      return (
-        <select v-model={action.value} class="select select-bordered w-full">
-          <option value="" disabled>
-            Kategorie auswählen
-          </option>
-          {categoryStore.categories.map((category) => (
-            <option key={category.id} value={category.id}>
-              {category.name}
-            </option>
-          ))}
-        </select>
-      );
-
-    case RuleActionType.ADD_TAG:
-      return (
-        <select
-          v-model={action.value}
-          class="select select-bordered w-full"
-          multiple
-        >
-          {tagStore.tags.map((tag) => (
-            <option key={tag.id} value={tag.id}>
-              {tag.name}
-            </option>
-          ))}
-        </select>
-      );
-
-    case RuleActionType.LINK_SCHEDULE:
-      return (
-        <select v-model={action.value} class="select select-bordered w-full">
-          <option value="" disabled>
-            Planung auswählen
-          </option>
-          {planningStore.planningTransactions.map((planning) => (
-            <option key={planning.id} value={planning.id}>
-              {planning.name}
-            </option>
-          ))}
-        </select>
-      );
-
-    default:
-      return (
-        <input
-          type="text"
-          v-model={action.value}
-          class="input input-bordered w-full"
-          placeholder="Wert eingeben"
-        />
-      );
-  }
 }
 </script>
 

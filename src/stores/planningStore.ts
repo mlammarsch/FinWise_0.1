@@ -1,14 +1,14 @@
-// Datei: src/stores/planningStore.ts (vollständig)
+// Datei: src/stores/planningStore.ts
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { v4 as uuidv4 } from 'uuid'
 import dayjs from 'dayjs'
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore'
 import weekday from 'dayjs/plugin/weekday'
-import isSameOrAfter from 'dayjs/plugin/isSameOrAfter' // NEUE ZEILE: Plugin importieren
+import isSameOrAfter from 'dayjs/plugin/isSameOrAfter'
 dayjs.extend(isSameOrBefore)
 dayjs.extend(weekday)
-dayjs.extend(isSameOrAfter) // NEUE ZEILE: Plugin erweitern
+dayjs.extend(isSameOrAfter)
 
 import {
   PlanningTransaction,
@@ -19,6 +19,7 @@ import {
   WeekendHandlingType
 } from '../types'
 import { useTransactionStore } from './transactionStore'
+import { useRuleStore } from './ruleStore'
 import { toDateOnlyString } from '@/utils/formatters'
 import { debugLog } from '@/utils/logger'
 import { useMonthlyBalanceStore } from '@/stores/monthlyBalanceStore'
@@ -32,9 +33,6 @@ export const usePlanningStore = defineStore('planning', () => {
     return (id: string) => planningTransactions.value.find(tx => tx.id === id)
   })
 
-  /**
-   * Gibt alle bevorstehenden Transaktionen für einen bestimmten Zeitraum zurück
-   */
   const getUpcomingTransactions = computed(() => {
     return (days: number = 30) => {
       const today = dayjs()
@@ -59,10 +57,6 @@ export const usePlanningStore = defineStore('planning', () => {
     }
   })
 
-  /**
-   * Berechnet alle Vorkommen einer Planungsbuchung in einem Zeitraum
-   * unter Berücksichtigung von Wochenendbehandlung
-   */
   function calculateNextOccurrences(
     planTx: PlanningTransaction,
     startDate: string,
@@ -80,25 +74,21 @@ export const usePlanningStore = defineStore('planning', () => {
 
     let currentDate = txStart
     let count = 0
-    const maxIterations = 1000 // Schutz vor Endlosschleifen
+    const maxIterations = 1000
 
     while (currentDate.isSameOrBefore(end) && count < maxIterations) {
-      // Wochenendbehandlung anwenden
       let adjustedDate = applyWeekendHandling(currentDate, planTx.weekendHandling)
 
-      // Wenn das angepasste Datum im gewünschten Bereich liegt, hinzufügen
       if (adjustedDate.isSameOrAfter(start) && adjustedDate.isSameOrBefore(end)) {
         occurrences.push(toDateOnlyString(adjustedDate.toDate()))
       }
 
-      // Abbruchbedingung bei COUNT-basierter Wiederholung
       if (planTx.recurrenceEndType === RecurrenceEndType.COUNT &&
           planTx.recurrenceCount !== null &&
           ++count >= planTx.recurrenceCount) {
         break
       }
 
-      // Nächstes Datum basierend auf dem Wiederholungsmuster berechnen
       switch (planTx.recurrencePattern) {
         case RecurrencePattern.DAILY:
           currentDate = currentDate.add(1, 'day')
@@ -110,7 +100,6 @@ export const usePlanningStore = defineStore('planning', () => {
           currentDate = currentDate.add(2, 'week')
           break
         case RecurrencePattern.MONTHLY:
-          // Wenn ein spezifischer Tag vorgegeben ist, diesen verwenden
           if (planTx.executionDay && planTx.executionDay > 0 && planTx.executionDay <= 31) {
             currentDate = dayjs(new Date(
               currentDate.year(),
@@ -131,7 +120,6 @@ export const usePlanningStore = defineStore('planning', () => {
           return occurrences
       }
 
-      // Abbruchbedingung bei DATE-basierter Wiederholung
       if (planTx.recurrenceEndType === RecurrenceEndType.DATE && planTx.endDate &&
           currentDate.isAfter(dayjs(toDateOnlyString(planTx.endDate)))) {
         break
@@ -141,35 +129,24 @@ export const usePlanningStore = defineStore('planning', () => {
     return occurrences
   }
 
-  /**
-   * Wendet die Wochenendbehandlung auf ein Datum an
-   */
   function applyWeekendHandling(date: dayjs.Dayjs, handling: WeekendHandlingType): dayjs.Dayjs {
-    const dayOfWeek = date.day() // 0 = Sonntag, 6 = Samstag
+    const dayOfWeek = date.day()
 
     if (handling === WeekendHandlingType.NONE || (dayOfWeek !== 0 && dayOfWeek !== 6)) {
-      return date // Kein Wochenende oder keine Behandlung nötig
+      return date
     }
 
     if (handling === WeekendHandlingType.BEFORE) {
-      // Auf den vorherigen Freitag verschieben
       return dayOfWeek === 0 ? date.subtract(2, 'day') : date.subtract(1, 'day')
     } else {
-      // Auf den nächsten Montag verschieben
       return dayOfWeek === 0 ? date.add(1, 'day') : date.add(2, 'day')
     }
   }
 
-  /**
-   * Hilfsfunktion: Gibt die Anzahl der Tage in einem Monat zurück
-   */
   function daysInMonth(month: number, year: number): number {
     return new Date(year, month + 1, 0).getDate()
   }
 
-  /**
-   * Fügt eine neue Planungstransaktion hinzu
-   */
   function addPlanningTransaction(transaction: Omit<PlanningTransaction, 'id'>) {
     const newTransaction: PlanningTransaction = {
       ...transaction,
@@ -188,9 +165,6 @@ export const usePlanningStore = defineStore('planning', () => {
     return newTransaction
   }
 
-  /**
-   * Aktualisiert eine vorhandene Planungstransaktion
-   */
   function updatePlanningTransaction(id: string, updates: Partial<PlanningTransaction>) {
     const index = planningTransactions.value.findIndex(tx => tx.id === id)
     if (index !== -1) {
@@ -203,9 +177,6 @@ export const usePlanningStore = defineStore('planning', () => {
     return false
   }
 
-  /**
-   * Löscht eine Planungstransaktion
-   */
   function deletePlanningTransaction(id: string) {
     const transaction = planningTransactions.value.find(tx => tx.id === id)
     if (!transaction) return false
@@ -217,26 +188,20 @@ export const usePlanningStore = defineStore('planning', () => {
     return true
   }
 
-  /**
-   * Führt eine Planungstransaktion manuell aus
-   */
   function executePlanningTransaction(planningId: string, executionDate: string) {
     const planTx = getPlanningTransactionById.value(planningId)
     if (!planTx) return null
 
     const date = toDateOnlyString(executionDate)
+    const ruleStore = useRuleStore()
 
-    // Betrag basierend auf dem AmountType bestimmen
     let effectiveAmount = planTx.amount
     if (planTx.amountType === AmountType.APPROXIMATE && planTx.approximateAmount) {
-      // Zufällige Abweichung im Bereich von ±10% der angegebenen Schwankung
       const variation = (Math.random() * 2 - 1) * planTx.approximateAmount
       effectiveAmount = Math.round((planTx.amount + variation) * 100) / 100
     } else if (planTx.amountType === AmountType.RANGE && planTx.minAmount && planTx.maxAmount) {
-      // Zufälliger Betrag im angegebenen Bereich
       const range = planTx.maxAmount - planTx.minAmount
       effectiveAmount = Math.round((planTx.minAmount + Math.random() * range) * 100) / 100
-      // Vorzeichen beibehalten
       if (planTx.amount < 0) effectiveAmount = -Math.abs(effectiveAmount)
     }
 
@@ -260,7 +225,7 @@ export const usePlanningStore = defineStore('planning', () => {
       }
     }
 
-    const transaction = {
+    let transaction = {
       date,
       valueDate: date,
       accountId: planTx.accountId,
@@ -274,16 +239,17 @@ export const usePlanningStore = defineStore('planning', () => {
       isReconciliation: false
     }
 
+    transaction = ruleStore.applyRulesToTransaction(transaction, 'PRE')
+    transaction = ruleStore.applyRulesToTransaction(transaction, 'DEFAULT')
+    transaction = ruleStore.applyRulesToTransaction(transaction, 'POST')
+
     debugLog('[planningStore] executePlanningTransaction → Einzelbuchung', transaction)
     return transactionStore.addTransaction(transaction)
   }
 
-  /**
-   * Führt alle fälligen Planungstransaktionen aus
-   */
   function executeAllDuePlanningTransactions() {
     const today = dayjs()
-    const upcomingTransactions = getUpcomingTransactions.value(0) // Nur heutige Transaktionen
+    const upcomingTransactions = getUpcomingTransactions.value(0)
 
     let executedCount = 0
     upcomingTransactions.forEach(({ date, transaction }) => {
@@ -301,16 +267,11 @@ export const usePlanningStore = defineStore('planning', () => {
     return executedCount
   }
 
-  /**
-   * Lädt Planungstransaktionen aus dem LocalStorage
-   */
   function loadPlanningTransactions() {
     const saved = localStorage.getItem('finwise_planning_transactions')
     if (saved) {
       try {
         const parsed = JSON.parse(saved)
-
-        // Konvertiere alte Datenformate in das neue Format (falls nötig)
         planningTransactions.value = parsed.map((tx: any) => ({
           ...tx,
           amountType: tx.amountType || AmountType.EXACT,
@@ -329,24 +290,17 @@ export const usePlanningStore = defineStore('planning', () => {
     }
   }
 
-  /**
-   * Speichert Planungstransaktionen im LocalStorage
-   */
   function savePlanningTransactions() {
     localStorage.setItem('finwise_planning_transactions', JSON.stringify(planningTransactions.value))
     debugLog('[planningStore] savePlanningTransactions - Saved', planningTransactions.value.length, 'transactions')
   }
 
-  /**
-   * Setzt den planningStore zurück
-   */
   function reset() {
     planningTransactions.value = []
     loadPlanningTransactions()
     debugLog('[planningStore] reset')
   }
 
-  // Initialisierung
   loadPlanningTransactions()
 
   return {

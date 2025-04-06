@@ -20,11 +20,15 @@ import {
   AmountType,
   RecurrenceEndType,
   WeekendHandlingType,
+  RuleConditionType,
+  RuleActionType,
 } from "../../types";
 import { useAccountStore } from "../../stores/accountStore";
 import { useCategoryStore } from "../../stores/categoryStore";
 import { useTagStore } from "../../stores/tagStore";
 import { useRecipientStore } from "../../stores/recipientStore";
+import { useRuleStore } from "@/stores/ruleStore";
+import RuleForm from "@/components/rules/RuleForm.vue";
 import dayjs from "dayjs";
 import SelectAccount from "../ui/SelectAccount.vue";
 import SelectCategory from "../ui/SelectCategory.vue";
@@ -32,6 +36,7 @@ import SelectRecipient from "../ui/SelectRecipient.vue";
 import CurrencyInput from "../ui/CurrencyInput.vue";
 import TagSearchableDropdown from "../ui/TagSearchableDropdown.vue";
 import { debugLog } from "@/utils/logger";
+import { Icon } from "@iconify/vue";
 
 const props = defineProps<{
   transaction?: PlanningTransaction;
@@ -44,6 +49,7 @@ const accountStore = useAccountStore();
 const categoryStore = useCategoryStore();
 const tagStore = useTagStore();
 const recipientStore = useRecipientStore();
+const ruleStore = useRuleStore();
 
 // Formularfelder
 const name = ref("");
@@ -76,6 +82,9 @@ const weekendHandlingDirection = ref<"before" | "after">("after");
 const autoExecute = ref(false);
 const isActive = ref(true);
 
+// Regel-Erstellung Modal
+const showRuleCreationModal = ref(false);
+
 // Zeitpunktbeschreibung
 const dateDescription = ref("Jährlich am 14. April");
 
@@ -84,10 +93,9 @@ const upcomingDates = ref<Array<{ date: string; day: string }>>([]);
 
 onMounted(() => {
   if (props.transaction) {
-    // Lade Daten einer bestehenden Transaktion
     name.value = props.transaction.name || "";
     note.value = props.transaction.note || "";
-    amount.value = Math.abs(props.transaction.amount); // Immer positiv speichern, Richtung über TransactionType
+    amount.value = Math.abs(props.transaction.amount);
     amountType.value = props.transaction.amountType || AmountType.EXACT;
     approximateAmount.value = props.transaction.approximateAmount || 0;
     minAmount.value = props.transaction.minAmount || 0;
@@ -103,7 +111,6 @@ onMounted(() => {
         ? props.transaction.isActive
         : true;
 
-    // Wiederholungsoptionen
     repeatsEnabled.value =
       props.transaction.recurrencePattern !== RecurrencePattern.ONCE;
     recurrencePattern.value = props.transaction.recurrencePattern;
@@ -113,7 +120,6 @@ onMounted(() => {
     endDate.value = props.transaction.endDate || null;
     executionDay.value = props.transaction.executionDay || null;
 
-    // Wochenendbehandlung
     weekendHandling.value =
       props.transaction.weekendHandling || WeekendHandlingType.NONE;
     moveScheduleEnabled.value =
@@ -121,7 +127,6 @@ onMounted(() => {
     weekendHandlingDirection.value =
       weekendHandling.value === WeekendHandlingType.BEFORE ? "before" : "after";
 
-    // Bestimme, ob es sich um einen Transfer handelt
     if (props.transaction.transactionType === TransactionType.ACCOUNTTRANSFER) {
       isTransfer.value = true;
       toAccountId.value = props.transaction.transferToAccountId || "";
@@ -129,7 +134,6 @@ onMounted(() => {
       isTransfer.value = false;
     }
   } else {
-    // Standardwerte für neue Transaktionen
     if (accountStore.activeAccounts.length > 0) {
       accountId.value = accountStore.activeAccounts[0].id;
     }
@@ -139,7 +143,6 @@ onMounted(() => {
   calculateUpcomingDates();
 });
 
-// Aktualisiere die Beschreibung, wenn sich die Datumsfelder ändern
 watch(
   [
     startDate,
@@ -155,7 +158,6 @@ watch(
   }
 );
 
-// Aktualisiert die menschenlesbare Datumsbeschreibung
 function updateDateDescription() {
   if (!repeatsEnabled.value) {
     dateDescription.value = `Einmalig am ${formatDate(startDate.value)}`;
@@ -164,7 +166,6 @@ function updateDateDescription() {
 
   const date = dayjs(startDate.value);
   const day = date.date();
-  const month = date.month() + 1; // dayjs Monate sind 0-basiert
   const monthName = [
     "Januar",
     "Februar",
@@ -215,57 +216,46 @@ function updateDateDescription() {
   dateDescription.value = desc;
 }
 
-// Berechnet die nächsten Ausführungstermine
 function calculateUpcomingDates() {
   upcomingDates.value = [];
-
   if (!startDate.value) return;
 
   let currentDate = dayjs(startDate.value);
   const endDateLimit = dayjs().add(3, "years");
   let count = 0;
 
-  // Wenn nicht wiederholend, nur das Startdatum anzeigen
   if (!repeatsEnabled.value) {
-    const formattedDay = `${getDayOfWeekName(currentDate.day())}`;
     upcomingDates.value.push({
       date: currentDate.format("DD.MM.YYYY"),
-      day: formattedDay,
+      day: getDayOfWeekName(currentDate.day()),
     });
     return;
   }
 
-  // Maximal 5 Termine anzeigen
   while (count < 5 && currentDate.isBefore(endDateLimit)) {
-    // Wochenendbehandlung
     let dateToUse = currentDate;
     if (moveScheduleEnabled.value) {
-      const dayOfWeek = dateToUse.day(); // 0 = Sonntag, 6 = Samstag
+      const dayOfWeek = dateToUse.day();
       if (dayOfWeek === 0 || dayOfWeek === 6) {
-        // Wochenende
         if (weekendHandlingDirection.value === "before") {
-          // Auf den vorherigen Freitag verschieben
           dateToUse =
             dayOfWeek === 0
               ? dateToUse.subtract(2, "day")
               : dateToUse.subtract(1, "day");
         } else {
-          // Auf den nächsten Montag verschieben
           dateToUse =
             dayOfWeek === 0 ? dateToUse.add(1, "day") : dateToUse.add(2, "day");
         }
       }
     }
 
-    const formattedDay = `${getDayOfWeekName(dateToUse.day())}`;
     upcomingDates.value.push({
       date: dateToUse.format("DD.MM.YYYY"),
-      day: formattedDay,
+      day: getDayOfWeekName(dateToUse.day()),
     });
 
     count++;
 
-    // Nächstes Datum berechnen
     switch (recurrencePattern.value) {
       case RecurrencePattern.DAILY:
         currentDate = currentDate.add(1, "day");
@@ -277,7 +267,6 @@ function calculateUpcomingDates() {
         currentDate = currentDate.add(2, "weeks");
         break;
       case RecurrencePattern.MONTHLY:
-        // Bei monatlicher Wiederholung mit spezifischem Tag
         if (executionDay.value) {
           const nextMonth = currentDate.add(1, "month");
           const year = nextMonth.year();
@@ -296,10 +285,9 @@ function calculateUpcomingDates() {
         currentDate = currentDate.add(1, "year");
         break;
       default:
-        count = 5; // Abort loop for ONCE pattern
+        count = 5;
     }
 
-    // Prüfe Endbedingungen
     if (recurrenceEndType.value === RecurrenceEndType.DATE && endDate.value) {
       if (currentDate.isAfter(dayjs(endDate.value))) break;
     }
@@ -324,46 +312,37 @@ function getDaysInMonth(year: number, month: number): number {
 }
 
 function formatDate(dateStr: string): string {
-  const date = dayjs(dateStr);
-  return date.format("DD.MM.YYYY");
+  return dayjs(dateStr).format("DD.MM.YYYY");
 }
 
-// Neue Empfänger erstellen
 function onCreateRecipient(data: { name: string }) {
   const created = recipientStore.addRecipient({ name: data.name });
   recipientId.value = created.id;
   debugLog("[PlanningTransactionForm] onCreateRecipient", created);
 }
 
-// Speichern der Planungstransaktion
 function savePlanningTransaction() {
-  // Berechne den tatsächlichen Betrag basierend auf dem Transaktionstyp
   let effectiveAmount = amount.value;
   if (isTransfer.value) {
-    // Bei Transfers immer positiv
     effectiveAmount = Math.abs(effectiveAmount);
   } else {
-    // Ansonsten abhängig vom UI Toggle
     effectiveAmount = isExpense.value
       ? -Math.abs(effectiveAmount)
       : Math.abs(effectiveAmount);
   }
 
-  // Bestimme das TransactionType
   const transactionType = isTransfer.value
     ? TransactionType.ACCOUNTTRANSFER
     : effectiveAmount < 0
     ? TransactionType.EXPENSE
     : TransactionType.INCOME;
 
-  // Bestimme die Wochenendbehandlung
   const effectiveWeekendHandling = moveScheduleEnabled.value
     ? weekendHandlingDirection.value === "before"
       ? WeekendHandlingType.BEFORE
       : WeekendHandlingType.AFTER
     : WeekendHandlingType.NONE;
 
-  // Bestimme die Wiederholungsparameter
   const effectiveRecurrencePattern = repeatsEnabled.value
     ? recurrencePattern.value
     : RecurrencePattern.ONCE;
@@ -402,7 +381,7 @@ function savePlanningTransaction() {
         : null,
     executionDay: executionDay.value,
     weekendHandling: effectiveWeekendHandling,
-    transactionType: transactionType,
+    transactionType,
     transferToAccountId: isTransfer.value ? toAccountId.value : undefined,
     isActive: isActive.value,
     autoExecute: autoExecute.value,
@@ -415,7 +394,6 @@ function savePlanningTransaction() {
   emit("save", transactionData);
 }
 
-// UI-Helfer
 const toggleAmountType = () => {
   amount.value = -amount.value;
 };
@@ -424,7 +402,53 @@ const isExpense = computed(() => amount.value < 0);
 
 const accounts = computed(() => accountStore.activeAccounts);
 const categories = computed(() => categoryStore.activeCategories);
+
+function getInitialRuleValues() {
+  const recipientName =
+    recipientStore.getRecipientById(recipientId.value)?.name || "";
+
+  return {
+    name: `Regel für ${name.value || recipientName}`,
+    description: `Automatisch erstellt für Planungstransaktion "${
+      name.value || recipientName
+    }"`,
+    stage: "DEFAULT",
+    isActive: true,
+    conditions: [
+      {
+        type: RuleConditionType.ACCOUNT_IS,
+        operator: "is",
+        value: accountId.value,
+      },
+      {
+        type: RuleConditionType.PAYEE_CONTAINS,
+        operator: "contains",
+        value: recipientName,
+      },
+      {
+        type: RuleConditionType.AMOUNT_EQUALS,
+        operator: "equals",
+        value: Math.abs(amount.value),
+      },
+    ],
+    actions: [
+      {
+        type: RuleActionType.SET_CATEGORY,
+        field: "category",
+        value: categoryId.value || "",
+      },
+    ],
+  };
+}
+
+function saveRuleAndCloseModal(ruleData: any) {
+  ruleStore.addRule(ruleData);
+  debugLog("[PlanningTransactionForm] Created rule from planning", ruleData);
+  showRuleCreationModal.value = false;
+  alert(`Regel "${ruleData.name}" wurde erfolgreich erstellt.`);
+}
 </script>
+
 
 <template>
   <form @submit.prevent="savePlanningTransaction" class="space-y-4">

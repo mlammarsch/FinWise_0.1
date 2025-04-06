@@ -16,6 +16,7 @@ import AdminCategoriesView from '../views/admin/AdminCategoriesView.vue'
 import AdminTagsView from '../views/admin/AdminTagsView.vue'
 import AdminPlanningView from '../views/admin/AdminPlanningView.vue'
 import AdminRecipientsView from '../views/admin/AdminRecipientsView.vue'
+import AdminRulesView from '../views/admin/AdminRulesView.vue'
 
 const routes: RouteRecordRaw[] = [
   {
@@ -91,11 +92,17 @@ const routes: RouteRecordRaw[] = [
     meta: { title: 'Empfänger verwalten', breadcrumb: 'Empfänger verwalten' }
   },
   {
-    path: '/accounts/:id/edit', // Route für Konto bearbeiten
+    path: '/admin/rules',
+    name: 'admin-rules',
+    component: AdminRulesView,
+    meta: { title: 'Regeln verwalten', breadcrumb: 'Regeln verwalten' }
+  },
+  {
+    path: '/accounts/:id/edit',
     name: 'edit-account',
-    component: AccountsView, // Oder eine dedizierte AccountEditView, falls benötigt
+    component: AccountsView,
     meta: { title: 'Konto bearbeiten', breadcrumb: 'Konto bearbeiten' },
-    props: true // Ermöglicht das Übergeben von route params als props
+    props: true
   },
   {
     path: '/account-group/:id/edit',
@@ -109,6 +116,5 @@ const router = createRouter({
   history: createWebHistory(),
   routes
 });
-
 
 export default router

@@ -5,10 +5,11 @@ import { v4 as uuidv4 } from 'uuid'
 import { Transaction, TransactionType } from '../types'
 import { useAccountStore } from './accountStore'
 import { useCategoryStore } from './categoryStore'
+import { useRuleStore } from './ruleStore' // Neuer Import
 import { debugLog } from '@/utils/logger'
 import { addAccountTransfer } from '@/utils/accountTransfers'
 import { calculateRunningBalances } from '@/utils/runningBalances'
-import { useMonthlyBalanceStore } from '@/stores/monthlyBalanceStore'  // Neuer Import
+import { useMonthlyBalanceStore } from '@/stores/monthlyBalanceStore'
 
 export interface ExtendedTransaction extends Transaction {
   tagIds: string[],
@@ -28,7 +29,7 @@ export const useTransactionStore = defineStore('transaction', () => {
   const transactions = ref<ExtendedTransaction[]>([])
   const accountStore = useAccountStore()
   const categoryStore = useCategoryStore()
-  const monthlyBalanceStore = useMonthlyBalanceStore()  // Instanz des neuen Stores
+  const monthlyBalanceStore = useMonthlyBalanceStore()
 
   const getTransactionById = computed(() => {
     return (id: string) => transactions.value.find(transaction => transaction.id === id)
@@ -65,6 +66,15 @@ export const useTransactionStore = defineStore('transaction', () => {
   }
 
   function addTransaction(transaction: Omit<ExtendedTransaction, 'id' | 'runningBalance'>) {
+    const ruleStore = useRuleStore()
+
+    if (transaction.type !== TransactionType.CATEGORYTRANSFER) {
+      transaction = ruleStore.applyRulesToTransaction({ ...transaction }, 'PRE')
+      transaction = ruleStore.applyRulesToTransaction({ ...transaction }, 'DEFAULT')
+      transaction = ruleStore.applyRulesToTransaction({ ...transaction }, 'POST')
+      debugLog("[transactionStore] addTransaction - Applied rules to transaction", transaction)
+    }
+
     let runningBalance = 0
 
     if (transaction.type !== TransactionType.CATEGORYTRANSFER) {
@@ -95,7 +105,7 @@ export const useTransactionStore = defineStore('transaction', () => {
     }
 
     saveTransactions()
-    monthlyBalanceStore.calculateMonthlyBalances()  // Aktualisierung auslösen
+    monthlyBalanceStore.calculateMonthlyBalances()
     return newTransaction
   }
 
@@ -127,7 +137,7 @@ export const useTransactionStore = defineStore('transaction', () => {
       saveTransactions()
       updateRunningBalances(transactions.value[index].accountId)
       debugLog("[transactionStore] updateTransaction", { id, updates })
-      monthlyBalanceStore.calculateMonthlyBalances()  // Aktualisierung auslösen
+      monthlyBalanceStore.calculateMonthlyBalances()
       return true
     }
     return false
@@ -147,7 +157,7 @@ export const useTransactionStore = defineStore('transaction', () => {
     updateRunningBalances(accountId)
     saveTransactions()
     debugLog("[transactionStore] deleteTransaction", id)
-    monthlyBalanceStore.calculateMonthlyBalances()  // Aktualisierung auslösen
+    monthlyBalanceStore.calculateMonthlyBalances()
     return true
   }
 
@@ -195,7 +205,6 @@ export const useTransactionStore = defineStore('transaction', () => {
     debugLog("[transactionStore] reset - Reset transactions.")
   }
 
-  // Neue Funktion für Ausgleichsbuchungen
   function addReconcileTransaction(accountId: string, amount: number, date: string, note: string) {
     const transactionPayload = {
       date: toDateOnlyString(date),
@@ -211,9 +220,9 @@ export const useTransactionStore = defineStore('transaction', () => {
       counterTransactionId: null,
       planningTransactionId: null,
       isReconciliation: true,
-    };
-    const newTransaction = addTransaction(transactionPayload);
-    return newTransaction;
+    }
+    const newTransaction = addTransaction(transactionPayload)
+    return newTransaction
   }
 
   loadTransactions()

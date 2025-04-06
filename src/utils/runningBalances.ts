@@ -1,5 +1,4 @@
 // D:/_localData/dev/FinWise/FinWise_0.1/src/utils/runningBalances.ts
-import { debugLog } from '@/utils/logger'
 
 /**
  * Gruppiert Transaktionen eines Kontos nach Datum und berechnet den
@@ -22,8 +21,6 @@ export function groupTransactionsByDateWithRunningBalance(
       return acc
     }, {} as Record<string, { date: string; transactions: any[] }>)
 
-  debugLog("[runningBalances] groupTransactionsByDateWithRunningBalance - Groups before runningBalance calculation:", groups)
-
   const finalGroups = Object.values(groups)
     .map(group => {
       const lastTx = group.transactions[group.transactions.length - 1]
@@ -32,7 +29,6 @@ export function groupTransactionsByDateWithRunningBalance(
     })
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
-  debugLog("[runningBalances] groupTransactionsByDateWithRunningBalance - Final groups with runningBalance:", finalGroups)
   return finalGroups
 }
 
@@ -47,62 +43,55 @@ export function calculateRunningBalances(transactions: any[]): { updatedTransact
     balance += tx.amount
     tx.runningBalance = balance
   })
-  debugLog("[runningBalances] calculateRunningBalances", { finalBalance: balance })
   return { updatedTransactions: sortedTxs, finalBalance: balance }
 }
 
 /**
  * Berechnet den Saldo für eine Kategorie (Ausgaben).
- * Filtert die Transaktionen nach der Kategorie und trennt jene vor dem
- * angegebenen Startdatum von denen im Zeitraum.
- * Neuer Parameter startBalance: der Saldo des Vormonats, falls vorhanden.
+ * Neuer Parameter startBalanceInfo: der Saldo des Vormonats als Zahl oder Objekt mit Balance und Datum.
  */
 export function calculateCategorySaldo(
   transactions: any[],
   categoryId: string,
   start: Date,
   end: Date,
-  startBalance: number = 0
+  startBalanceInfo: { balance: number; date: Date } | number = 0
 ): { budgeted: number; spent: number; saldo: number } {
-  const txs = transactions.filter(tx => tx.categoryId === categoryId)
-  const txsCurrent = txs.filter(tx => new Date(tx.valueDate) >= start && new Date(tx.valueDate) <= end)
-  const txsBefore = txs.filter(tx => new Date(tx.valueDate) < start)
-  const previousTxsSum = txsBefore.reduce((sum, tx) => sum + tx.amount, 0)
-  const spentThisMonth = txsCurrent.reduce((sum, tx) => sum + tx.amount, 0)
-  const effectivePreviousSaldo = startBalance !== 0 ? startBalance : previousTxsSum
-  const saldo = effectivePreviousSaldo + spentThisMonth
-  debugLog("[runningBalances] calculateCategorySaldo", {
-    categoryId,
-    startBalance,
-    previousTxsSum,
-    spentThisMonth,
-    saldo
-  })
-  return { budgeted: 0, spent: spentThisMonth, saldo }
+  const startBalance = typeof startBalanceInfo === 'number'
+    ? startBalanceInfo
+    : startBalanceInfo.balance;
+
+  const txs = transactions.filter(tx => tx.categoryId === categoryId);
+  const txsCurrent = txs.filter(tx => new Date(tx.valueDate) >= start && new Date(tx.valueDate) <= end);
+  const txsBefore = txs.filter(tx => new Date(tx.valueDate) < start);
+  const previousTxsSum = txsBefore.reduce((sum, tx) => sum + tx.amount, 0);
+  const spentThisMonth = txsCurrent.reduce((sum, tx) => sum + tx.amount, 0);
+  const effectivePreviousSaldo = startBalance !== 0 ? startBalance : previousTxsSum;
+  const saldo = effectivePreviousSaldo + spentThisMonth;
+
+  return { budgeted: 0, spent: spentThisMonth, saldo };
 }
 
 /**
  * Berechnet den Saldo für eine Einnahmekategorie.
- * Im Unterschied zu Ausgabenkategorien wird hier ein Budgetwert von 0 angenommen.
- * Neuer Parameter startBalance: der Saldo des Vormonats, falls vorhanden.
+ * Neuer Parameter startBalanceInfo: der Saldo des Vormonats als Zahl oder Objekt mit Balance und Datum.
  */
 export function calculateIncomeCategorySaldo(
   transactions: any[],
   categoryId: string,
   start: Date,
   end: Date,
-  startBalance: number = 0
+  startBalanceInfo: { balance: number; date: Date } | number = 0
 ): { budgeted: number; spent: number; saldo: number } {
-  const txs = transactions.filter(tx => tx.categoryId === categoryId)
-  const txsCurrent = txs.filter(tx => new Date(tx.valueDate) >= start && new Date(tx.valueDate) <= end)
-  const sumThisMonth = txsCurrent.reduce((sum, tx) => sum + tx.amount, 0)
-  const effectiveStart = startBalance
-  const saldo = effectiveStart - sumThisMonth
-  debugLog("[runningBalances] calculateIncomeCategorySaldo", {
-    categoryId,
-    startBalance: effectiveStart,
-    sumThisMonth,
-    saldo
-  })
-  return { budgeted: 0, spent: sumThisMonth, saldo }
+  const startBalance = typeof startBalanceInfo === 'number'
+    ? startBalanceInfo
+    : startBalanceInfo.balance;
+
+  const txs = transactions.filter(tx => tx.categoryId === categoryId);
+  const txsCurrent = txs.filter(tx => new Date(tx.valueDate) >= start && new Date(tx.valueDate) <= end);
+  const sumThisMonth = txsCurrent.reduce((sum, tx) => sum + tx.amount, 0);
+  const effectiveStart = startBalance;
+  const saldo = effectiveStart - sumThisMonth;
+
+  return { budgeted: 0, spent: sumThisMonth, saldo };
 }
