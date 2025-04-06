@@ -3,6 +3,8 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { v4 as uuidv4 } from 'uuid'
 import dayjs from 'dayjs'
+import isSameOrBefore from 'dayjs/plugin/isSameOrBefore'
+dayjs.extend(isSameOrBefore)
 import { PlanningTransaction, RecurrencePattern, TransactionType } from '../types'
 import { useTransactionStore } from './transactionStore'
 import { toDateOnlyString } from '@/utils/formatters'

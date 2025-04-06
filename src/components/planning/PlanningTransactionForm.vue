@@ -10,6 +10,8 @@ import { useCategoryStore } from "../../stores/categoryStore";
 import { useTagStore } from "../../stores/tagStore";
 import { useRecipientStore } from "../../stores/recipientStore";
 import dayjs from "dayjs";
+import SelectAccount from "../ui/SelectAccount.vue";
+import CurrencyInput from "../ui/CurrencyInput.vue";
 
 const props = defineProps<{
   transaction?: PlanningTransaction;
@@ -58,15 +60,6 @@ onMounted(() => {
     }
   }
 });
-
-const parseNumber = (value: string): number => {
-  const normalized = value.replace(/\./g, "").replace(",", ".");
-  return parseFloat(normalized) || 0;
-};
-
-const formatNumber = (value: number): string => {
-  return value.toString().replace(".", ",");
-};
 
 const saveTransaction = () => {
   const transactionData: Omit<
@@ -144,14 +137,8 @@ const isIncome = computed(() => amount.value > 0);
           >
             {{ isIncome ? "+" : "-" }}
           </button>
-          <input
-            type="text"
-            :value="formatNumber(Math.abs(amount))"
-            @input="amount = (isIncome ? 1 : -1) * parseNumber(($event.target as HTMLInputElement).value)"
-            class="input input-bordered w-full"
-            required
-            placeholder="0,00"
-          />
+          <!-- Verwendung von CurrencyInput für konsistente Formatierung -->
+          <CurrencyInput v-model="amount" borderless />
           <span>€</span>
         </div>
       </div>
@@ -170,19 +157,7 @@ const isIncome = computed(() => amount.value > 0);
           <span class="label-text">Quellkonto</span>
           <span class="text-error">*</span>
         </label>
-        <select
-          v-model="accountId"
-          class="select select-bordered w-full"
-          required
-        >
-          <option
-            v-for="account in accounts"
-            :key="account.id"
-            :value="account.id"
-          >
-            {{ account.name }}
-          </option>
-        </select>
+        <SelectAccount v-model="accountId" />
       </div>
 
       <div v-if="isTransfer" class="form-control">
