@@ -34,24 +34,24 @@ $searchFiles = @(
     # ###Account
 
      "src\stores\accountStore.ts",
-    #"src\views\AccountsView.vue",
-     #"src\components\account\*.vue",
+    "src\views\AccountsView.vue",
+     "src\components\account\*.vue",
 
     # Planning
-    "src\components\planning\PlanningTransactionForm.vue",
+    "src\components\planning\*.vue",
     "src\views\PlanningView.vue",
     "src\stores\planningStore.ts",
     "src\stores\monthlyBalanceStore.ts",
     "src\stores\ruleStore.ts",
 
     # ###Transaction
-    # "src\views\TransactionsView.vue",
+     "src\views\TransactionsView.vue",
     # "./src/components/transaction/TransactionCard.vue",
-    # "src\components\transaction\CategoryTransactionList.vue",
-    # "src\components\transaction\TransactionList.vue",
+     "src\components\transaction\CategoryTransactionList.vue",
+     "src\components\transaction\TransactionList.vue",
     # "src\components\transaction\TransactionForm.vue",
     "src\stores\transactionStore.ts",
-     "src\stores\recipientStore.ts",
+    # "src\stores\recipientStore.ts",
 
     # ###Category - Budget
      "src\stores\categoryStore.ts",
@@ -59,9 +59,9 @@ $searchFiles = @(
     #"src\views\BudgetsView2.vue",
      "src\components\budget\BudgetCategoryColumn.vue",
      "src\components\budget\BudgetMonthCard.vue",
-     "src\components\budget\BudgetMonthHeaderCard.vue",
-     "src\components\budget\CategoryTransferModal.vue",
-    "src\components\budget\CategoryForm.vue",
+    # "src\components\budget\BudgetMonthHeaderCard.vue",
+    # "src\components\budget\CategoryTransferModal.vue",
+    #"src\components\budget\CategoryForm.vue",
 
     # ###Tags
     # "src\stores\tagStore.ts",
@@ -82,7 +82,7 @@ $searchFiles = @(
      "src\components\ui\CurrencyInput.vue",
     # "src\components\ui\SearchableSelect.vue",
      "src\components\ui\SelectCategory.vue",
-    # "src\components\ui\TagSearchableDropdown.vue",
+     "src\components\ui\TagSearchableDropdown.vue",
      "src\components\ui\SearchGroup.vue",
     # "src\components\ui\MainNavigation.vue",
 

@@ -1,71 +1,135 @@
 <!-- src/views/PlanningView.vue -->
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, watch } from "vue";
 import { usePlanningStore } from "@/stores/planningStore";
 import { useAccountStore } from "@/stores/accountStore";
 import { useCategoryStore } from "@/stores/categoryStore";
 import { useRecipientStore } from "@/stores/recipientStore";
+import { useMonthlyBalanceStore } from "@/stores/monthlyBalanceStore";
 import PlanningTransactionForm from "@/components/planning/PlanningTransactionForm.vue";
-import {
-  PlanningTransaction,
-  TransactionType,
-  RecurrencePattern,
-} from "@/types";
+import AccountForecastChart from "@/components/planning/AccountForecastChart.vue";
+import CategoryForecastChart from "@/components/planning/CategoryForecastChart.vue";
+import { PlanningTransaction } from "@/types";
 import CurrencyDisplay from "@/components/ui/CurrencyDisplay.vue";
 import SearchGroup from "@/components/ui/SearchGroup.vue";
+import MonthSelector from "@/components/ui/MonthSelector.vue";
+import PagingComponent from "@/components/ui/PagingComponent.vue";
 import { formatDate } from "@/utils/formatters";
 import { debugLog } from "@/utils/logger";
 
+// Stores
 const planningStore = usePlanningStore();
 const accountStore = useAccountStore();
 const categoryStore = useCategoryStore();
 const recipientStore = useRecipientStore();
+const monthlyBalanceStore = useMonthlyBalanceStore();
 
+// UI-Status
 const showNewPlanningModal = ref(false);
 const showEditPlanningModal = ref(false);
 const selectedPlanning = ref<PlanningTransaction | null>(null);
 const searchQuery = ref("");
+const currentPage = ref(1);
+const itemsPerPage = ref(25);
+const itemsPerPageOptions = [10, 20, 25, 50, 100, "all"];
 
-const planningTransactions = computed(() => {
-  if (!searchQuery.value.trim()) {
-    return planningStore.planningTransactions;
-  }
+// Filter und Zeitbereich
+const dateRange = ref<{ start: string; end: string }>({
+  start: new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+    .toISOString()
+    .split("T")[0],
+  end: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0)
+    .toISOString()
+    .split("T")[0],
+});
 
-  const term = searchQuery.value.toLowerCase();
-  return planningStore.planningTransactions.filter((plan) => {
-    return (
-      plan.name?.toLowerCase().includes(term) ||
-      recipientStore
-        .getRecipientById(plan.recipientId || "")
-        ?.name.toLowerCase()
-        .includes(term) ||
-      accountStore
-        .getAccountById(plan.accountId)
-        ?.name.toLowerCase()
-        .includes(term) ||
-      String(plan.amount).includes(term)
-    );
+// Kontofilter
+const selectedAccountId = ref("");
+
+// Aktive Registerkarte
+const activeTab = ref<"upcoming" | "accounts" | "categories">("upcoming");
+
+// Hilfsfunktion: Formatiert Datum
+function handleDateRangeUpdate(payload: { start: string; end: string }) {
+  dateRange.value = payload;
+  debugLog("[PlanningView] Date range updated", payload);
+}
+
+// Anstehende Transaktionen für den ausgewählten Zeitraum
+const upcomingTransactionsInRange = computed(() => {
+  const startDate = new Date(dateRange.value.start);
+  const endDate = new Date(dateRange.value.end);
+
+  // Berechne die Differenz in Tagen
+  const diffTime = endDate.getTime() - startDate.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+  // Hole alle Vorkommen im Zeitraum
+  return planningStore.getUpcomingTransactions(diffDays + 1).filter((entry) => {
+    const entryDate = new Date(entry.date);
+    return entryDate >= startDate && entryDate <= endDate;
   });
 });
 
-const upcomingTransactions = computed(() =>
-  planningStore.getUpcomingTransactions(30)
-);
+// Gefilterte Transaktionen basierend auf Suche und Kontofilter
+const filteredTransactions = computed(() => {
+  let filtered = [...upcomingTransactionsInRange.value];
 
-// Füge nur neue Planungen hinzu, die in den nächsten 30 Tagen anstehen
+  // Nach Konto filtern
+  if (selectedAccountId.value) {
+    filtered = filtered.filter(
+      (entry) => entry.transaction.accountId === selectedAccountId.value
+    );
+  }
+
+  // Nach Suchbegriff filtern
+  if (searchQuery.value.trim()) {
+    const term = searchQuery.value.toLowerCase();
+    filtered = filtered.filter((entry) => {
+      const transaction = entry.transaction;
+      return (
+        transaction.name?.toLowerCase().includes(term) ||
+        recipientStore
+          .getRecipientById(transaction.recipientId || "")
+          ?.name.toLowerCase()
+          .includes(term) ||
+        accountStore
+          .getAccountById(transaction.accountId)
+          ?.name.toLowerCase()
+          .includes(term) ||
+        String(transaction.amount).includes(term)
+      );
+    });
+  }
+
+  return filtered;
+});
+
+// Paginierte Transaktionen
+const paginatedTransactions = computed(() => {
+  if (itemsPerPage.value === "all") return filteredTransactions.value;
+
+  const start = (currentPage.value - 1) * Number(itemsPerPage.value);
+  return filteredTransactions.value.slice(
+    start,
+    start + Number(itemsPerPage.value)
+  );
+});
+
+// Neue Planung erstellen
 const createPlanning = () => {
   selectedPlanning.value = null;
   showNewPlanningModal.value = true;
 };
 
-// Bearbeitung einer Planung
+// Planung bearbeiten
 const editPlanning = (planning: PlanningTransaction) => {
   selectedPlanning.value = planning;
   showEditPlanningModal.value = true;
   debugLog("[PlanningView] Edit planning", planning);
 };
 
-// Speichern einer Planung
+// Planung speichern
 const savePlanning = (data: any) => {
   if (selectedPlanning.value) {
     planningStore.updatePlanningTransaction(selectedPlanning.value.id, data);
@@ -76,50 +140,52 @@ const savePlanning = (data: any) => {
   }
   showNewPlanningModal.value = false;
   showEditPlanningModal.value = false;
+
+  // Monatliche Saldos neu berechnen
+  monthlyBalanceStore.calculateMonthlyBalances();
 };
 
-// Löschen einer Planung
+// Planung löschen
 const deletePlanning = (planning: PlanningTransaction) => {
   if (confirm("Möchten Sie diese geplante Transaktion wirklich löschen?")) {
     planningStore.deletePlanningTransaction(planning.id);
     debugLog("[PlanningView] Deleted planning", planning.id);
+
+    // Monatliche Saldos neu berechnen
+    monthlyBalanceStore.calculateMonthlyBalances();
   }
 };
 
-// Ausführen einer Planung
+// Planung ausführen
 const executePlanning = (planningId: string, date: string) => {
   planningStore.executePlanningTransaction(planningId, date);
   debugLog("[PlanningView] Executed planning", { planningId, date });
 };
 
-// Hilfsfunktion: Formatiert das Intervall menschenlesbar
-function formatRecurrencePattern(pattern: RecurrencePattern): string {
-  const patterns: Record<RecurrencePattern, string> = {
-    [RecurrencePattern.ONCE]: "Einmalig",
-    [RecurrencePattern.DAILY]: "Täglich",
-    [RecurrencePattern.WEEKLY]: "Wöchentlich",
-    [RecurrencePattern.BIWEEKLY]: "Alle 2 Wochen",
-    [RecurrencePattern.MONTHLY]: "Monatlich",
-    [RecurrencePattern.QUARTERLY]: "Vierteljährlich",
-    [RecurrencePattern.YEARLY]: "Jährlich",
-  };
-
-  return patterns[pattern] || pattern;
-}
-
-// Hilfsfunktion: Gibt den Kontonamen aus
+// Hilfsfunktion: Gibt den Kontonamen zurück
 function getAccountName(accountId: string): string {
   return accountStore.getAccountById(accountId)?.name || "Unbekanntes Konto";
 }
 
-// Ausführung automatischer Planungen
-function executeAutomatic() {
+// Filter zurücksetzen
+function clearFilters() {
+  selectedAccountId.value = "";
+  searchQuery.value = "";
+  currentPage.value = 1;
+}
+
+// Automatische Ausführung fälliger Planungen
+function executeAutomaticTransactions() {
   const count = planningStore.executeAllDuePlanningTransactions();
   alert(`${count} automatische Planungsbuchungen ausgeführt.`);
 }
 
-// Automatische Planungen beim Laden prüfen
+// Beim Laden: Prüfen auf automatische Planungen
 onMounted(() => {
+  // Monatliche Saldos berechnen
+  monthlyBalanceStore.calculateMonthlyBalances();
+
+  // Prüfen, ob heute automatische Planungen fällig sind
   const nextExecution = planningStore.getUpcomingTransactions(0);
   if (nextExecution.length > 0) {
     const autoExecutableCount = nextExecution.filter(
@@ -131,7 +197,7 @@ onMounted(() => {
         `Es stehen ${autoExecutableCount} automatische Planungsbuchungen für heute an. Jetzt ausführen?`
       );
       if (executeNow) {
-        executeAutomatic();
+        executeAutomaticTransactions();
       }
     }
   }
@@ -140,10 +206,11 @@ onMounted(() => {
 
 <template>
   <div class="space-y-6">
+    <!-- Kopfzeile mit Titel und Aktionen -->
     <div class="flex justify-between items-center">
-      <h2 class="text-xl font-bold">Geplante Transaktionen</h2>
+      <h2 class="text-xl font-bold">Finanzplanung und Prognose</h2>
       <div class="flex space-x-2">
-        <button class="btn btn-outline" @click="executeAutomatic">
+        <button class="btn btn-outline" @click="executeAutomaticTransactions">
           <Icon icon="mdi:play-circle" class="mr-2" />
           Auto-Ausführen
         </button>
@@ -154,165 +221,215 @@ onMounted(() => {
       </div>
     </div>
 
-    <SearchGroup @search="(query) => (searchQuery = query)" />
+    <!-- Filter und Zeitauswahl -->
+    <div class="card bg-base-100 shadow-md border border-base-300 p-4">
+      <div class="flex flex-wrap justify-between items-end gap-4">
+        <div class="flex items-end gap-4">
+          <div>
+            <MonthSelector @update-daterange="handleDateRangeUpdate" />
+          </div>
 
-    <!-- Tabelle der Planungen -->
-    <div class="overflow-x-auto">
-      <table class="table w-full">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Empfänger</th>
-            <th>Konto</th>
-            <th>Intervall</th>
-            <th>Nächster Termin</th>
-            <th class="text-right">Betrag</th>
-            <th>Status</th>
-            <th class="text-right">Aktionen</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="planning in planningTransactions" :key="planning.id">
-            <td>
-              {{ planning.name }}
-              <span
-                v-if="planning.transferToAccountId"
-                class="text-xs text-base-content/60 ml-1"
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text text-center opacity-50">Konto</span>
+            </label>
+            <select
+              v-model="selectedAccountId"
+              class="select select-sm select-bordered rounded-full"
+              :class="
+                selectedAccountId
+                  ? 'border-2 border-accent'
+                  : 'border border-base-300'
+              "
+            >
+              <option value="">Alle Konten</option>
+              <option
+                v-for="acc in accountStore.activeAccounts"
+                :key="acc.id"
+                :value="acc.id"
               >
-                (Transfer)
-              </span>
-            </td>
-            <td>
-              {{
-                recipientStore.getRecipientById(planning.recipientId || "")
-                  ?.name || "-"
-              }}
-            </td>
-            <td>
-              {{ getAccountName(planning.accountId) }}
-              <span
-                v-if="planning.transferToAccountId"
-                class="text-xs text-base-content/60 ml-1"
-              >
-                → {{ getAccountName(planning.transferToAccountId) }}
-              </span>
-            </td>
-            <td>{{ formatRecurrencePattern(planning.recurrencePattern) }}</td>
-            <td>
-              {{
-                upcomingTransactions.find(
-                  (t) => t.transaction.id === planning.id
-                )?.date || planning.startDate
-              }}
-            </td>
-            <td class="text-right">
-              <CurrencyDisplay :amount="planning.amount" :show-zero="true" />
-            </td>
-            <td>
-              <span
-                class="badge"
-                :class="planning.isActive ? 'badge-success' : 'badge-error'"
-              >
-                {{ planning.isActive ? "Aktiv" : "Inaktiv" }}
-              </span>
-              <span v-if="planning.autoExecute" class="badge badge-info ml-1">
-                Auto
-              </span>
-            </td>
-            <td class="text-right">
-              <div class="flex justify-end space-x-1">
-                <button
-                  v-if="planning.isActive"
-                  class="btn btn-ghost btn-xs border-none"
-                  @click="
-                    executePlanning(
-                      planning.id,
-                      new Date().toISOString().split('T')[0]
-                    )
-                  "
-                >
-                  <Icon icon="mdi:play" class="text-base text-success" />
-                </button>
-                <button
-                  class="btn btn-ghost btn-xs border-none"
-                  @click="editPlanning(planning)"
-                >
-                  <Icon icon="mdi:pencil" class="text-base" />
-                </button>
-                <button
-                  class="btn btn-ghost btn-xs border-none text-error/75"
-                  @click="deletePlanning(planning)"
-                >
-                  <Icon icon="mdi:trash-can" class="text-base" />
-                </button>
-              </div>
-            </td>
-          </tr>
-          <!-- Leere Tabelle Hinweis -->
-          <tr v-if="planningTransactions.length === 0">
-            <td colspan="8" class="text-center py-4">
-              Keine geplanten Transaktionen vorhanden. Erstellen Sie eine mit
-              dem Button "Neue Planung".
-            </td>
-          </tr>
-        </tbody>
-      </table>
+                {{ acc.name }}
+              </option>
+            </select>
+          </div>
+
+          <button
+            class="btn btn-sm btn-ghost btn-circle self-end"
+            @click="clearFilters"
+          >
+            <Icon icon="mdi:filter-off" class="text-xl" />
+          </button>
+        </div>
+
+        <SearchGroup @search="(query) => (searchQuery = query)" />
+      </div>
     </div>
 
-    <!-- Geplante Transaktionen für die kommenden 30 Tage -->
-    <div v-if="upcomingTransactions.length > 0" class="card bg-base-200 p-4">
-      <h3 class="text-lg font-semibold mb-4">Anstehende Buchungen (30 Tage)</h3>
-      <table class="table">
-        <thead>
-          <tr>
-            <th>Datum</th>
-            <th>Name</th>
-            <th>Empfänger</th>
-            <th>Konto</th>
-            <th class="text-right">Betrag</th>
-            <th class="text-right">Aktionen</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="entry in upcomingTransactions"
-            :key="`${entry.transaction.id}-${entry.date}`"
-          >
-            <td>{{ formatDate(entry.date) }}</td>
-            <td>{{ entry.transaction.name }}</td>
-            <td>
-              {{
-                recipientStore.getRecipientById(
-                  entry.transaction.recipientId || ""
-                )?.name || "-"
-              }}
-            </td>
-            <td>
-              {{ getAccountName(entry.transaction.accountId) }}
-              <span
-                v-if="entry.transaction.transferToAccountId"
-                class="text-xs text-base-content/60 ml-1"
-              >
-                → {{ getAccountName(entry.transaction.transferToAccountId) }}
-              </span>
-            </td>
-            <td class="text-right">
-              <CurrencyDisplay
-                :amount="entry.transaction.amount"
-                :show-zero="true"
-              />
-            </td>
-            <td class="text-right">
-              <button
-                class="btn btn-ghost btn-xs border-none"
-                @click="executePlanning(entry.transaction.id, entry.date)"
-              >
-                <Icon icon="mdi:play" class="text-base text-success" />
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+    <!-- Tabs für Navigation -->
+    <div class="tabs tabs-boxed bg-base-200">
+      <a
+        class="tab"
+        :class="{ 'tab-active': activeTab === 'upcoming' }"
+        @click="activeTab = 'upcoming'"
+      >
+        <Icon icon="mdi:calendar-clock" class="mr-2" />
+        Anstehende Buchungen
+      </a>
+      <a
+        class="tab"
+        :class="{ 'tab-active': activeTab === 'accounts' }"
+        @click="activeTab = 'accounts'"
+      >
+        <Icon icon="mdi:chart-line" class="mr-2" />
+        Kontenprognose
+      </a>
+      <a
+        class="tab"
+        :class="{ 'tab-active': activeTab === 'categories' }"
+        @click="activeTab = 'categories'"
+      >
+        <Icon icon="mdi:chart-areaspline" class="mr-2" />
+        Kategorienprognose
+      </a>
+    </div>
+
+    <!-- Inhaltsbereich basierend auf aktiver Tab -->
+    <div
+      v-if="activeTab === 'upcoming'"
+      class="card bg-base-100 shadow-md border border-base-300"
+    >
+      <!-- Tabelle der anstehenden Planungen -->
+      <div class="overflow-x-auto">
+        <table class="table w-full">
+          <thead>
+            <tr>
+              <th>Datum</th>
+              <th>Name</th>
+              <th>Empfänger</th>
+              <th>Konto</th>
+              <th>Kategorie</th>
+              <th class="text-right">Betrag</th>
+              <th class="text-center">Status</th>
+              <th class="text-right">Aktionen</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="entry in paginatedTransactions"
+              :key="`${entry.transaction.id}-${entry.date}`"
+            >
+              <td>{{ formatDate(entry.date) }}</td>
+              <td>{{ entry.transaction.name }}</td>
+              <td>
+                {{
+                  recipientStore.getRecipientById(
+                    entry.transaction.recipientId || ""
+                  )?.name || "-"
+                }}
+              </td>
+              <td>
+                {{ getAccountName(entry.transaction.accountId) }}
+                <span
+                  v-if="entry.transaction.transferToAccountId"
+                  class="text-xs text-base-content/60 ml-1"
+                >
+                  → {{ getAccountName(entry.transaction.transferToAccountId) }}
+                </span>
+              </td>
+              <td>
+                {{
+                  entry.transaction.categoryId
+                    ? categoryStore.getCategoryById(
+                        entry.transaction.categoryId
+                      )?.name || "-"
+                    : "-"
+                }}
+              </td>
+              <td class="text-right">
+                <CurrencyDisplay
+                  :amount="entry.transaction.amount"
+                  :show-zero="true"
+                />
+              </td>
+              <td class="text-center">
+                <span
+                  class="badge"
+                  :class="
+                    entry.transaction.isActive ? 'badge-success' : 'badge-error'
+                  "
+                >
+                  {{ entry.transaction.isActive ? "Aktiv" : "Inaktiv" }}
+                </span>
+                <span
+                  v-if="entry.transaction.autoExecute"
+                  class="badge badge-info ml-1"
+                >
+                  Auto
+                </span>
+              </td>
+              <td class="text-right">
+                <div class="flex justify-end space-x-1">
+                  <button
+                    class="btn btn-ghost btn-xs border-none"
+                    @click="executePlanning(entry.transaction.id, entry.date)"
+                  >
+                    <Icon icon="mdi:play" class="text-base text-success" />
+                  </button>
+                  <button
+                    class="btn btn-ghost btn-xs border-none"
+                    @click="editPlanning(entry.transaction)"
+                  >
+                    <Icon icon="mdi:pencil" class="text-base" />
+                  </button>
+                  <button
+                    class="btn btn-ghost btn-xs border-none text-error/75"
+                    @click="deletePlanning(entry.transaction)"
+                  >
+                    <Icon icon="mdi:trash-can" class="text-base" />
+                  </button>
+                </div>
+              </td>
+            </tr>
+            <!-- Leere Tabelle Hinweis -->
+            <tr v-if="paginatedTransactions.length === 0">
+              <td colspan="8" class="text-center py-4">
+                Keine anstehenden Transaktionen im ausgewählten Zeitraum.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Paginierung -->
+      <PagingComponent
+        v-model:currentPage="currentPage"
+        v-model:itemsPerPage="itemsPerPage"
+        :totalPages="
+          itemsPerPage === 'all'
+            ? 1
+            : Math.ceil(filteredTransactions.length / Number(itemsPerPage))
+        "
+        :itemsPerPageOptions="itemsPerPageOptions"
+      />
+    </div>
+
+    <!-- Kontenprognose -->
+    <div
+      v-if="activeTab === 'accounts'"
+      class="card bg-base-100 shadow-md border border-base-300 p-4"
+    >
+      <AccountForecastChart
+        :start-date="dateRange.start"
+        :filtered-account-id="selectedAccountId"
+      />
+    </div>
+
+    <!-- Kategorienprognose -->
+    <div
+      v-if="activeTab === 'categories'"
+      class="card bg-base-100 shadow-md border border-base-300 p-4"
+    >
+      <CategoryForecastChart :start-date="dateRange.start" />
     </div>
 
     <!-- Modals -->

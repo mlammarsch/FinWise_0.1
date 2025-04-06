@@ -46,16 +46,20 @@ export function calculateRunningBalances(transactions: any[]): { updatedTransact
   return { updatedTransactions: sortedTxs, finalBalance: balance }
 }
 
+export interface BalanceInfo {
+  balance: number;
+  date: Date;
+}
+
 /**
  * Berechnet den Saldo für eine Kategorie (Ausgaben).
- * Neuer Parameter startBalanceInfo: der Saldo des Vormonats als Zahl oder Objekt mit Balance und Datum.
  */
 export function calculateCategorySaldo(
   transactions: any[],
   categoryId: string,
   start: Date,
   end: Date,
-  startBalanceInfo: { balance: number; date: Date } | number = 0
+  startBalanceInfo: BalanceInfo | number = 0
 ): { budgeted: number; spent: number; saldo: number } {
   const startBalance = typeof startBalanceInfo === 'number'
     ? startBalanceInfo
@@ -74,14 +78,13 @@ export function calculateCategorySaldo(
 
 /**
  * Berechnet den Saldo für eine Einnahmekategorie.
- * Neuer Parameter startBalanceInfo: der Saldo des Vormonats als Zahl oder Objekt mit Balance und Datum.
  */
 export function calculateIncomeCategorySaldo(
   transactions: any[],
   categoryId: string,
   start: Date,
   end: Date,
-  startBalanceInfo: { balance: number; date: Date } | number = 0
+  startBalanceInfo: BalanceInfo | number = 0
 ): { budgeted: number; spent: number; saldo: number } {
   const startBalance = typeof startBalanceInfo === 'number'
     ? startBalanceInfo

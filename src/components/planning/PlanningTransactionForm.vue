@@ -406,7 +406,6 @@ const categories = computed(() => categoryStore.activeCategories);
 function getInitialRuleValues() {
   const recipientName =
     recipientStore.getRecipientById(recipientId.value)?.name || "";
-
   return {
     name: `Regel für ${name.value || recipientName}`,
     description: `Automatisch erstellt für Planungstransaktion "${
@@ -448,7 +447,6 @@ function saveRuleAndCloseModal(ruleData: any) {
   alert(`Regel "${ruleData.name}" wurde erfolgreich erstellt.`);
 }
 </script>
-
 
 <template>
   <form @submit.prevent="savePlanningTransaction" class="space-y-4">
@@ -612,6 +610,18 @@ function saveRuleAndCloseModal(ruleData: any) {
       </div>
     </div>
 
+    <!-- Tags -->
+    <div class="form-control">
+      <label class="label">
+        <span class="label-text">Tags</span>
+      </label>
+      <TagSearchableDropdown
+        v-model="tagIds"
+        :options="tagStore.tags"
+        placeholder="Tags hinzufügen..."
+      />
+    </div>
+
     <!-- Terminfelder -->
     <div class="card bg-base-200 p-4 rounded-lg">
       <div class="form-control">
@@ -619,7 +629,6 @@ function saveRuleAndCloseModal(ruleData: any) {
           <span class="label-text">Datum</span>
         </label>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <!-- Datumsauswahl -->
           <div class="form-control">
             <input
               type="date"
@@ -628,8 +637,6 @@ function saveRuleAndCloseModal(ruleData: any) {
               required
             />
           </div>
-
-          <!-- Wiederholung aktivieren -->
           <div class="form-control">
             <label class="cursor-pointer label">
               <span class="label-text">Wiederholt sich</span>
@@ -640,7 +647,6 @@ function saveRuleAndCloseModal(ruleData: any) {
       </div>
 
       <div v-if="repeatsEnabled" class="space-y-4 mt-2">
-        <!-- Wiederholungsmuster -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div class="form-control">
             <label class="label">
@@ -660,11 +666,9 @@ function saveRuleAndCloseModal(ruleData: any) {
               <option :value="RecurrencePattern.YEARLY">Jährlich</option>
             </select>
           </div>
-
-          <!-- Spezifischer Ausführungstag (für monatliche Wiederholungen) -->
           <div
-            class="form-control"
             v-if="recurrencePattern === RecurrencePattern.MONTHLY"
+            class="form-control"
           >
             <label class="label">
               <span class="label-text">Tag des Monats</span>
@@ -680,7 +684,6 @@ function saveRuleAndCloseModal(ruleData: any) {
           </div>
         </div>
 
-        <!-- Wochenendbehandlung -->
         <div class="form-control">
           <label class="cursor-pointer label">
             <span class="label-text">Verschieben, wenn Wochenende</span>
@@ -715,7 +718,6 @@ function saveRuleAndCloseModal(ruleData: any) {
           </div>
         </div>
 
-        <!-- Endbedingung -->
         <div class="form-control">
           <label class="label">
             <span class="label-text">Endet</span>
@@ -751,7 +753,6 @@ function saveRuleAndCloseModal(ruleData: any) {
           </div>
         </div>
 
-        <!-- Anzahl der Wiederholungen oder Enddatum -->
         <div
           v-if="recurrenceEndType === RecurrenceEndType.COUNT"
           class="form-control"
@@ -779,7 +780,6 @@ function saveRuleAndCloseModal(ruleData: any) {
         </div>
       </div>
 
-      <!-- Vorschau der Ausführungstermine -->
       <div class="mt-4">
         <div class="text-sm font-semibold mb-2">
           Zeitpunkt: {{ dateDescription }}
@@ -819,18 +819,6 @@ function saveRuleAndCloseModal(ruleData: any) {
       </div>
     </div>
 
-    <!-- Tags -->
-    <div class="form-control">
-      <label class="label">
-        <span class="label-text">Tags</span>
-      </label>
-      <TagSearchableDropdown
-        v-model="tagIds"
-        :options="tagStore.tags"
-        placeholder="Tags hinzufügen..."
-      />
-    </div>
-
     <!-- Notizen -->
     <div class="form-control">
       <label class="label">
@@ -840,7 +828,7 @@ function saveRuleAndCloseModal(ruleData: any) {
         v-model="note"
         class="textarea textarea-bordered h-24"
         placeholder="Zusätzliche Informationen"
-      />
+      ></textarea>
     </div>
 
     <!-- Aktionsbuttons -->
