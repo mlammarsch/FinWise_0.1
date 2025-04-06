@@ -41,13 +41,15 @@ $searchFiles = @(
     "src\components\planning\PlanningTransactionForm.vue",
     "src\views\PlanningView.vue",
     "src\stores\planningStore.ts",
+    "src\stores\monthlyBalanceStore.ts",
+    "src\stores\ruleStore.ts",
 
     # ###Transaction
-     "src\views\TransactionsView.vue",
-     "./src/components/transaction/TransactionCard.vue",
-     "src\components\transaction\CategoryTransactionList.vue",
-     "src\components\transaction\TransactionList.vue",
-    "src\components\transaction\TransactionForm.vue",
+    # "src\views\TransactionsView.vue",
+    # "./src/components/transaction/TransactionCard.vue",
+    # "src\components\transaction\CategoryTransactionList.vue",
+    # "src\components\transaction\TransactionList.vue",
+    # "src\components\transaction\TransactionForm.vue",
     "src\stores\transactionStore.ts",
      "src\stores\recipientStore.ts",
 
