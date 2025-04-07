@@ -33,7 +33,7 @@ export const useMonthlyBalanceStore = defineStore('monthlyBalance', () => {
     const months: Set<string> = new Set()
 
     // Prüfen, dass transactions initialisiert ist, bevor forEach verwendet wird
-    if (transactionStore.transactions) {
+    if (transactionStore.transactions && transactionStore.transactions.length > 0) {
       transactionStore.transactions.forEach(tx => {
         const date = new Date(tx.date)
         const key = `${date.getFullYear()}-${date.getMonth()}`
@@ -71,9 +71,10 @@ export const useMonthlyBalanceStore = defineStore('monthlyBalance', () => {
     const startDateStr = toDateOnlyString(startDate)
     const endDateStr = toDateOnlyString(endDate)
 
-    const txsUntilEnd = transactionStore.transactions.filter(tx => {
+    // Hier die Prüfung hinzufügen, ob transactionStore.transactions definiert ist
+    const txsUntilEnd = transactionStore.transactions ? transactionStore.transactions.filter(tx => {
       return toDateOnlyString(tx.date) <= endDateStr
-    })
+    }) : [];
 
     const accountBalances: Record<string, number> = {}
     const categoryBalances: Record<string, number> = {}

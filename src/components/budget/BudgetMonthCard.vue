@@ -384,8 +384,12 @@ function optionTransfer() {
             >
               <div class="text-right">
                 <CurrencyDisplay
-                  :amount="aggregateExpense(cat).budgeted"
+                  :amount="Math.abs(aggregateExpense(cat).budgeted)"
                   :as-integer="true"
+                  :show-sign="false"
+                  :class="
+                    aggregateExpense(cat).budgeted < 0 ? 'text-error' : ''
+                  "
                 />
               </div>
               <div class="text-right">
@@ -413,6 +417,25 @@ function optionTransfer() {
                 <div class="text-right">
                   <CurrencyDisplay
                     :amount="
+                      Math.abs(
+                        calculateCategorySaldo(
+                          filteredTxsForSaldo,
+                          child.id,
+                          normalizedMonthStart,
+                          normalizedMonthEnd,
+                          monthlyBalanceStore.getLatestPersistedCategoryBalance(
+                            child.id,
+                            normalizedMonthStart
+                          ) || {
+                            balance: child.startBalance || 0,
+                            date: normalizedMonthStart,
+                          }
+                        ).budgeted
+                      )
+                    "
+                    :as-integer="true"
+                    :show-sign="false"
+                    :class="
                       calculateCategorySaldo(
                         filteredTxsForSaldo,
                         child.id,
@@ -425,9 +448,10 @@ function optionTransfer() {
                           balance: child.startBalance || 0,
                           date: normalizedMonthStart,
                         }
-                      ).budgeted
+                      ).budgeted < 0
+                        ? 'text-error'
+                        : ''
                     "
-                    :as-integer="true"
                   />
                 </div>
                 <div class="text-right">
@@ -506,6 +530,7 @@ function optionTransfer() {
               <CurrencyDisplay
                 :amount="sumIncomesSummary.budgeted"
                 :as-integer="true"
+                class="text-success"
               />
             </div>
             <div class="text-right">
@@ -538,6 +563,7 @@ function optionTransfer() {
                 <CurrencyDisplay
                   :amount="aggregateIncome(cat).budgeted"
                   :as-integer="true"
+                  class="text-success"
                 />
               </div>
               <div class="text-right">
@@ -579,6 +605,7 @@ function optionTransfer() {
                       ).budgeted
                     "
                     :as-integer="true"
+                    class="text-success"
                   />
                 </div>
                 <div class="text-right">

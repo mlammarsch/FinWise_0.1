@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, withDefaults } from 'vue'
-import { formatCurrency, getAmountClass } from '../../utils/formatters'
+import { computed, withDefaults } from "vue";
+import { formatCurrency, getAmountClass } from "../../utils/formatters";
 
 /**
  * Farbliche Anzeige der Währung mit verschiedenen Optionen.
@@ -18,37 +18,37 @@ import { formatCurrency, getAmountClass } from '../../utils/formatters'
 
 const props = withDefaults(
   defineProps<{
-    amount: number
-    showSign?: boolean
-    showZero?: boolean
-    asInteger?: boolean
+    amount: number;
+    showSign?: boolean;
+    showZero?: boolean;
+    asInteger?: boolean;
   }>(),
   {
     showSign: true,
     showZero: true,
     asInteger: false,
   }
-)
+);
 
 // Berechnet den formatierten Betrag mit optionaler Ganzzahldarstellung
 const formattedAmount = computed(() => {
-  let value = props.asInteger ? Math.round(props.amount) : props.amount
-  let formatted = formatCurrency(value)
+  let value = props.asInteger ? Math.round(props.amount) : props.amount;
+  let formatted = formatCurrency(value);
 
   // Entfernt ",00" nur, wenn `asInteger` aktiv ist, behält aber das Währungssymbol
   if (props.asInteger) {
-    formatted = formatted.replace(/,00(?=\s*€)/, '')
+    formatted = formatted.replace(/,00(?=\s*€)/, "");
   }
 
   // Entfernt das Währungszeichen nur, wenn `showSign` false ist
-  return props.showSign ? formatted : formatted.replace(/\s*€$/, '')
-})
+  return props.showSign ? formatted : formatted.replace(/\s*€$/, "");
+});
 
 // Bestimmt die CSS-Klasse für die Anzeige des Betrags
-const amountClass = computed(() => getAmountClass(props.amount))
+const amountClass = computed(() => getAmountClass(props.amount));
 
 // Legt fest, ob der Betrag angezeigt wird
-const showAmount = computed(() => props.amount !== 0 || props.showZero)
+const showAmount = computed(() => props.amount !== 0 || props.showZero);
 </script>
 
 <template>
