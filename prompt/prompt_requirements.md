@@ -1,6 +1,6 @@
 # Softwarearchitektur-Analyse: FinWise Applikation
 
-## Zusammenfassung
+## Zusammenfassung einer Codeanalyse
 
 Die FinWise Applikation ist eine moderne Vue 3-basierte Personal-Finance-Anwendung mit einem starken Fokus auf Budget-Management, Transaktionsverwaltung und Planung. Die Anwendung nutzt Pinia als Zustandsverwaltung, Vue Router für die Navigation und folgt einem komponentenbasierten Ansatz mit Composition API.
 
@@ -349,17 +349,11 @@ export const logger = {
    - Komponentententests für UI-Komponenten
    - End-to-End-Tests für kritische Flows
 
-### 6. Progressive Web App (PWA) Support
-
-1. Implementierung von Service Worker:
-   - Offline-Funktionalität
-   - Cache-Strategien
-2. Installierbare PWA-Konfiguration:
-   - Manifest-Datei
-   - App-Icons
-
 ## Abschluss
 
 Die empfohlenen Änderungen würden die Architektur der FinWise-Applikation deutlich verbessern, indem sie Separation of Concerns, Performance und Wartbarkeit erhöhen. Dabei bleibt die bestehende Funktionalität erhalten, während technische Schulden abgebaut und die Anwendung zukunftssicher gemacht wird.
 
 Die Einführung eines Service Layers und eines Data Access Layers macht die Anwendung flexibler und bereitet sie auf zukünftige Anforderungen vor, wie die Integration mit einem Backend oder andere Persistenzmechanismen. Die Performance-Optimierungen würden die Anwendung auch bei größeren Datenmengen responsiv halten.
+
+# Aufgabe
+Der Data ServiceLayer existiert nun. Nun realisieren wir Schritt 2, DataAccessLayer.

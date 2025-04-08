@@ -49,7 +49,7 @@ Log-Ausgaben sollen aussagekräftig und strukturiert sein (z. B. ID, Aktion, Q
 Jeder Log soll ein Modulpräfix enthalten: [<Modulname>], z. B. [categoryStore].
 Kein Logging in Templates oder Styles, nur in script-Blöcken oder Store-Funktionen.
 Keine dauerhaften Logs im produktiven UI-Rendering (DOM-bezogen).
-Bei komplexen Objekten: debugLog("[store] updateTransaction", { id, updates });
+Bei komplexen Objekten: debugLog("[store] updateTransaction", { id, Klarname, updates });
 Log-Ausgaben nur bei relevanten Aktionen wie: Hinzufügen, Aktualisieren, Löschen, Berechnen, Laden.
 
 Beispiel:
