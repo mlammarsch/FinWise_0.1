@@ -19,6 +19,8 @@ import { defineProps, defineEmits, ref, computed, defineExpose } from "vue";
 import { Transaction, TransactionType } from "../../types";
 import { useAccountStore } from "../../stores/accountStore";
 import { useCategoryStore } from "../../stores/categoryStore";
+import { useTransactionStore } from "../../stores/transactionStore";
+import { useTransactionFilterStore } from "../../stores/transactionFilterStore";
 import { formatDate } from "../../utils/formatters";
 import CurrencyDisplay from "../ui/CurrencyDisplay.vue";
 import { Icon } from "@iconify/vue";

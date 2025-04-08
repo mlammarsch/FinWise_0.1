@@ -14,8 +14,8 @@ $excludedDirectories = @(
     "dist",
     "src\router",
     "src\mock",
-    "src\layouts",
-    "src\components"
+    "src\layouts"
+    #"src\components"
 )
 
 $includeDirectories = @(

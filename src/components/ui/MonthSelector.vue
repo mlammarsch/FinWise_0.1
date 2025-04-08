@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
+import { useTransactionFilterStore } from "@/stores/transactionFilterStore";
 import { debugLog } from "@/utils/logger";
 
 const emit = defineEmits<{

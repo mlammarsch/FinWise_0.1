@@ -6,17 +6,7 @@ Die FinWise Applikation ist eine moderne Vue 3-basierte Personal-Finance-Anwendu
 
 ## Architekturanalyse
 
-### Stärken
 
-1. **Modularisierung**: Das Projekt ist in logische Bereiche unterteilt (Komponenten, Stores, Views, Utils), was die Wartbarkeit verbessert.
-
-2. **Pinia Store-Struktur**: Die Verwendung von Pinia für das State Management sorgt für gute Kapselung und Trennung von Datenmanagement und UI.
-
-3. **TypeScript**: Der durchgängige Einsatz von TypeScript erhöht die Codequalität und ermöglicht bessere IDE-Unterstützung.
-
-4. **Komponenten-Isolation**: Komponenten sind relativ isoliert und arbeiten über Props und Emits, was die Wiederverwendung fördert.
-
-5. **Local Storage Persistenz**: Die Daten werden im Local Storage persistiert, sodass die Anwendung auch ohne Backend funktioniert.
 
 ### Schwachstellen
 
@@ -37,70 +27,6 @@ Die FinWise Applikation ist eine moderne Vue 3-basierte Personal-Finance-Anwendu
 **Problem:** Stores haben zu viele Verantwortlichkeiten und es gibt zirkuläre Abhängigkeiten.
 
 **Lösung:**
-- Einführen eines Service Layers, der als Vermittler zwischen Stores und UI-Komponenten agiert
-- Komplexe Operationen wie `addAccountTransfer` und `calculateRunningBalances` sollten im Service Layer liegen
-- Beispielimplementierung:
-
-```typescript
-// src/services/TransactionService.ts
-import { useTransactionStore } from '@/stores/transactionStore';
-import { useAccountStore } from '@/stores/accountStore';
-
-export const TransactionService = {
-  addAccountTransfer(fromAccountId: string, toAccountId: string, amount: number, date: string, note: string) {
-    const transactionStore = useTransactionStore();
-    const accountStore = useAccountStore();
-
-    // Implementierung hier...
-  },
-
-  // Weitere Methoden
-};
-```
-
-### 2. Data Access Layer für Persistenz
-
-**Problem:** Local Storage Logik ist direkt in den Stores implementiert.
-
-**Lösung:**
-- Einführen eines Data Access Layers, der die Persistenzlogik abstrahiert
-- Ermöglicht einfachen Wechsel zu einer anderen Persistenz-Methode (z.B. IndexedDB, REST API)
-- Beispielimplementierung:
-
-```typescript
-// src/data/LocalStorageAdapter.ts
-export const LocalStorageAdapter = {
-  save(key: string, data: any): void {
-    localStorage.setItem(`finwise_${key}`, JSON.stringify(data));
-  },
-
-  load<T>(key: string): T | null {
-    const data = localStorage.getItem(`finwise_${key}`);
-    return data ? JSON.parse(data) : null;
-  },
-
-  remove(key: string): void {
-    localStorage.removeItem(`finwise_${key}`);
-  }
-};
-
-// src/data/DataService.ts
-import { LocalStorageAdapter } from './LocalStorageAdapter';
-
-export class DataService {
-  private adapter = LocalStorageAdapter;
-
-  saveAccounts(accounts: Account[]): void {
-    this.adapter.save('accounts', accounts);
-  }
-
-  loadAccounts(): Account[] | null {
-    return this.adapter.load<Account[]>('accounts');
-  }
-
-  // Weitere Methoden
-}
-```
 
 ### 3. Optimiertes State Management
 
@@ -297,16 +223,7 @@ export const logger = {
 
 
 
-### 3. Store-Refactoring (Den Schritt machen wir jetzt!!!)
 
-1. Überarbeiten des `transactionStore.ts`:
-   - Entfernen von Filter- und Berechnungsfunktionen
-   - Fokus auf CRUD-Operationen
-2. Erstellen neuer spezialisierter Stores:
-   - `transactionFilterStore.ts`: Filterlogik für Transaktionen
-   - `reconciliationStore.ts`: Logik für Kontoabgleiche
-   - `searchStore.ts`: Store für Suchfunktionalität
-3. Aktualisieren aller Importe und Verwendungen in Komponenten
 
 ### 4. Performance-Optimierungen (noch nicht realisieren!!!)
 
@@ -340,4 +257,4 @@ Die empfohlenen Änderungen würden die Architektur der FinWise-Applikation deut
 Die Einführung eines Service Layers und eines Data Access Layers macht die Anwendung flexibler und bereitet sie auf zukünftige Anforderungen vor, wie die Integration mit einem Backend oder andere Persistenzmechanismen. Die Performance-Optimierungen würden die Anwendung auch bei größeren Datenmengen responsiv halten.
 
 # Aufgabe
-Prüfe weiter das Store Refactoring, Punkt 3. Im ersten Durchlauf wurden schon neue Stores erstellt. 3.1 ist durch. 3.2 anscheinend nur zum Teil. Prüfe weiteres Refactoring, aber insbesondere auch Schritt 3.3. Prüfe, ob diverse *.vue Dateien in den Importen angepasst werden müssen.
+Prüfe die Architekturanalyse, die oben erstellt wurde. Was ist davon mittlerweile im Code umgesetzt und welche Punkte fehlen noch?

@@ -6,6 +6,7 @@ import { useCategoryStore } from "../../stores/categoryStore";
 import { useTagStore } from "../../stores/tagStore";
 import { useRecipientStore } from "../../stores/recipientStore";
 import { useTransactionStore } from "../../stores/transactionStore";
+import { useTransactionFilterStore } from "../../stores/transactionFilterStore"; // Neuer Import
 import CurrencyDisplay from "../ui/CurrencyDisplay.vue";
 import { formatDate } from "../../utils/formatters";
 import BadgeSoft from "../ui/BadgeSoft.vue";

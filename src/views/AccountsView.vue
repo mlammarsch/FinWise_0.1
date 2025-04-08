@@ -373,7 +373,7 @@ const onReconcileComplete = () => {
             :group="group"
             :activeAccountId="selectedAccount ? selectedAccount.id : ''"
             @selectAccount="onSelectAccount"
-            @reconcileAccount="startReconcile" <!-- Kontoabgleich Aktion -->
+            @reconcileAccount="startReconcile"
           />
         </div>
       </div>
