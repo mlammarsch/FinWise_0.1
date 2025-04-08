@@ -42,15 +42,16 @@ $searchFiles = @(
     "src\views\PlanningView.vue",
     "src\stores\planningStore.ts",
     "src\stores\ruleStore.ts",
+    "src\components\rules\RuleForm.vue",
 
     # ###Transaction
      "src\views\TransactionsView.vue",
-    # "./src/components/transaction/TransactionCard.vue",
+     "./src/components/transaction/TransactionCard.vue",
      "src\components\transaction\CategoryTransactionList.vue",
      "src\components\transaction\TransactionList.vue",
      "src\components\transaction\TransactionForm.vue",
     "src\stores\transactionStore.ts",
-    # "src\stores\recipientStore.ts",
+     "src\stores\recipientStore.ts",
 
     # ###Category - Budget
      "src\stores\categoryStore.ts",
@@ -58,26 +59,26 @@ $searchFiles = @(
     #"src\views\BudgetsView2.vue",
      "src\components\budget\BudgetCategoryColumn.vue",
      "src\components\budget\BudgetMonthCard.vue",
-    # "src\components\budget\BudgetMonthHeaderCard.vue",
+     "src\components\budget\BudgetMonthHeaderCard.vue",
      "src\components\budget\CategoryTransferModal.vue",
-    #"src\components\budget\CategoryForm.vue",
+    "src\components\budget\CategoryForm.vue",
 
     # ###Tags
-    # "src\stores\tagStore.ts",
+     "src\stores\tagStore.ts",
 
     # ###Admin
-    #"src\views\admin\AdminAccountsView.vue",
-    # "src\views\admin\AdminRecipientsView.vue",
-    # "src\views\admin\AdminCategoriesView.vue",
+    "src\views\admin\AdminAccountsView.vue",
+     "src\views\admin\AdminRecipientsView.vue",
+     "src\views\admin\AdminCategoriesView.vue",
     "src\views\admin\AdminPlanningView.vue",
-    # "src\layouts\AppLayout.vue",
+     "src\layouts\AppLayout.vue",
 
     # Components
-    # "./src/components/ui/PagingComponent.vue",
-    # "src\components\ui\PagingYearComponent.vue",
-    # "src\components\ui\MonthSelector.vue",
+     "./src/components/ui/PagingComponent.vue",
+     "src\components\ui\PagingYearComponent.vue",
+     "src\components\ui\MonthSelector.vue",
 
-    # "src\components\ui\*.vue",
+     "src\components\ui\*.vue",
      "src\components\ui\CurrencyInput.vue",
     # "src\components\ui\SearchableSelect.vue",
      "src\components\ui\SelectCategory.vue",
