@@ -12,7 +12,7 @@ $baseDirectoryFull = [System.IO.Path]::GetFullPath($baseDirectory)
 $excludedDirectories = @(
     "node_modules",
     "dist",
-    "src"
+#    "src"
 )
 
 $includeDirectories = @(
@@ -72,6 +72,7 @@ $searchFiles = @(
       "src\views\admin\AdminCategoriesView.vue",
      "src\views\admin\AdminPlanningView.vue",
      "src\views\admin\AdminRulesView.vue",
+     "src\views\SettingsView.vue",
     #  "src\layouts\AppLayout.vue",
 
     # # Components
