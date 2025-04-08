@@ -1,11 +1,11 @@
-// Datei: src/stores/transactionStore.ts
+// src/stores/transactionStore.ts
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { v4 as uuidv4 } from 'uuid'
 import { Transaction, TransactionType } from '../types'
 import { useAccountStore } from './accountStore'
 import { useCategoryStore } from './categoryStore'
-import { useRuleStore } from './ruleStore' // Neuer Import
+import { useRuleStore } from './ruleStore'
 import { debugLog } from '@/utils/logger'
 import { addAccountTransfer } from '@/utils/accountTransfers'
 import { calculateRunningBalances } from '@/utils/runningBalances'
@@ -28,9 +28,8 @@ function toDateOnlyString(input: string): string {
 export const useTransactionStore = defineStore('transaction', () => {
   const transactions = ref<ExtendedTransaction[]>([])
   const accountStore = useAccountStore()
-  const categoryStore = useCategoryStore()
-  const monthlyBalanceStore = useMonthlyBalanceStore()
 
+  // Einfache Getter-Funktionen
   const getTransactionById = computed(() => {
     return (id: string) => transactions.value.find(transaction => transaction.id === id)
   })
@@ -47,17 +46,6 @@ export const useTransactionStore = defineStore('transaction', () => {
       .sort((a, b) => b.date.localeCompare(a.date))
   })
 
-  const getTransactionsByDateRange = computed(() => {
-    return (startDate: string, endDate: string) => {
-      return transactions.value
-        .filter(transaction => {
-          const txDate = (transaction.valueDate || transaction.date).split("T")[0]
-          return txDate >= startDate && txDate <= endDate
-        })
-        .sort((a, b) => b.date.localeCompare(a.date))
-    }
-  })
-
   const getRecentTransactions = (limit: number = 10) => {
     debugLog("[transactionStore] getRecentTransactions called", { limit })
     return [...transactions.value]
@@ -65,51 +53,62 @@ export const useTransactionStore = defineStore('transaction', () => {
       .slice(0, limit)
   }
 
-  function addTransaction(transaction: Omit<ExtendedTransaction, 'id' | 'runningBalance'>) {
-    const ruleStore = useRuleStore()
+  // Basisoperationen
+  function addTransaction(transaction: Omit<ExtendedTransaction, 'id' | 'runningBalance'>, applyRules = true) {
+    const ruleStore = useRuleStore();
+    const categoryStore = useCategoryStore();
+    const monthlyBalanceStore = useMonthlyBalanceStore();
 
-    if (transaction.type !== TransactionType.CATEGORYTRANSFER) {
-      transaction = ruleStore.applyRulesToTransaction({ ...transaction }, 'PRE')
-      transaction = ruleStore.applyRulesToTransaction({ ...transaction }, 'DEFAULT')
-      transaction = ruleStore.applyRulesToTransaction({ ...transaction }, 'POST')
-      debugLog("[transactionStore] addTransaction - Applied rules to transaction", transaction)
+    // Anwenden von Regeln
+    let processedTx = { ...transaction };
+    if (applyRules && transaction.type !== TransactionType.CATEGORYTRANSFER) {
+      processedTx = ruleStore.applyRulesToTransaction({ ...transaction }, 'PRE')
+      processedTx = ruleStore.applyRulesToTransaction({ ...processedTx }, 'DEFAULT')
+      processedTx = ruleStore.applyRulesToTransaction({ ...processedTx }, 'POST')
+      debugLog("[transactionStore] addTransaction - Applied rules to transaction", processedTx)
     }
 
-    let runningBalance = 0
-
-    if (transaction.type !== TransactionType.CATEGORYTRANSFER) {
-      const accountTransactions = getTransactionsByAccount.value(transaction.accountId)
+    // Running Balance berechnen
+    let runningBalance = 0;
+    if (processedTx.type !== TransactionType.CATEGORYTRANSFER) {
+      const accountTransactions = getTransactionsByAccount.value(processedTx.accountId)
       runningBalance = accountTransactions.length > 0
-        ? accountTransactions[0].runningBalance + transaction.amount
-        : transaction.amount
-      accountStore.updateAccountBalance(transaction.accountId, runningBalance)
+        ? accountTransactions[0].runningBalance + processedTx.amount
+        : processedTx.amount
+      accountStore.updateAccountBalance(processedTx.accountId, runningBalance)
     }
 
+    // Neue Transaktion erstellen
     const newTransaction: ExtendedTransaction = {
-      ...transaction,
+      ...processedTx,
       id: uuidv4(),
       runningBalance,
-      date: toDateOnlyString(transaction.date),
-      valueDate: toDateOnlyString(transaction.valueDate || transaction.date)
+      date: toDateOnlyString(processedTx.date),
+      valueDate: toDateOnlyString(processedTx.valueDate || processedTx.date)
     }
 
     transactions.value.push(newTransaction)
     debugLog("[transactionStore] addTransaction:", newTransaction)
 
-    if (transaction.categoryId) {
-      if (transaction.type === TransactionType.CATEGORYTRANSFER) {
-        categoryStore.updateCategoryBalance(transaction.categoryId, transaction.amount)
-      } else if (!transaction.isReconciliation && transaction.type !== TransactionType.ACCOUNTTRANSFER) {
-        categoryStore.updateCategoryBalance(transaction.categoryId, transaction.amount)
+    // Kategorie-Saldo aktualisieren
+    if (processedTx.categoryId) {
+      if (processedTx.type === TransactionType.CATEGORYTRANSFER) {
+        categoryStore.updateCategoryBalance(processedTx.categoryId, processedTx.amount)
+      } else if (!processedTx.isReconciliation && processedTx.type !== TransactionType.ACCOUNTTRANSFER) {
+        categoryStore.updateCategoryBalance(processedTx.categoryId, processedTx.amount)
       }
     }
 
+    // Speichern und Monatssalden aktualisieren
     saveTransactions()
     monthlyBalanceStore.calculateMonthlyBalances()
+
     return newTransaction
   }
 
   function updateTransaction(id: string, updates: Partial<ExtendedTransaction>) {
+    const monthlyBalanceStore = useMonthlyBalanceStore();
+
     const index = transactions.value.findIndex(transaction => transaction.id === id)
     if (index !== -1) {
       if (updates.date) {
@@ -121,6 +120,7 @@ export const useTransactionStore = defineStore('transaction', () => {
 
       transactions.value[index] = { ...transactions.value[index], ...updates }
 
+      // Update der verknüpften Transaktionen (z.B. für Kontotransfers)
       if (updates.hasOwnProperty("reconciled")) {
         const counterId = transactions.value[index].counterTransactionId
         if (counterId) {
@@ -136,7 +136,9 @@ export const useTransactionStore = defineStore('transaction', () => {
 
       saveTransactions()
       updateRunningBalances(transactions.value[index].accountId)
+
       debugLog("[transactionStore] updateTransaction", { id, updates })
+
       monthlyBalanceStore.calculateMonthlyBalances()
       return true
     }
@@ -144,19 +146,24 @@ export const useTransactionStore = defineStore('transaction', () => {
   }
 
   function deleteTransaction(id: string) {
+    const monthlyBalanceStore = useMonthlyBalanceStore();
+
     const transaction = transactions.value.find(tx => tx.id === id)
     if (!transaction) return false
 
     const accountId = transaction.accountId
     transactions.value = transactions.value.filter(tx => tx.id !== id)
 
+    // Falls es eine Gegenbuchung gibt, diese auch löschen
     if (transaction.counterTransactionId) {
       transactions.value = transactions.value.filter(tx => tx.id !== transaction.counterTransactionId)
     }
 
     updateRunningBalances(accountId)
     saveTransactions()
+
     debugLog("[transactionStore] deleteTransaction", id)
+
     monthlyBalanceStore.calculateMonthlyBalances()
     return true
   }
@@ -164,15 +171,18 @@ export const useTransactionStore = defineStore('transaction', () => {
   function updateRunningBalances(accountId: string) {
     const accountTxs = transactions.value.filter(tx => tx.accountId === accountId)
     const { updatedTransactions, finalBalance } = calculateRunningBalances(accountTxs)
+
     updatedTransactions.forEach(updatedTx => {
       const index = transactions.value.findIndex(tx => tx.id === updatedTx.id)
       if (index !== -1) {
         transactions.value[index] = updatedTx
       }
     })
+
     if (accountTxs.length > 0) {
       accountStore.updateAccountBalance(accountId, finalBalance)
     }
+
     saveTransactions()
     debugLog("[transactionStore] updateRunningBalances", { accountId, finalBalance })
   }
@@ -232,7 +242,6 @@ export const useTransactionStore = defineStore('transaction', () => {
     getTransactionById,
     getTransactionsByAccount,
     getTransactionsByCategory,
-    getTransactionsByDateRange,
     getRecentTransactions,
     addTransaction,
     addReconcileTransaction,

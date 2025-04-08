@@ -295,25 +295,9 @@ export const logger = {
 
 ## Vollständige Änderungsspezifikation
 
-### 1. Service Layer einführen
 
-1. Erstellen eines `/services`-Verzeichnisses
-2. Implementieren der folgenden Services:
-   - `AccountService.ts`: Konto-Management und -Operationen
-   - `TransactionService.ts`: Transaktionsverwaltung und Berechnungen
-   - `BudgetService.ts`: Budget-Logik und Kalkulationen
-   - `PlanningService.ts`: Planungslogik und Wiederholungen
-   - `SearchService.ts`: Zentrale Such- und Filterfunktionalität
 
-### 2. Data Access Layer
-
-1. Erstellen eines `/data`-Verzeichnisses
-2. Implementieren der folgenden Adapter:
-   - `LocalStorageAdapter.ts`: Aktuelle Local Storage Implementierung
-   - `IDBAdapter.ts`: Alternative IndexedDB-Implementierung
-   - `DataService.ts`: Einheitliche Schnittstelle für Datenzugriffe
-
-### 3. Store-Refactoring
+### 3. Store-Refactoring (Den Schritt machen wir jetzt!!!)
 
 1. Überarbeiten des `transactionStore.ts`:
    - Entfernen von Filter- und Berechnungsfunktionen
@@ -324,7 +308,7 @@ export const logger = {
    - `searchStore.ts`: Store für Suchfunktionalität
 3. Aktualisieren aller Importe und Verwendungen in Komponenten
 
-### 4. Performance-Optimierungen
+### 4. Performance-Optimierungen (noch nicht realisieren!!!)
 
 1. Lazy Loading aller Views über router:
    - Überarbeiten von `router/index.ts`
@@ -338,7 +322,7 @@ export const logger = {
    - Caching von häufig verwendeten Berechnungen
    - Computed-Properties mit `notifyParentUpdate: false`
 
-### 5. Code-Qualität und Konsistenz
+### 5. Code-Qualität und Konsistenz  (noch nicht realisieren!!!)
 
 1. Einführen eines ESLint-Configs mit strikte Regeln:
    - Keine zirkulären Abhängigkeiten
@@ -356,4 +340,5 @@ Die empfohlenen Änderungen würden die Architektur der FinWise-Applikation deut
 Die Einführung eines Service Layers und eines Data Access Layers macht die Anwendung flexibler und bereitet sie auf zukünftige Anforderungen vor, wie die Integration mit einem Backend oder andere Persistenzmechanismen. Die Performance-Optimierungen würden die Anwendung auch bei größeren Datenmengen responsiv halten.
 
 # Aufgabe
-Der Data ServiceLayer existiert nun. Nun realisieren wir Schritt 2, DataAccessLayer.
+Prüfe nun, ob Service- und Datalayer aus Step 1 und 2 gut vorkonfiguriert sind.
+Dann beginne Schritt 3. Store-Refactoring. Prüfe, ob diverse *.vue Dateien in den Importen angepasst werden müssen.
