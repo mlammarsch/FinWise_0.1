@@ -7,6 +7,7 @@ import { useRecipientStore } from "../stores/recipientStore";
 import { usePlanningStore } from "../stores/planningStore";
 import { useStatisticsStore } from "../stores/statisticsStore";
 import { useThemeStore } from "../stores/themeStore";
+import { logger, LogConfig, LogLevel } from "../utils/logger";
 import { createPinia } from "pinia";
 
 const pinia = createPinia();
@@ -17,6 +18,23 @@ export function seedData() {
   const tagStore = useTagStore(pinia);
   const categoryStore = useCategoryStore(pinia);
   const recipientStore = useRecipientStore(pinia);
+
+  // Logger-Konfiguration initialisieren
+  if (localStorage.getItem('finwise_log_level') === null) {
+    localStorage.setItem('finwise_log_level', LogLevel.INFO.toString());
+  }
+
+  if (localStorage.getItem('finwise_log_categories') === null) {
+    localStorage.setItem('finwise_log_categories', JSON.stringify(['store', 'ui', 'service']));
+  }
+
+  try {
+    LogConfig.level = parseInt(localStorage.getItem('finwise_log_level') || LogLevel.INFO.toString());
+    const enabledCategories = JSON.parse(localStorage.getItem('finwise_log_categories') || '["store", "ui", "service"]');
+    LogConfig.enabledCategories = new Set<string>(enabledCategories);
+  } catch (error) {
+    console.error("Fehler beim Laden der Log-Konfiguration:", error);
+  }
 
   if (recipientStore.recipients.length === 0) {
     [
@@ -120,6 +138,8 @@ export function seedData() {
       accountGroupId: secondGroupId
     });
   }
+
+  logger.info('system', 'Seed-Daten erfolgreich geladen');
 }
 
 export function clearData() {
@@ -133,6 +153,8 @@ export function clearData() {
   localStorage.removeItem("finwise_planning");
   localStorage.removeItem("finwise_statistics");
   localStorage.removeItem("finwise_theme");
+  // History nicht löschen, um die Löschaktion nachvollziehen zu können
+  // localStorage.removeItem("finwise_history");
 
   const stores = [
     useAccountStore(pinia),
@@ -148,4 +170,6 @@ export function clearData() {
   stores.forEach((store) => {
     if (typeof store.reset === "function") store.reset();
   });
+
+  logger.warn('system', 'Alle Daten wurden zurückgesetzt');
 }

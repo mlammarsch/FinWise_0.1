@@ -12,10 +12,7 @@ $baseDirectoryFull = [System.IO.Path]::GetFullPath($baseDirectory)
 $excludedDirectories = @(
     "node_modules",
     "dist",
-    "src\router",
-    "src\mock",
-    "src\layouts"
-    #"src\components"
+    "src"
 )
 
 $includeDirectories = @(
@@ -70,16 +67,17 @@ $searchFiles = @(
     #  "src\stores\tagStore.ts",
 
     # # ###Admin
-    # "src\views\admin\AdminAccountsView.vue",
-    #  "src\views\admin\AdminRecipientsView.vue",
-    #  "src\views\admin\AdminCategoriesView.vue",
-    # "src\views\admin\AdminPlanningView.vue",
+     "src\views\admin\AdminAccountsView.vue",
+      "src\views\admin\AdminRecipientsView.vue",
+      "src\views\admin\AdminCategoriesView.vue",
+     "src\views\admin\AdminPlanningView.vue",
+     "src\views\admin\AdminRulesView.vue",
     #  "src\layouts\AppLayout.vue",
 
     # # Components
-    #  "./src/components/ui/PagingComponent.vue",
-    #  "src\components\ui\PagingYearComponent.vue",
-    #  "src\components\ui\MonthSelector.vue",
+      "./src/components/ui/PagingComponent.vue",
+      "src\components\ui\PagingYearComponent.vue",
+      "src\components\ui\MonthSelector.vue",
 
     #  "src\components\ui\*.vue",
     #  "src\components\ui\CurrencyInput.vue",
@@ -94,7 +92,7 @@ $searchFiles = @(
     # # ###Sonstiges
     # # "./src/stores/*.ts"
     # "src\stores\monthlyBalanceStore.ts",
-    #  "src\utils\*.ts",
+      "src\utils\*.ts",
     #  "src\utils\formatters.ts",
     #  "src\utils\accountTransfers.ts",
     #  "src\utils\categoryTransfer.ts",
@@ -104,8 +102,8 @@ $searchFiles = @(
     # # "*.vue",
     # "src\mock\seed.ts",
 
-    "*.ts",
-    "*.vue"
+    "*.ts"
+    #"*.vue"
 )
 
 $output = @()
