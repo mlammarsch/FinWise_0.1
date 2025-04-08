@@ -214,10 +214,6 @@ onMounted(() => {
           <Icon icon="mdi:play-circle" class="mr-2" />
           Auto-Ausführen
         </button>
-        <button class="btn btn-primary" @click="createPlanning">
-          <Icon icon="mdi:plus" class="mr-2" />
-          Neue Planung
-        </button>
       </div>
     </div>
 
@@ -261,7 +257,12 @@ onMounted(() => {
           </button>
         </div>
 
-        <SearchGroup @search="(query) => (searchQuery = query)" />
+        <SearchGroup
+          btnRight="Neue Planung"
+          btnRightIcon="mdi:plus"
+          @btn-right-click="createPlanning"
+          @search="(query) => (searchQuery = query)"
+        />
       </div>
     </div>
 

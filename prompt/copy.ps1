@@ -41,7 +41,6 @@ $searchFiles = @(
     "src\components\planning\*.vue",
     "src\views\PlanningView.vue",
     "src\stores\planningStore.ts",
-    "src\stores\monthlyBalanceStore.ts",
     "src\stores\ruleStore.ts",
 
     # ###Transaction
@@ -49,7 +48,7 @@ $searchFiles = @(
     # "./src/components/transaction/TransactionCard.vue",
      "src\components\transaction\CategoryTransactionList.vue",
      "src\components\transaction\TransactionList.vue",
-    # "src\components\transaction\TransactionForm.vue",
+     "src\components\transaction\TransactionForm.vue",
     "src\stores\transactionStore.ts",
     # "src\stores\recipientStore.ts",
 
@@ -82,18 +81,22 @@ $searchFiles = @(
      "src\components\ui\CurrencyInput.vue",
     # "src\components\ui\SearchableSelect.vue",
      "src\components\ui\SelectCategory.vue",
+     "src\components\ui\SelectAccount.vue",
+     "src\components\ui\SelectRecipient.vue",
      "src\components\ui\TagSearchableDropdown.vue",
      "src\components\ui\SearchGroup.vue",
     # "src\components\ui\MainNavigation.vue",
 
     # ###Sonstiges
     # "./src/stores/*.ts"
+    "src\stores\monthlyBalanceStore.ts",
      "src\utils\*.ts",
      "src\utils\formatters.ts",
      "src\utils\accountTransfers.ts",
      "src\utils\categoryTransfer.ts",
      "src\utils\runningBalances.ts",
      "src\types\*.ts"
+     "src\components\ui\SearchGroup.vue",
     # "*.vue",
     "*.ts"
 )

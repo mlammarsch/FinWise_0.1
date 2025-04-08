@@ -786,7 +786,7 @@ function saveRuleAndCloseModal(ruleData: any) {
         </div>
         <div v-if="upcomingDates.length > 0">
           <div class="text-sm font-semibold mb-2">Kommende Termine:</div>
-          <div class="grid grid-cols-2 gap-2">
+          <div class="grid grid-cols-1 gap-2">
             <div
               v-for="(date, index) in upcomingDates"
               :key="index"
