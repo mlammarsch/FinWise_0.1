@@ -130,22 +130,7 @@ const availableByMonth = computed(() => {
           class="mb-4 items-center"
         >
           <h1 class="text-2xl font-bold col-span-1">Budgetübersicht</h1>
-          <div class="col-span-1 flex items-end">
-            <div
-              class="text-sm flex items-center cursor-pointer"
-              @click="toggleAll"
-            >
-              <Icon
-                :icon="
-                  expanded.size > 0 ? 'mdi:chevron-up' : 'mdi:chevron-down'
-                "
-                class="text-md mr-1"
-              />
-              <span>{{
-                expanded.size > 0 ? "alle einklappen" : "alle ausklappen"
-              }}</span>
-            </div>
-          </div>
+          <div class="col-span-1 flex items-end"></div>
           <div class="col-span-[calc(var(--cols)-2)] flex justify-center">
             <PagingYearComponent
               :displayedMonths="numMonths"
@@ -160,9 +145,21 @@ const availableByMonth = computed(() => {
       <div class="flex overflow-y-scroll">
         <div
           :style="{ flex: '0 0 calc(100% / ' + totalColumns + ')' }"
-          class="flex flex-col"
+          class="flex flex-col justify-end"
         >
           <!-- Toggle-Control bereits im Header integriert -->
+          <div
+            class="text-sm flex items-center cursor-pointer"
+            @click="toggleAll"
+          >
+            <Icon
+              :icon="expanded.size > 0 ? 'mdi:chevron-up' : 'mdi:chevron-down'"
+              class="text-md mr-1"
+            />
+            <span>{{
+              expanded.size > 0 ? "alle einklappen" : "alle ausklappen"
+            }}</span>
+          </div>
         </div>
         <div
           v-for="(month, i) in months"

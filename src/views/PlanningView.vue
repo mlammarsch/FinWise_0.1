@@ -325,7 +325,7 @@ onMounted(() => {
     <!-- Inhaltsbereich basierend auf aktiver Tab -->
     <div
       v-if="activeTab === 'upcoming'"
-      class="card bg-base-100 shadow-md border border-base-300"
+      class="card bg-base-100 shadow-md border border-base-300 p-4"
     >
       <!-- Tabelle der anstehenden Planungen -->
       <div class="overflow-x-auto">

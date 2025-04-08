@@ -274,7 +274,7 @@ watch(currentViewMode, () => {
 
     <!-- Filterleiste und Liste abhängig vom Modus -->
     <div v-if="currentViewMode === 'account'">
-      <div class="card bg-base-100 shadow-md border border-base-300">
+      <div class="card bg-base-100 shadow-md border border-base-300 p-4">
         <div
           class="card-title flex flex-wrap items-end justify-start gap-3 mx-2 pt-2 relative z-10"
         >
@@ -403,7 +403,7 @@ watch(currentViewMode, () => {
       </div>
     </div>
     <div v-else>
-      <div class="card bg-base-100 shadow-md border border-base-300">
+      <div class="card bg-base-100 shadow-md border border-base-300 p-4">
         <div
           class="card-title flex flex-wrap items-end justify-start gap-3 mx-2 pt-2 relative z-10"
         >

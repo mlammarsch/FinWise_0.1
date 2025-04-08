@@ -117,14 +117,8 @@ function handleTransfer(data: any) {
       {{ props.label }}
     </div>
     <div class="p-2 text-sm space-y-1 flex flex-col items-center">
-      <div
-        @contextmenu.prevent="openHeaderDropdown"
-        class="cursor-pointer"
-      >
-        <CurrencyDisplay
-          :amount="props.available ?? 0"
-          :as-integer="true"
-        />
+      <div @contextmenu.prevent="openHeaderDropdown" class="cursor-pointer">
+        <CurrencyDisplay :amount="props.available ?? 0" :as-integer="true" />
         verfügbare Mittel
       </div>
       <div>-{{ props.overspent ?? 0 }} Overspent in prev</div>
@@ -143,10 +137,7 @@ function handleTransfer(data: any) {
   >
     <ul>
       <li>
-        <button
-          class="btn btn-ghost btn-sm w-full"
-          @click="openHeaderTransfer"
-        >
+        <button class="btn btn-ghost btn-sm w-full" @click="openHeaderTransfer">
           Transfer zu…
         </button>
       </li>
