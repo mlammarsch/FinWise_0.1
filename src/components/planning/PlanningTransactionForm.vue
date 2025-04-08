@@ -292,6 +292,9 @@ function calculateUpcomingDates() {
       if (currentDate.isAfter(dayjs(endDate.value))) break;
     }
   }
+
+  // Limitiere Termine auf 6
+  upcomingDates.value = upcomingDates.value.slice(0, 6);
 }
 
 function getDayOfWeekName(day: number): string {

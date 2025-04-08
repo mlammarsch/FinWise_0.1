@@ -11,6 +11,7 @@
  */
 import { ref, computed, watch, onMounted, defineExpose } from "vue";
 import { useAccountStore } from "@/stores/accountStore";
+import CurrencyDisplay from "./CurrencyDisplay.vue";
 import { debugLog } from "@/utils/logger";
 
 const props = defineProps<{
@@ -96,6 +97,8 @@ const options = computed<Option[]>(() => {
 });
 
 const visibleOptions = computed(() => {
+  if (!dropdownOpen.value) return [];
+
   if (searchTerm.value.trim()) {
     const term = searchTerm.value.toLowerCase();
     return options.value.filter((opt) => {
@@ -108,8 +111,7 @@ const visibleOptions = computed(() => {
 
 function onKeyDown(e: KeyboardEvent) {
   if (!dropdownOpen.value) {
-    dropdownOpen.value = true;
-    highlightedIndex.value = 0;
+    toggleDropdown();
     return;
   }
   if (e.key === "ArrowDown") {
@@ -136,9 +138,7 @@ function onKeyDown(e: KeyboardEvent) {
     if (selectedAcc) selectAccount(selectedAcc);
   } else if (e.key === "Escape") {
     e.preventDefault();
-    dropdownOpen.value = false;
-    searchTerm.value = "";
-    inputRef.value?.focus();
+    closeDropdown();
   }
 }
 
@@ -153,8 +153,38 @@ function scrollToHighlighted() {
   }
 }
 
-function onClickInput() {
-  dropdownOpen.value = true;
+function toggleDropdown() {
+  dropdownOpen.value = !dropdownOpen.value;
+  if (dropdownOpen.value) {
+    highlightedIndex.value = 0;
+    nextTick(() => {
+      if (inputRef.value) {
+        inputRef.value.focus();
+        inputRef.value.select();
+      }
+    });
+  }
+}
+
+function closeDropdown() {
+  dropdownOpen.value = false;
+}
+
+function onBlur(event: FocusEvent) {
+  // Verzögerung, um Klicks auf die Dropdown-Optionen zu erlauben
+  setTimeout(() => {
+    if (
+      !event.relatedTarget ||
+      !event.relatedTarget.closest(".dropdown-container")
+    ) {
+      closeDropdown();
+    }
+  }, 200);
+}
+
+function onFocus(event: FocusEvent) {
+  const target = event.target as HTMLInputElement;
+  setTimeout(() => target.select(), 0);
 }
 
 function selectAccount(acc: (typeof accountStore.accounts)[0]) {
@@ -165,6 +195,11 @@ function selectAccount(acc: (typeof accountStore.accounts)[0]) {
   debugLog("[SelectAccount] after selection", { selected: selected.value });
 }
 
+function clearSearch() {
+  searchTerm.value = "";
+  inputRef.value?.focus();
+}
+
 function focusInput() {
   inputRef.value?.focus();
 }
@@ -172,19 +207,31 @@ defineExpose({ focusInput });
 </script>
 
 <template>
-  <div class="relative">
-    <input
-      ref="inputRef"
-      type="text"
-      class="input input-bordered w-full"
-      v-model="searchTerm"
-      @click="onClickInput"
-      @keydown="onKeyDown"
-      placeholder="Konto suchen..."
-    />
+  <div class="relative dropdown-container">
+    <div class="relative">
+      <input
+        ref="inputRef"
+        type="text"
+        class="input input-bordered w-full pr-8"
+        v-model="searchTerm"
+        @click="toggleDropdown"
+        @keydown="onKeyDown"
+        @focus="onFocus"
+        @blur="onBlur"
+        placeholder="Konto suchen..."
+      />
+      <!-- X Icon im Feld -->
+      <button
+        v-if="searchTerm"
+        @click="clearSearch"
+        class="absolute right-2 top-1/2 -translate-y-1/2 text-base text-neutral/60 hover:text-error/60"
+      >
+        <Icon icon="mdi:close-circle-outline" />
+      </button>
+    </div>
     <div
       v-if="dropdownOpen"
-      class="absolute z-40 w-full bg-base-100 border border-base-300 rounded-lg mt-1 max-h-60 overflow-y-auto"
+      class="absolute z-40 w-full bg-base-100 border border-base-300 rounded-lg mt-1 max-h-60 overflow-y-auto dropdown-container"
     >
       <template
         v-for="(option, idx) in visibleOptions"
@@ -205,7 +252,14 @@ defineExpose({ focusInput });
           }"
           @click="selectAccount(option.account!)"
         >
-          {{ option.account?.name }}
+          <div class="flex justify-between items-center">
+            <span>{{ option.account?.name }}</span>
+            <CurrencyDisplay
+              v-if="option.account"
+              :amount="option.account.balance"
+              :as-integer="true"
+            />
+          </div>
         </div>
       </template>
     </div>

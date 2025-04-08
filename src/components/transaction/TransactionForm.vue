@@ -8,10 +8,12 @@ import { useCategoryStore } from "../../stores/categoryStore";
 import { useTagStore } from "../../stores/tagStore";
 import { useTransactionStore } from "../../stores/transactionStore";
 import DatePicker from "../ui/DatePicker.vue";
-import SearchableSelect from "../ui/SearchableSelect.vue";
 import CurrencyInput from "../ui/CurrencyInput.vue";
 import ButtonGroup from "../ui/ButtonGroup.vue";
 import TagSearchableDropdown from "../ui/TagSearchableDropdown.vue";
+import SelectAccount from "../ui/SelectAccount.vue";
+import SelectCategory from "../ui/SelectCategory.vue";
+import SelectRecipient from "../ui/SelectRecipient.vue";
 import { debugLog } from "@/utils/logger";
 
 /**
@@ -400,14 +402,7 @@ const submitForm = () => {
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <fieldset class="fieldset">
         <legend class="fieldset-legend">Konto</legend>
-        <select
-          v-model="accountId"
-          class="select select-bordered focus:outline-none focus:ring-2 focus:ring-accent w-full"
-        >
-          <option v-for="a in accounts" :key="a.id" :value="a.id">
-            {{ a.name }}
-          </option>
-        </select>
+        <SelectAccount v-model="accountId" />
       </fieldset>
       <fieldset class="fieldset">
         <legend class="fieldset-legend">
@@ -428,36 +423,34 @@ const submitForm = () => {
     <div class="divider pt-5" />
 
     <!-- Empfänger -->
-    <SearchableSelect
-      class="fieldset focus:outline-none focus:ring-2 focus:ring-accent"
-      v-model="recipientId"
-      :options="recipients"
-      label="Empfänger"
-      :disabled="isTransfer"
-      :allowCreate="true"
-      @create="onCreateRecipient($event)"
-    />
+    <div class="form-control">
+      <legend class="fieldset-legend">Empfänger</legend>
+      <SelectRecipient
+        v-model="recipientId"
+        @create="onCreateRecipient"
+        :class="isTransfer ? 'opacity-50' : ''"
+        :disabled="isTransfer"
+      />
+    </div>
 
     <!-- Kategorie & Tags -->
     <div
       v-if="transactionType !== TransactionType.ACCOUNTTRANSFER"
       class="grid grid-cols-1 md:grid-cols-2 gap-4"
     >
-      <SearchableSelect
-        class="fieldset focus:outline-none focus:ring-2 focus:ring-accent"
-        v-model="categoryId"
-        :options="categories"
-        label="Kategorie"
-        :allowCreate="true"
-        @create="onCreateCategory($event)"
-      />
-      <TagSearchableDropdown
-        class="fieldset focus:outline-none focus:ring-2 focus:ring-accent"
-        v-model="tagIds"
-        :options="tags"
-        label="Tags"
-        @create="onCreateTag($event)"
-      />
+      <div class="form-control">
+        <legend class="fieldset-legend">Kategorie</legend>
+        <SelectCategory v-model="categoryId" />
+      </div>
+      <div class="form-control">
+        <legend class="fieldset-legend">Tags</legend>
+        <TagSearchableDropdown
+          class="fieldset focus:outline-none focus:ring-2 focus:ring-accent"
+          v-model="tagIds"
+          :options="tags"
+          @create="onCreateTag"
+        />
+      </div>
     </div>
 
     <!-- Buttons -->

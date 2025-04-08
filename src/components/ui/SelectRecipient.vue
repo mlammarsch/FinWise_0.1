@@ -12,12 +12,13 @@
  * - select - Empfänger wurde gewählt
  * - create - Neuer Empfänger soll erstellt werden
  */
-import { ref, computed, watch, onMounted, defineExpose } from "vue";
+import { ref, computed, watch, onMounted, nextTick, defineExpose } from "vue";
 import { useRecipientStore } from "@/stores/recipientStore";
 import { debugLog } from "@/utils/logger";
 
 const props = defineProps<{
   modelValue?: string;
+  disabled?: boolean;
 }>();
 const emit = defineEmits(["update:modelValue", "select", "create"]);
 
@@ -68,16 +69,16 @@ watch(selected, (newVal) => {
 });
 
 const filteredRecipients = computed(() => {
-  if (!searchTerm.value.trim()) {
-    return recipientStore.recipients.sort((a, b) =>
-      a.name.localeCompare(b.name)
-    );
+  if (!dropdownOpen.value) return [];
+
+  if (searchTerm.value.trim()) {
+    const term = searchTerm.value.toLowerCase();
+    return recipientStore.recipients
+      .filter((r) => r.name.toLowerCase().includes(term))
+      .sort((a, b) => a.name.localeCompare(b.name));
   }
 
-  const term = searchTerm.value.toLowerCase();
-  return recipientStore.recipients
-    .filter((r) => r.name.toLowerCase().includes(term))
-    .sort((a, b) => a.name.localeCompare(b.name));
+  return recipientStore.recipients.sort((a, b) => a.name.localeCompare(b.name));
 });
 
 // Bestimmt, ob ein neuer Empfänger erstellt werden kann
@@ -85,15 +86,16 @@ const canCreateRecipient = computed(() => {
   const term = searchTerm.value.trim();
   if (!term) return false;
 
-  return !filteredRecipients.value.some(
+  return !recipientStore.recipients.some(
     (r) => r.name.toLowerCase() === term.toLowerCase()
   );
 });
 
 function onKeyDown(e: KeyboardEvent) {
+  if (props.disabled) return;
+
   if (!dropdownOpen.value) {
-    dropdownOpen.value = true;
-    highlightedIndex.value = 0;
+    toggleDropdown();
     return;
   }
 
@@ -118,9 +120,7 @@ function onKeyDown(e: KeyboardEvent) {
     }
   } else if (e.key === "Escape") {
     e.preventDefault();
-    dropdownOpen.value = false;
-    searchTerm.value = "";
-    inputRef.value?.focus();
+    closeDropdown();
   }
 }
 
@@ -132,8 +132,42 @@ function scrollToHighlighted() {
   }
 }
 
-function onClickInput() {
-  dropdownOpen.value = true;
+function toggleDropdown() {
+  if (props.disabled) return;
+
+  dropdownOpen.value = !dropdownOpen.value;
+  if (dropdownOpen.value) {
+    highlightedIndex.value = 0;
+    nextTick(() => {
+      if (inputRef.value) {
+        inputRef.value.focus();
+        inputRef.value.select();
+      }
+    });
+  }
+}
+
+function closeDropdown() {
+  dropdownOpen.value = false;
+}
+
+function onBlur(event: FocusEvent) {
+  // Verzögerung, um Klicks auf die Dropdown-Optionen zu erlauben
+  setTimeout(() => {
+    if (
+      !event.relatedTarget ||
+      !event.relatedTarget.closest(".dropdown-container")
+    ) {
+      closeDropdown();
+    }
+  }, 200);
+}
+
+function onFocus(event: FocusEvent) {
+  if (props.disabled) return;
+
+  const target = event.target as HTMLInputElement;
+  setTimeout(() => target.select(), 0);
 }
 
 function selectRecipient(recipient: { id: string; name: string }) {
@@ -156,6 +190,11 @@ function createRecipient() {
   debugLog("[SelectRecipient] createRecipient", { name });
 }
 
+function clearSearch() {
+  searchTerm.value = "";
+  inputRef.value?.focus();
+}
+
 function focusInput() {
   inputRef.value?.focus();
 }
@@ -163,19 +202,32 @@ defineExpose({ focusInput });
 </script>
 
 <template>
-  <div class="relative">
-    <input
-      ref="inputRef"
-      type="text"
-      class="input input-bordered w-full"
-      v-model="searchTerm"
-      @click="onClickInput"
-      @keydown="onKeyDown"
-      placeholder="Empfänger suchen oder erstellen..."
-    />
+  <div class="relative dropdown-container">
+    <div class="relative">
+      <input
+        ref="inputRef"
+        type="text"
+        class="input input-bordered w-full pr-8"
+        v-model="searchTerm"
+        @click="toggleDropdown"
+        @keydown="onKeyDown"
+        @focus="onFocus"
+        @blur="onBlur"
+        :disabled="disabled"
+        placeholder="Empfänger suchen oder erstellen..."
+      />
+      <!-- X Icon im Feld -->
+      <button
+        v-if="searchTerm && !disabled"
+        @click="clearSearch"
+        class="absolute right-2 top-1/2 -translate-y-1/2 text-base text-neutral/60 hover:text-error/60"
+      >
+        <Icon icon="mdi:close-circle-outline" />
+      </button>
+    </div>
     <div
-      v-if="dropdownOpen"
-      class="absolute z-40 w-full bg-base-100 border border-base-300 rounded-lg mt-1 max-h-60 overflow-y-auto"
+      v-if="dropdownOpen && !disabled"
+      class="absolute z-40 w-full bg-base-100 border border-base-300 rounded-lg mt-1 max-h-60 overflow-y-auto dropdown-container"
     >
       <div
         v-if="filteredRecipients.length === 0 && !canCreateRecipient"
