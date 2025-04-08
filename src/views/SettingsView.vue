@@ -1,587 +1,623 @@
-<template>
-  <div class="max-w-4xl mx-auto flex flex-col min-h-screen py-8 px-4">
-    <!-- Header -->
-    <div class="flex w-full justify-between items-center mb-6">
-      <h2 class="text-xl font-bold">Einstellungen</h2>
-    </div>
+<script setup lang="ts">
+import { ref, computed, onMounted } from "vue";
+import { useThemeStore } from "@/stores/themeStore";
+import { useReconciliationStore } from "@/stores/reconciliationStore";
+import { LogConfig, LogLevel, historyManager } from "@/utils/logger";
+import { debugLog } from "@/utils/logger";
 
-    <!-- Tabs -->
+/**
+ * Pfad zur Komponente: src/views/SettingsView.vue
+ * Einstellungen der Anwendung.
+ *
+ * Komponenten-Props:
+ * - Keine Props vorhanden
+ *
+ * Emits:
+ * - Keine Emits vorhanden
+ */
+
+// State
+const activeTab = ref("general");
+const themeStore = useThemeStore();
+const reconciliationStore = useReconciliationStore();
+const defaultCurrency = ref("EUR");
+
+// Logger Einstellungen
+const logLevel = ref(LogConfig.level);
+const logRetention = ref(LogConfig.historyRetentionDays);
+const enabledLogCategories = ref(new Set([...LogConfig.enabledCategories]));
+
+// History-Einträge für die Anzeige
+const historyEntries = ref<any[]>([]);
+
+// Formular-Status
+const settingsSaved = ref(false);
+
+// Mapping für Log-Level-Anzeige
+const logLevelLabels = {
+  [LogLevel.DEBUG]: "Debug",
+  [LogLevel.INFO]: "Info",
+  [LogLevel.WARN]: "Warnung",
+  [LogLevel.ERROR]: "Fehler",
+};
+
+// Verfügbare Log-Kategorien zur Auswahl
+const availableLogCategories = [
+  { value: "store", label: "Datenspeicher" },
+  { value: "ui", label: "Benutzeroberfläche" },
+  { value: "service", label: "Dienste" },
+  { value: "api", label: "API-Aufrufe" },
+  { value: "import", label: "Importe" },
+  { value: "export", label: "Exporte" },
+];
+
+// Datenimport/-export Demo-Funktionen
+function handleFileImport(event: Event) {
+  const fileInput = event.target as HTMLInputElement;
+  if (fileInput.files && fileInput.files.length > 0) {
+    alert(`Datei "${fileInput.files[0].name}" würde importiert werden.`);
+    fileInput.value = ""; // Zurücksetzen
+  }
+}
+
+function exportData() {
+  const demoData = {
+    exportDate: new Date().toISOString(),
+    version: "1.0",
+    data: {
+      transactions: "...",
+      accounts: "...",
+      categories: "...",
+    },
+  };
+
+  const dataStr =
+    "data:text/json;charset=utf-8," +
+    encodeURIComponent(JSON.stringify(demoData, null, 2));
+  const downloadAnchorNode = document.createElement("a");
+  downloadAnchorNode.setAttribute("href", dataStr);
+  downloadAnchorNode.setAttribute("download", "finwise_export.json");
+  document.body.appendChild(downloadAnchorNode);
+  downloadAnchorNode.click();
+  downloadAnchorNode.remove();
+}
+
+// Logger-Einstellungen speichern
+function saveLoggerSettings() {
+  LogConfig.level = logLevel.value;
+  LogConfig.historyRetentionDays = logRetention.value;
+  LogConfig.enabledCategories = new Set([...enabledLogCategories.value]);
+  settingsSaved.value = true;
+
+  // Log-Eintrag für die Änderung
+  debugLog(
+    "[settings]",
+    `Logger-Einstellungen aktualisiert: Level=${LogConfig.level}, Retention=${LogConfig.historyRetentionDays}`
+  );
+
+  setTimeout(() => {
+    settingsSaved.value = false;
+  }, 2000);
+}
+
+// Log-Tab aktivieren und History laden
+function activateLogTab() {
+  activeTab.value = "logs";
+  loadHistory();
+}
+
+// Logdaten laden
+function loadHistory() {
+  historyEntries.value = historyManager
+    .getEntries()
+    .sort((a, b) => b.timestamp - a.timestamp)
+    .slice(0, 200);
+}
+
+// History löschen
+function clearHistory() {
+  if (confirm("Möchten Sie wirklich die gesamte Log-Historie löschen?")) {
+    historyManager.clear();
+    historyEntries.value = [];
+  }
+}
+
+// Alte Einträge bereinigen
+function cleanupHistory() {
+  historyManager.cleanupOldEntries();
+  loadHistory();
+}
+
+// Initialisieren
+onMounted(() => {
+  debugLog("[settings]", "SettingsView geladen");
+  // Wir laden nicht sofort die History, sondern erst wenn der Tab aktiviert wird
+});
+
+// Formatierung der Zeitstempel
+function formatTimestamp(timestamp: number): string {
+  return new Date(timestamp).toLocaleString("de-DE");
+}
+
+// Loglevelnamen formatieren
+function getLogLevelName(level: LogLevel): string {
+  return logLevelLabels[level] || `Level ${level}`;
+}
+
+// Daten exportieren für Logger Doku
+function exportLoggerDocs() {
+  const docs = `# Logger-Dokumentation für FinWise
+
+## Verwendung des Logger-Moduls
+
+\`\`\`typescript
+// Importieren
+import { debugLog, infoLog, warnLog, errorLog } from "@/utils/logger";
+
+// Verwendung in Funktionen
+function myFunction() {
+  // Debug-Ausgabe (nur für Entwickler)
+  debugLog("[modulName]", "Beschreibung", optionalesObjekt);
+
+  // Info-Ausgabe (allgemeine Informationen)
+  infoLog("[modulName]", "Beschreibung", optionalesObjekt);
+
+  // Warnungs-Ausgabe (potenzielle Probleme)
+  warnLog("[modulName]", "Beschreibung", optionalesObjekt);
+
+  // Fehler-Ausgabe (schwerwiegende Probleme)
+  errorLog("[modulName]", "Beschreibung", optionalesObjekt);
+}
+\`\`\`
+
+## Log-Kategorien
+
+Die folgenden Kategorien stehen zur Verfügung:
+- \`store\`: Datenspeicher-Operationen (Hinzufügen, Aktualisieren, Löschen)
+- \`ui\`: Benutzeroberflächen-Aktionen und Ereignisse
+- \`service\`: Dienst-Operationen und Hintergrundprozesse
+- \`api\`: API-Anfragen und Antworten
+- \`import\`: Daten-Import-Prozesse
+- \`export\`: Daten-Export-Prozesse
+
+## Best Practices
+
+1. Verwende immer eine konsistente Kategorie-Kennung im Format \`[kategorie]\`
+2. Logge bei wichtigen Aktionen wie:
+   - Hinzufügen von Objekten
+   - Aktualisieren von Objekten
+   - Löschen von Objekten
+   - Laden von Daten
+   - Wichtige Berechnungen
+3. Füge relevante Daten als drittes Argument hinzu
+4. Vermeide übermäßiges Logging in UI-Rendering-Zyklen
+
+## Beispiele
+
+\`\`\`typescript
+// Transaktion hinzufügen
+debugLog("[transactionStore]", "Transaktion hinzugefügt", { id: tx.id, amount: tx.amount });
+
+// Fehler beim Laden von Daten
+errorLog("[accountService]", "Fehler beim Laden der Konten", error);
+
+// Benutzeraktion
+debugLog("[ui]", "Benutzer hat Datei ausgewählt", { filename: file.name, size: file.size });
+\`\`\`
+
+## Aktivierung und Konfiguration
+
+Die Logger-Konfiguration kann in den Einstellungen unter "Entwicklereinstellungen" angepasst werden:
+1. Log-Level einstellen (Debug, Info, Warnung, Fehler)
+2. Relevante Kategorien aktivieren
+3. Aufbewahrungszeit für Logs festlegen
+`;
+
+  const dataStr =
+    "data:text/markdown;charset=utf-8," + encodeURIComponent(docs);
+  const downloadAnchorNode = document.createElement("a");
+  downloadAnchorNode.setAttribute("href", dataStr);
+  downloadAnchorNode.setAttribute("download", "logger_documentation.md");
+  document.body.appendChild(downloadAnchorNode);
+  downloadAnchorNode.click();
+  downloadAnchorNode.remove();
+}
+</script>
+
+<template>
+  <div class="container mx-auto py-8 max-w-4xl">
+    <h1 class="text-2xl font-bold mb-6">Einstellungen</h1>
+
     <div class="tabs tabs-boxed mb-6">
       <a
-        v-for="(tab, index) in tabs"
-        :key="index"
         class="tab"
-        :class="{ 'tab-active': activeTab === index }"
-        @click="activeTab = index"
+        :class="{ 'tab-active': activeTab === 'general' }"
+        @click="activeTab = 'general'"
       >
-        {{ tab }}
+        <Icon icon="mdi:cog" class="mr-2" />
+        Allgemein
+      </a>
+      <a
+        class="tab"
+        :class="{ 'tab-active': activeTab === 'import-export' }"
+        @click="activeTab = 'import-export'"
+      >
+        <Icon icon="mdi:database-import" class="mr-2" />
+        Import / Export
+      </a>
+      <a
+        class="tab"
+        :class="{ 'tab-active': activeTab === 'developer' }"
+        @click="activeTab = 'developer'"
+      >
+        <Icon icon="mdi:developer-board" class="mr-2" />
+        Entwickler
+      </a>
+      <a
+        class="tab"
+        :class="{ 'tab-active': activeTab === 'logs' }"
+        @click="activateLogTab"
+      >
+        <Icon icon="mdi:text-box-outline" class="mr-2" />
+        Logs
       </a>
     </div>
 
     <!-- Allgemeine Einstellungen -->
-    <div v-if="activeTab === 0" class="card bg-base-100 shadow-xl">
-      <div class="card-body">
-        <h2 class="card-title">Allgemeine Einstellungen</h2>
+    <div v-if="activeTab === 'general'" class="space-y-6">
+      <!-- Allgemeine Einstellungen Card -->
+      <div class="card bg-base-100 shadow-md border border-base-300">
+        <div class="card-body">
+          <h2 class="card-title">Design & Darstellung</h2>
 
-        <div class="form-control mb-4">
-          <label class="label">
-            <span class="label-text">Design</span>
-          </label>
-          <select
-            v-model="themeStore.currentTheme"
-            class="select select-bordered w-full"
-          >
-            <option
-              v-for="theme in availableThemes"
-              :key="theme"
-              :value="theme"
-            >
-              {{ themeNames[theme] || theme }}
-            </option>
-          </select>
-        </div>
-
-        <div class="form-control mb-4">
-          <label class="label">
-            <span class="label-text">Standardwährung</span>
-          </label>
-          <select
-            v-model="defaultCurrency"
-            class="select select-bordered w-full"
-            @change="saveDefaultCurrency"
-          >
-            <option value="EUR">Euro (€)</option>
-            <option value="USD">US Dollar ($)</option>
-            <option value="GBP">British Pound (£)</option>
-            <option value="CHF">Schweizer Franken (CHF)</option>
-          </select>
-        </div>
-
-        <div class="form-control mb-4">
-          <label class="label">
-            <span class="label-text">Sicherheit</span>
-          </label>
+          <!-- Theme Toggle -->
           <div class="form-control">
-            <label class="label cursor-pointer justify-start">
+            <label class="label cursor-pointer">
+              <div class="flex items-center space-x-2">
+                <Icon icon="mdi:weather-night" class="text-lg" />
+                <span class="label-text">Dunkles Design</span>
+              </div>
               <input
                 type="checkbox"
-                v-model="securitySettings.autoLogout"
-                class="checkbox checkbox-primary mr-2"
-                @change="saveSecuritySettings"
+                class="toggle"
+                :checked="themeStore.theme === 'dark'"
+                @change="themeStore.toggleTheme()"
               />
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Kontoabstimmung Card -->
+      <div class="card bg-base-100 shadow-md border border-base-300">
+        <div class="card-body">
+          <h2 class="card-title">Kontoabstimmung</h2>
+
+          <div class="form-control">
+            <label class="label cursor-pointer">
               <span class="label-text"
-                >Automatisch nach 30 Minuten Inaktivität abmelden</span
+                >Automatisch bei Saldoabgleich markieren</span
               >
+              <input
+                type="checkbox"
+                class="toggle"
+                v-model="reconciliationStore.autoMarkAsReconciledOnBalanceMatch"
+              />
             </label>
           </div>
         </div>
       </div>
+
+      <!-- History-Legende -->
+      <div class="card bg-base-100 shadow-md border border-base-300">
+        <div class="card-body">
+          <h2 class="card-title flex items-center gap-2 text-info">
+            <Icon icon="mdi:information" class="text-xl" />
+            History-Logging aktivieren
+          </h2>
+          <p>
+            Damit die History-Logeinträge ordnungsgemäß befüllt werden, müssen
+            Sie:
+          </p>
+          <ol class="list-decimal ml-6 space-y-2 mt-2">
+            <li>
+              Im Tab "Entwickler" ein Log-Level von mindestens "Debug" auswählen
+            </li>
+            <li>
+              Die Kategorie "store" unter "Aktivierte Kategorien" aktivieren
+            </li>
+            <li>
+              Bei Bedarf die Kategorie "service" für Dienstaufrufe aktivieren
+            </li>
+            <li>
+              Eine angemessene Aufbewahrungszeit für die Logs festlegen (z.B. 60
+              Tage)
+            </li>
+          </ol>
+          <p class="mt-2">
+            Die History dokumentiert automatisch jede Änderung an Transaktionen,
+            Kategorien und Planungen, solange die oben genannten Einstellungen
+            aktiviert sind.
+          </p>
+        </div>
+      </div>
     </div>
 
-    <!-- Entwickler-Einstellungen -->
-    <div v-if="activeTab === 1" class="card bg-base-100 shadow-xl">
-      <div class="card-body">
-        <h2 class="card-title">Entwickler-Einstellungen</h2>
-
-        <!-- Logger-Einstellungen -->
-        <div class="form-control mb-4">
-          <label class="label">
-            <span class="label-text">Log-Level</span>
-          </label>
-          <select
-            v-model="logLevel"
-            class="select select-bordered"
-            @change="saveLogSettings"
-          >
-            <option :value="LogLevel.DEBUG">DEBUG</option>
-            <option :value="LogLevel.INFO">INFO</option>
-            <option :value="LogLevel.WARN">WARN</option>
-            <option :value="LogLevel.ERROR">ERROR</option>
-          </select>
-          <label class="label">
-            <span class="label-text-alt"
-              >Bestimmt die Detailtiefe der Protokollierung</span
-            >
+    <!-- Import / Export -->
+    <div v-if="activeTab === 'import-export'" class="space-y-6">
+      <div class="card bg-base-100 shadow-md border border-base-300">
+        <div class="card-body">
+          <h2 class="card-title">Datenimport</h2>
+          <p class="mb-4">
+            Importieren Sie Daten aus einer Datei. Unterstützte Formate: JSON.
+          </p>
+          <label class="form-control w-full">
+            <div class="label">
+              <span class="label-text">JSON-Datei auswählen</span>
+            </div>
+            <input
+              type="file"
+              class="file-input file-input-bordered w-full"
+              accept=".json"
+              @change="handleFileImport"
+            />
           </label>
         </div>
+      </div>
 
-        <div class="form-control mb-4">
-          <label class="label">
-            <span class="label-text">Aktivierte Logkategorien</span>
-          </label>
-          <div class="flex flex-wrap gap-2">
-            <label
-              class="label cursor-pointer inline-flex items-center gap-2"
-              v-for="category in availableLogCategories"
-              :key="category"
-            >
-              <input
-                type="checkbox"
-                class="checkbox checkbox-sm"
-                :checked="enabledLogCategories.has(category)"
-                @change="toggleLogCategory(category)"
-              />
-              <span class="label-text">{{ category }}</span>
-            </label>
-          </div>
+      <div class="card bg-base-100 shadow-md border border-base-300">
+        <div class="card-body">
+          <h2 class="card-title">Datenexport</h2>
+          <p class="mb-4">
+            Exportieren Sie alle Ihre Daten in eine JSON-Datei zur Sicherung.
+          </p>
+          <button class="btn btn-primary w-full md:w-auto" @click="exportData">
+            <Icon icon="mdi:download" class="mr-2" />
+            Alle Daten exportieren
+          </button>
         </div>
+      </div>
+    </div>
 
-        <div class="form-control mb-4">
-          <label class="label">
-            <span class="label-text">Debug-Modus</span>
-          </label>
+    <!-- Entwicklereinstellungen -->
+    <div v-if="activeTab === 'developer'" class="space-y-6">
+      <div class="card bg-base-100 shadow-md border border-base-300">
+        <div class="card-body">
+          <h2 class="card-title">Logger-Einstellungen</h2>
+
           <div class="form-control">
-            <label class="label cursor-pointer justify-start">
-              <input
-                type="checkbox"
-                v-model="developmentSettings.debugLogging"
-                class="checkbox checkbox-primary mr-2"
-                @change="saveDevelopmentSettings"
-              />
-              <span class="label-text">Debug-Logging aktivieren</span>
+            <label class="label">
+              <span class="label-text">Log-Level</span>
             </label>
+            <select v-model="logLevel" class="select select-bordered w-full">
+              <option :value="LogLevel.DEBUG">Debug (Alles)</option>
+              <option :value="LogLevel.INFO">Info (ohne Debug)</option>
+              <option :value="LogLevel.WARN">
+                Warnung (nur Warnungen und Fehler)
+              </option>
+              <option :value="LogLevel.ERROR">Fehler (nur Fehler)</option>
+            </select>
           </div>
+
+          <div class="form-control mt-4">
+            <label class="label">
+              <span class="label-text">Aufbewahrungszeit (Tage)</span>
+            </label>
+            <input
+              type="number"
+              v-model.number="logRetention"
+              min="1"
+              max="365"
+              class="input input-bordered w-full"
+            />
+          </div>
+
+          <div class="form-control mt-4">
+            <label class="label">
+              <span class="label-text">Aktivierte Kategorien</span>
+            </label>
+            <div class="flex flex-wrap gap-2">
+              <label
+                v-for="category in availableLogCategories"
+                :key="category.value"
+                class="label cursor-pointer inline-flex items-center p-2 border rounded-lg"
+                :class="
+                  enabledLogCategories.has(category.value)
+                    ? 'border-primary bg-primary/10'
+                    : 'border-base-300'
+                "
+              >
+                <span class="label-text mr-2">{{ category.label }}</span>
+                <input
+                  type="checkbox"
+                  class="checkbox checkbox-primary checkbox-sm"
+                  :checked="enabledLogCategories.has(category.value)"
+                  @change="
+                    (e) => {
+                      if (e.target.checked) {
+                        enabledLogCategories.add(category.value);
+                      } else {
+                        enabledLogCategories.delete(category.value);
+                      }
+                    }
+                  "
+                />
+              </label>
+            </div>
+          </div>
+
+          <div class="form-control mt-6 flex-row justify-between">
+            <button class="btn btn-primary" @click="saveLoggerSettings">
+              <Icon icon="mdi:content-save" class="mr-2" />
+              Speichern
+            </button>
+            <button class="btn btn-outline" @click="exportLoggerDocs">
+              <Icon icon="mdi:file-download" class="mr-2" />
+              Logger-Dokumentation exportieren
+            </button>
+          </div>
+
+          <div v-if="settingsSaved" class="alert alert-success mt-4">
+            <Icon icon="mdi:check-circle" class="text-lg" />
+            <span>Einstellungen gespeichert</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Logging-Kategorien Erklärung -->
+      <div class="card bg-base-100 shadow-md border border-base-300">
+        <div class="card-body">
+          <h2 class="card-title flex items-center gap-2 text-info">
+            <Icon icon="mdi:information" class="text-xl" />
+            Logging-Kategorien erklärt
+          </h2>
+          <div class="overflow-x-auto">
+            <table class="table table-zebra w-full">
+              <thead>
+                <tr>
+                  <th>Kategorie</th>
+                  <th>Beschreibung</th>
+                  <th>Typische Ereignisse</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>store</code></td>
+                  <td>Datenspeicher-Operationen</td>
+                  <td>
+                    Hinzufügen, Aktualisieren und Löschen von Objekten in Stores
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>ui</code></td>
+                  <td>Benutzeroberflächen-Aktionen</td>
+                  <td>Benutzerinteraktionen, UI-Zustandsänderungen</td>
+                </tr>
+                <tr>
+                  <td><code>service</code></td>
+                  <td>Dienst-Operationen</td>
+                  <td>Hintergrundprozesse, Berechnungen, Datenoperationen</td>
+                </tr>
+                <tr>
+                  <td><code>api</code></td>
+                  <td>API-Kommunikation</td>
+                  <td>Externe API-Aufrufe, Antworten und Fehler</td>
+                </tr>
+                <tr>
+                  <td><code>import</code></td>
+                  <td>Datenimport-Prozesse</td>
+                  <td>Datei-Importe, Daten-Parsing, Importfehler</td>
+                </tr>
+                <tr>
+                  <td><code>export</code></td>
+                  <td>Datenexport-Prozesse</td>
+                  <td>Datei-Exporte, Daten-Serialisierung</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="mt-4">
+            <strong>Hinweis:</strong> Die Kategorien sind bereits aktiv und
+            werden genutzt, sobald Sie sie in den Logger-Einstellungen
+            aktivieren und das entsprechende Log-Level auswählen.
+          </p>
         </div>
       </div>
     </div>
 
-    <!-- Daten & Testdaten -->
-    <div v-if="activeTab === 2" class="card bg-base-100 shadow-xl">
-      <div class="card-body">
-        <h2 class="card-title">Daten verwalten</h2>
-
-        <div class="form-control mb-4">
-          <label class="label">
-            <span class="label-text">Testdaten</span>
-          </label>
-          <div class="flex gap-2">
-            <button class="btn btn-sm btn-outline" @click="seedTestData">
-              Testdaten laden
-            </button>
-            <button
-              class="btn btn-sm btn-outline btn-error"
-              @click="confirmClearData"
-            >
-              Alle Daten löschen
-            </button>
-          </div>
-        </div>
-
-        <div class="form-control mb-4">
-          <label class="label">
-            <span class="label-text">Daten Import/Export</span>
-          </label>
-          <div class="flex gap-2">
-            <button class="btn btn-sm btn-outline" @click="exportData">
-              <Icon icon="mdi:download" class="mr-2" />
-              Daten exportieren
-            </button>
-            <div>
-              <input
-                type="file"
-                ref="fileInput"
-                class="hidden"
-                accept=".json"
-                @change="handleFileUpload"
-              />
+    <!-- Logs & Historie -->
+    <div v-if="activeTab === 'logs'" class="space-y-6">
+      <div class="card bg-base-100 shadow-md border border-base-300">
+        <div class="card-body">
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="card-title">Logs & Änderungshistorie</h2>
+            <div class="flex gap-2">
+              <button class="btn btn-sm" @click="loadHistory">
+                <Icon icon="mdi:refresh" class="mr-1" />
+                Aktualisieren
+              </button>
               <button
-                class="btn btn-sm btn-outline"
-                @click="$refs.fileInput.click()"
+                class="btn btn-sm btn-outline btn-warning"
+                @click="cleanupHistory"
               >
-                <Icon icon="mdi:upload" class="mr-2" />
-                Daten importieren
+                <Icon icon="mdi:broom" class="mr-1" />
+                Alte löschen
+              </button>
+              <button
+                class="btn btn-sm btn-outline btn-error"
+                @click="clearHistory"
+              >
+                <Icon icon="mdi:delete" class="mr-1" />
+                Alle löschen
               </button>
             </div>
           </div>
-        </div>
-      </div>
-    </div>
 
-    <!-- Transaktionshistorie -->
-    <div v-if="activeTab === 3" class="card bg-base-100 shadow-xl">
-      <div class="card-body">
-        <h2 class="card-title">Transaktionshistorie</h2>
-
-        <div class="form-control mb-4">
-          <label class="label">
-            <span class="label-text">Aufbewahrungsdauer:</span>
-          </label>
-          <div class="flex items-center gap-2">
-            <input
-              type="number"
-              v-model="historyRetentionDays"
-              class="input input-bordered input-sm w-24"
-              min="7"
-              max="365"
-              @change="saveLogSettings"
-            />
-            <span class="text-sm">Tage</span>
-            <button
-              class="btn btn-sm btn-outline ml-2"
-              @click="historyManager.cleanupOldEntries()"
-            >
-              Bereinigen
-            </button>
+          <div class="overflow-x-auto">
+            <table class="table table-zebra w-full">
+              <thead>
+                <tr>
+                  <th>Zeitstempel</th>
+                  <th>Level</th>
+                  <th>Kategorie</th>
+                  <th>Nachricht</th>
+                  <th>Details</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(entry, index) in historyEntries" :key="index">
+                  <td>{{ formatTimestamp(entry.timestamp) }}</td>
+                  <td>
+                    <span
+                      class="badge"
+                      :class="{
+                        'badge-info': entry.level === LogLevel.DEBUG,
+                        'badge-success': entry.level === LogLevel.INFO,
+                        'badge-warning': entry.level === LogLevel.WARN,
+                        'badge-error': entry.level === LogLevel.ERROR,
+                      }"
+                    >
+                      {{ getLogLevelName(entry.level) }}
+                    </span>
+                  </td>
+                  <td>
+                    <code>{{ entry.category }}</code>
+                  </td>
+                  <td>{{ entry.message }}</td>
+                  <td>
+                    <button
+                      v-if="entry.data"
+                      class="btn btn-ghost btn-xs"
+                      @click="
+                        () => {
+                          alert(JSON.stringify(entry.data, null, 2));
+                        }
+                      "
+                    >
+                      <Icon icon="mdi:information-outline" />
+                    </button>
+                  </td>
+                </tr>
+                <tr v-if="historyEntries.length === 0">
+                  <td colspan="5" class="text-center py-8">
+                    <div class="flex flex-col items-center">
+                      <Icon
+                        icon="mdi:text-box-remove-outline"
+                        class="text-4xl opacity-50 mb-2"
+                      />
+                      <span>Keine Log-Einträge vorhanden.</span>
+                      <span class="text-sm opacity-75 mt-1">
+                        Aktivieren Sie das Logging in den
+                        Entwicklereinstellungen.
+                      </span>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
-        </div>
-
-        <!-- Anzeige der Historieneinträge -->
-        <div class="overflow-y-auto max-h-96 mt-4">
-          <table class="table table-zebra w-full">
-            <thead>
-              <tr>
-                <th>Zeitpunkt</th>
-                <th>Level</th>
-                <th>Kategorie</th>
-                <th>Nachricht</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="entry in historyEntries" :key="entry.timestamp">
-                <td>{{ new Date(entry.timestamp).toLocaleString("de-DE") }}</td>
-                <td>{{ LogLevel[entry.level] }}</td>
-                <td>{{ entry.category }}</td>
-                <td>{{ entry.message }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div class="flex justify-end gap-2 mt-4">
-          <button
-            class="btn btn-outline btn-sm"
-            @click="historyManager.clear()"
-          >
-            Historie löschen
-          </button>
-          <button
-            class="btn btn-outline btn-sm"
-            @click="refreshHistoryEntries()"
-          >
-            Aktualisieren
-          </button>
         </div>
       </div>
     </div>
   </div>
-
-  <!-- Bestätigungs-Modal für Datenlöschung (wird nur angezeigt, wenn showConfirmModal=true) -->
-  <template v-if="showConfirmModal">
-    <ConfirmationModal
-      title="Daten löschen"
-      message="Sind Sie sicher, dass Sie alle Daten löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden."
-      confirm-text="Ja, alle Daten löschen"
-      cancel-text="Abbrechen"
-      @confirm="clearData"
-      @cancel="cancelDeleteData"
-    />
-  </template>
 </template>
-
-<script setup lang="ts">
-import { ref, onMounted } from "vue";
-import { useThemeStore } from "../stores/themeStore";
-import { seedData, clearData as clearAllData } from "../mock/seed";
-import { Icon } from "@iconify/vue";
-import { LogConfig, LogLevel, historyManager } from "../utils/logger";
-import ConfirmationModal from "../components/ui/ConfirmationModal.vue";
-
-const themeStore = useThemeStore();
-const showConfirmModal = ref(false); // Initialisiere mit false
-const defaultCurrency = ref("EUR");
-const fileInput = ref<HTMLInputElement | null>(null);
-const activeTab = ref(0);
-const tabs = ["Allgemein", "Entwickler", "Daten", "Historie"];
-
-// Sicherheitseinstellungen
-const securitySettings = ref({
-  autoLogout: false,
-});
-
-// Entwickler-Einstellungen
-const developmentSettings = ref({
-  debugLogging: false,
-});
-
-// Logger-Einstellungen
-const logLevel = ref<LogLevel>(LogConfig.level);
-const availableLogCategories = ref<string[]>([
-  "store",
-  "ui",
-  "service",
-  "calculation",
-  "data",
-  "system",
-]);
-const enabledLogCategories = ref<Set<string>>(
-  new Set(LogConfig.enabledCategories)
-);
-const historyRetentionDays = ref<number>(LogConfig.historyRetentionDays);
-const historyEntries = ref<any[]>([]);
-
-// Verfügbare Themes
-const availableThemes = [
-  "light",
-  "dark",
-  "cupcake",
-  "bumblebee",
-  "emerald",
-  "corporate",
-  "synthwave",
-  "retro",
-  "cyberpunk",
-  "valentine",
-  "halloween",
-  "garden",
-  "forest",
-  "aqua",
-  "lofi",
-  "pastel",
-  "fantasy",
-  "wireframe",
-  "black",
-  "luxury",
-  "dracula",
-  "cmyk",
-  "autumn",
-  "business",
-  "acid",
-  "lemonade",
-  "night",
-  "coffee",
-  "winter",
-];
-
-// Benutzerfreundliche Themanamen
-const themeNames: Record<string, string> = {
-  light: "Hell",
-  dark: "Dunkel",
-  cupcake: "Cupcake",
-  bumblebee: "Hummel",
-  emerald: "Smaragd",
-  corporate: "Business",
-  synthwave: "Synthwave",
-  retro: "Retro",
-  cyberpunk: "Cyberpunk",
-  valentine: "Valentine",
-  halloween: "Halloween",
-  garden: "Garten",
-  forest: "Wald",
-  aqua: "Aqua",
-  lofi: "Lo-Fi",
-  pastel: "Pastell",
-  fantasy: "Fantasy",
-  wireframe: "Wireframe",
-  black: "Schwarz",
-  luxury: "Luxus",
-  dracula: "Dracula",
-  cmyk: "CMYK",
-  autumn: "Herbst",
-  business: "Geschäftlich",
-  acid: "Acid",
-  lemonade: "Limonade",
-  night: "Nacht",
-  coffee: "Kaffee",
-  winter: "Winter",
-};
-
-onMounted(() => {
-  // Lade gespeicherte Einstellungen
-  loadSettings();
-  // Lade Historie-Einträge
-  refreshHistoryEntries();
-});
-
-function refreshHistoryEntries() {
-  historyEntries.value = historyManager
-    .getEntries()
-    .sort((a, b) => b.timestamp - a.timestamp); // Neueste zuerst
-}
-
-function loadSettings() {
-  // Lade Währung
-  const savedCurrency = localStorage.getItem("finwise_default_currency");
-  if (savedCurrency) {
-    defaultCurrency.value = savedCurrency;
-  }
-
-  // Lade Sicherheitseinstellungen
-  const savedSecurity = localStorage.getItem("finwise_security_settings");
-  if (savedSecurity) {
-    try {
-      securitySettings.value = JSON.parse(savedSecurity);
-    } catch (e) {
-      console.error("Fehler beim Laden der Sicherheitseinstellungen:", e);
-    }
-  }
-
-  // Lade Entwicklereinstellungen
-  const savedDev = localStorage.getItem("finwise_development_settings");
-  if (savedDev) {
-    try {
-      developmentSettings.value = JSON.parse(savedDev);
-    } catch (e) {
-      console.error("Fehler beim Laden der Entwicklereinstellungen:", e);
-    }
-  }
-
-  // Lade Logger-Einstellungen
-  try {
-    if (localStorage.getItem("finwise_log_level")) {
-      logLevel.value = parseInt(
-        localStorage.getItem("finwise_log_level") || LogLevel.INFO.toString()
-      );
-    }
-
-    if (localStorage.getItem("finwise_log_categories")) {
-      const savedCategories = JSON.parse(
-        localStorage.getItem("finwise_log_categories") || "[]"
-      );
-      enabledLogCategories.value = new Set<string>(savedCategories);
-    }
-
-    if (localStorage.getItem("finwise_history_retention_days")) {
-      historyRetentionDays.value = parseInt(
-        localStorage.getItem("finwise_history_retention_days") || "60"
-      );
-    }
-  } catch (error) {
-    console.error("Fehler beim Laden der Logger-Einstellungen:", error);
-  }
-}
-
-function saveDefaultCurrency() {
-  localStorage.setItem("finwise_default_currency", defaultCurrency.value);
-}
-
-function saveSecuritySettings() {
-  localStorage.setItem(
-    "finwise_security_settings",
-    JSON.stringify(securitySettings.value)
-  );
-}
-
-function saveDevelopmentSettings() {
-  localStorage.setItem(
-    "finwise_development_settings",
-    JSON.stringify(developmentSettings.value)
-  );
-}
-
-// Logger-Einstellungen speichern
-function toggleLogCategory(category: string) {
-  if (enabledLogCategories.value.has(category)) {
-    enabledLogCategories.value.delete(category);
-  } else {
-    enabledLogCategories.value.add(category);
-  }
-  saveLogSettings();
-}
-
-function saveLogSettings() {
-  // Speichere Log-Level
-  LogConfig.level = logLevel.value;
-  localStorage.setItem("finwise_log_level", logLevel.value.toString());
-
-  // Speichere aktivierte Kategorien
-  LogConfig.enabledCategories = new Set(enabledLogCategories.value);
-  localStorage.setItem(
-    "finwise_log_categories",
-    JSON.stringify([...enabledLogCategories.value])
-  );
-
-  // Speichere Aufbewahrungsdauer
-  LogConfig.historyRetentionDays = historyRetentionDays.value;
-  localStorage.setItem(
-    "finwise_history_retention_days",
-    historyRetentionDays.value.toString()
-  );
-
-  // Bereinige veraltete Einträge
-  historyManager.cleanupOldEntries();
-}
-
-function seedTestData() {
-  seedData();
-}
-
-// Funktion zum Anzeigen des Bestätigungsdialogs
-function confirmClearData() {
-  showConfirmModal.value = true;
-}
-
-// Funktion für die Bestätigung der Datenlöschung
-function clearData() {
-  clearAllData();
-  showConfirmModal.value = false;
-}
-
-// Funktion für den Abbruch der Datenlöschung
-function cancelDeleteData() {
-  showConfirmModal.value = false;
-}
-
-function exportData() {
-  // Sammle alle Daten aus dem localStorage
-  const data: Record<string, any> = {};
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (key && key.startsWith("finwise_")) {
-      try {
-        data[key] = JSON.parse(localStorage.getItem(key) || "");
-      } catch (e) {
-        data[key] = localStorage.getItem(key);
-      }
-    }
-  }
-
-  // Erstelle Download-Link
-  const dataStr = JSON.stringify(data, null, 2);
-  const dataUri =
-    "data:application/json;charset=utf-8," + encodeURIComponent(dataStr);
-
-  const exportFileDefaultName = `finwise_backup_${
-    new Date().toISOString().split("T")[0]
-  }.json`;
-
-  const linkElement = document.createElement("a");
-  linkElement.setAttribute("href", dataUri);
-  linkElement.setAttribute("download", exportFileDefaultName);
-  linkElement.click();
-  linkElement.remove();
-}
-
-function handleFileUpload(event: Event) {
-  const input = event.target as HTMLInputElement;
-  if (!input.files || input.files.length === 0) return;
-
-  const file = input.files[0];
-  const reader = new FileReader();
-
-  reader.onload = (e) => {
-    try {
-      const data = JSON.parse(e.target?.result as string);
-
-      // Daten in localStorage speichern
-      for (const key in data) {
-        if (key.startsWith("finwise_")) {
-          localStorage.setItem(
-            key,
-            typeof data[key] === "string"
-              ? data[key]
-              : JSON.stringify(data[key])
-          );
-        }
-      }
-
-      alert("Daten erfolgreich importiert. Die Seite wird neu geladen.");
-      location.reload();
-    } catch (error) {
-      console.error("Fehler beim Importieren der Daten:", error);
-      alert("Fehler beim Importieren der Daten: " + (error as Error).message);
-    }
-  };
-
-  reader.readAsText(file);
-}
-</script>

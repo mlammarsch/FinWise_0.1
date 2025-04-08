@@ -6,6 +6,7 @@ import { useTransactionStore } from "@/stores/transactionStore";
 import { AutomationRule, Transaction } from "@/types";
 import RuleForm from "@/components/rules/RuleForm.vue";
 import SearchGroup from "@/components/ui/SearchGroup.vue";
+import PagingComponent from "@/components/ui/PagingComponent.vue";
 import { debugLog } from "@/utils/logger";
 
 const ruleStore = useRuleStore();
@@ -16,6 +17,10 @@ const showNewRuleModal = ref(false);
 const showEditRuleModal = ref(false);
 const selectedRule = ref<AutomationRule | null>(null);
 const searchQuery = ref("");
+
+// Pagination
+const currentPage = ref(1);
+const itemsPerPage = ref<number | string>(25);
 
 // Filtern der Regeln nach Suchbegriff
 const filteredRules = computed(() => {
@@ -30,6 +35,19 @@ const filteredRules = computed(() => {
       (rule.description && rule.description.toLowerCase().includes(term))
     );
   });
+});
+
+// Pagination-Berechnung
+const totalPages = computed(() => {
+  if (itemsPerPage.value === "all") return 1;
+  return Math.ceil(filteredRules.value.length / Number(itemsPerPage.value));
+});
+
+const paginatedRules = computed(() => {
+  if (itemsPerPage.value === "all") return filteredRules.value;
+  const start = (currentPage.value - 1) * Number(itemsPerPage.value);
+  const end = start + Number(itemsPerPage.value);
+  return filteredRules.value.slice(start, end);
 });
 
 // Neue Regel erstellen
@@ -148,94 +166,111 @@ function formatStage(stage: string): string {
 </script>
 
 <template>
-  <div class="container mx-auto p-4">
-    <div class="flex justify-between items-center mb-6">
-      <h1 class="text-2xl font-bold">Regelverwaltung</h1>
-      <button class="btn btn-primary" @click="createRule">
-        <Icon icon="mdi:plus" class="mr-2" />
-        Neue Regel
-      </button>
+  <div>
+    <!-- Header mit Aktionen -->
+    <div
+      class="flex w-full justify-between items-center mb-6 flex-wrap md:flex-nowrap"
+    >
+      <h2 class="text-xl font-bold flex-shrink-0">Regelverwaltung</h2>
+      <SearchGroup
+        btnRight="Neue Regel"
+        btnRightIcon="mdi:plus"
+        @search="(query) => (searchQuery = query)"
+        @btn-right-click="createRule"
+      />
     </div>
 
-    <SearchGroup @search="(query) => (searchQuery = query)" />
+    <!-- Tabelle -->
+    <div class="card bg-base-100 shadow-md border border-base-300 w-full mt-6">
+      <div class="card-body">
+        <div class="overflow-x-auto">
+          <table class="table w-full">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Beschreibung</th>
+                <th>Phase</th>
+                <th>Priorität</th>
+                <th>Bedingungen</th>
+                <th>Aktionen</th>
+                <th>Status</th>
+                <th class="text-right">Aktionen</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="rule in paginatedRules" :key="rule.id">
+                <td>{{ rule.name }}</td>
+                <td>{{ rule.description || "-" }}</td>
+                <td>{{ formatStage(rule.stage) }}</td>
+                <td>{{ rule.priority }}</td>
+                <td>{{ rule.conditions.length }}</td>
+                <td>{{ rule.actions.length }}</td>
+                <td>
+                  <span
+                    class="badge"
+                    :class="rule.isActive ? 'badge-success' : 'badge-error'"
+                  >
+                    {{ rule.isActive ? "Aktiv" : "Inaktiv" }}
+                  </span>
+                </td>
+                <td class="text-right">
+                  <div class="flex justify-end space-x-1">
+                    <button
+                      class="btn btn-ghost btn-xs border-none"
+                      @click="toggleRuleActive(rule)"
+                      :title="rule.isActive ? 'Deaktivieren' : 'Aktivieren'"
+                    >
+                      <Icon
+                        :icon="
+                          rule.isActive
+                            ? 'mdi:toggle-switch'
+                            : 'mdi:toggle-switch-off'
+                        "
+                        class="text-base"
+                        :class="rule.isActive ? 'text-success' : 'text-error'"
+                      />
+                    </button>
+                    <button
+                      class="btn btn-ghost btn-xs border-none"
+                      @click="editRule(rule)"
+                    >
+                      <Icon icon="mdi:pencil" class="text-base" />
+                    </button>
+                    <button
+                      class="btn btn-ghost btn-xs border-none text-warning"
+                      @click="applyRuleToTransactions(rule)"
+                    >
+                      <Icon icon="mdi:play" class="text-base" />
+                    </button>
+                    <button
+                      class="btn btn-ghost btn-xs border-none text-error/75"
+                      @click="deleteRule(rule)"
+                    >
+                      <Icon icon="mdi:trash-can" class="text-base" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              <!-- Leere Tabelle Hinweis -->
+              <tr v-if="paginatedRules.length === 0">
+                <td colspan="8" class="text-center py-4">
+                  Keine Regeln vorhanden. Erstellen Sie eine mit dem Button
+                  "Neue Regel".
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
-    <div class="overflow-x-auto">
-      <table class="table w-full">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Beschreibung</th>
-            <th>Phase</th>
-            <th>Priorität</th>
-            <th>Bedingungen</th>
-            <th>Aktionen</th>
-            <th>Status</th>
-            <th class="text-right">Aktionen</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="rule in filteredRules" :key="rule.id">
-            <td>{{ rule.name }}</td>
-            <td>{{ rule.description || "-" }}</td>
-            <td>{{ formatStage(rule.stage) }}</td>
-            <td>{{ rule.priority }}</td>
-            <td>{{ rule.conditions.length }}</td>
-            <td>{{ rule.actions.length }}</td>
-            <td>
-              <span
-                class="badge"
-                :class="rule.isActive ? 'badge-success' : 'badge-error'"
-              >
-                {{ rule.isActive ? "Aktiv" : "Inaktiv" }}
-              </span>
-            </td>
-            <td class="text-right">
-              <div class="flex justify-end space-x-1">
-                <button
-                  class="btn btn-ghost btn-xs border-none"
-                  @click="toggleRuleActive(rule)"
-                  :title="rule.isActive ? 'Deaktivieren' : 'Aktivieren'"
-                >
-                  <Icon
-                    :icon="
-                      rule.isActive
-                        ? 'mdi:toggle-switch'
-                        : 'mdi:toggle-switch-off'
-                    "
-                    class="text-base"
-                    :class="rule.isActive ? 'text-success' : 'text-error'"
-                  />
-                </button>
-                <button
-                  class="btn btn-ghost btn-xs border-none"
-                  @click="editRule(rule)"
-                >
-                  <Icon icon="mdi:pencil" class="text-base" />
-                </button>
-                <button
-                  class="btn btn-ghost btn-xs border-none text-warning"
-                  @click="applyRuleToTransactions(rule)"
-                >
-                  <Icon icon="mdi:play" class="text-base" />
-                </button>
-                <button
-                  class="btn btn-ghost btn-xs border-none text-error/75"
-                  @click="deleteRule(rule)"
-                >
-                  <Icon icon="mdi:trash-can" class="text-base" />
-                </button>
-              </div>
-            </td>
-          </tr>
-          <!-- Leere Tabelle Hinweis -->
-          <tr v-if="filteredRules.length === 0">
-            <td colspan="8" class="text-center py-4">
-              Keine Regeln vorhanden. Erstellen Sie eine mit dem Button "Neue
-              Regel".
-            </td>
-          </tr>
-        </tbody>
-      </table>
+        <!-- Pagination -->
+        <PagingComponent
+          :currentPage="currentPage"
+          :totalPages="totalPages"
+          :itemsPerPage="itemsPerPage"
+          @update:currentPage="(val) => (currentPage = val)"
+          @update:itemsPerPage="(val) => (itemsPerPage = val)"
+        />
+      </div>
     </div>
 
     <!-- Modals -->

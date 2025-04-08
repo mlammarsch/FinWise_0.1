@@ -1,5 +1,4 @@
-<!-- Datei: CategoryAdmin.vue – vollständig angepasst -->
-
+<!-- src/views/admin/AdminCategoriesView.vue -->
 <script setup lang="ts">
 import { ref, computed } from "vue";
 import { useCategoryStore } from "../../stores/categoryStore";
@@ -137,22 +136,32 @@ const getParentCategoryName = (parentId: string | null): string => {
 <template>
   <div>
     <!-- Header -->
-    <div class="flex justify-between items-center mb-6">
-      <h2 class="text-xl font-bold">Kategorien verwalten</h2>
-      <div class="flex gap-2">
-        <button class="btn btn-primary" @click="createCategory">
-          <Icon icon="mdi:plus" class="mr-2" />
-          Neue Kategorie
-        </button>
-        <button class="btn btn-outline" @click="createCategoryGroup">
-          <Icon icon="mdi:folder-plus" class="mr-2" />
-          Neue Gruppe
-        </button>
+    <div
+      class="flex w-full justify-between items-center mb-6 flex-wrap md:flex-nowrap"
+    >
+      <h2 class="text-xl font-bold flex-shrink-0">Kategorien verwalten</h2>
+      <div class="flex justify-end w-full md:w-auto mt-2 md:mt-0">
+        <div class="join">
+          <button
+            class="btn join-item rounded-l-full btn-sm btn-soft border border-base-300"
+            @click="createCategoryGroup"
+          >
+            <Icon icon="mdi:folder-plus" class="mr-2 text-base" />
+            Neue Gruppe
+          </button>
+          <button
+            class="btn join-item rounded-r-full btn-sm btn-soft border border-base-300"
+            @click="createCategory"
+          >
+            <Icon icon="mdi:plus" class="mr-2 text-base" />
+            Neue Kategorie
+          </button>
+        </div>
       </div>
     </div>
 
     <!-- Kategorien -->
-    <div class="card bg-base-100 shadow-md mb-6">
+    <div class="card bg-base-100 shadow-md border border-base-300 mb-6">
       <div class="card-body">
         <h3 class="card-title text-lg mb-4">Kategorien</h3>
         <div class="overflow-x-auto">
@@ -200,16 +209,16 @@ const getParentCategoryName = (parentId: string | null): string => {
                 <td class="text-right">
                   <div class="flex justify-end space-x-1">
                     <button
-                      class="btn btn-ghost btn-xs text-lg"
+                      class="btn btn-ghost btn-xs"
                       @click="editCategory(category)"
                     >
-                      <Icon icon="mdi:pencil" />
+                      <Icon icon="mdi:pencil" class="text-base" />
                     </button>
                     <button
-                      class="btn btn-ghost btn-xs text-error text-lg"
+                      class="btn btn-ghost btn-xs text-error"
                       @click="deleteCategory(category)"
                     >
-                      <Icon icon="mdi:trash-can" />
+                      <Icon icon="mdi:trash-can" class="text-base" />
                     </button>
                   </div>
                 </td>
@@ -226,7 +235,7 @@ const getParentCategoryName = (parentId: string | null): string => {
     </div>
 
     <!-- Kategoriegruppen -->
-    <div class="card bg-base-100 shadow-md">
+    <div class="card bg-base-100 shadow-md border border-base-300">
       <div class="card-body">
         <h3 class="card-title text-lg mb-4">Kategoriegruppen</h3>
         <div class="overflow-x-auto">
@@ -263,16 +272,16 @@ const getParentCategoryName = (parentId: string | null): string => {
                 <td class="text-right">
                   <div class="flex justify-end space-x-1">
                     <button
-                      class="btn btn-ghost btn-xs text-lg"
+                      class="btn btn-ghost btn-xs"
                       @click="editCategoryGroup(group.id)"
                     >
-                      <Icon icon="mdi:pencil" />
+                      <Icon icon="mdi:pencil" class="text-base" />
                     </button>
                     <button
-                      class="btn btn-ghost btn-xs text-error text-lg"
+                      class="btn btn-ghost btn-xs text-error"
                       @click="deleteCategoryGroup(group.id)"
                     >
-                      <Icon icon="mdi:trash-can" />
+                      <Icon icon="mdi:trash-can" class="text-base" />
                     </button>
                   </div>
                 </td>

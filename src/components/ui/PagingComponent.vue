@@ -83,15 +83,11 @@ const prevPage = () => {
       <label class="label cursor-pointer space-x-2">
         <span class="label-text">Einträge pro Seite:</span>
         <select
-          class="select select-bordered select-sm w-fit"
+          class="select select-sm rounded-full border border-base-300"
           :value="itemsPerPage"
           @change="changeItemsPerPage"
         >
-          <option
-            v-for="option in pageOptions"
-            :key="option"
-            :value="option"
-          >
+          <option v-for="option in pageOptions" :key="option" :value="option">
             {{ option }}
           </option>
         </select>
@@ -106,10 +102,7 @@ const prevPage = () => {
           :disabled="currentPage === 1"
           @click="prevPage"
         >
-          <Icon
-            icon="mdi:chevron-left"
-            class="text-base"
-          />
+          <Icon icon="mdi:chevron-left" class="text-base" />
         </button>
         <button
           v-for="page in getPageNumbers"
@@ -128,10 +121,7 @@ const prevPage = () => {
           :disabled="currentPage === totalPages"
           @click="nextPage"
         >
-          <Icon
-            icon="mdi:chevron-right"
-            class="text-base"
-          />
+          <Icon icon="mdi:chevron-right" class="text-base" />
         </button>
       </div>
     </div>

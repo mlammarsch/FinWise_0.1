@@ -45,10 +45,10 @@ $searchFiles = @(
     # "src\components\rules\RuleForm.vue",
 
     # # ###Transaction
-    #  "src\views\TransactionsView.vue",
+      "src\views\TransactionsView.vue",
     #  "./src/components/transaction/TransactionCard.vue",
     #  "src\components\transaction\CategoryTransactionList.vue",
-    #  "src\components\transaction\TransactionList.vue",
+      "src\components\transaction\TransactionList.vue",
     #  "src\components\transaction\TransactionForm.vue",
     # "src\stores\transactionStore.ts",
     #  "src\stores\recipientStore.ts",
@@ -82,9 +82,9 @@ $searchFiles = @(
     #  "src\components\ui\*.vue",
     #  "src\components\ui\CurrencyInput.vue",
     # # "src\components\ui\SearchableSelect.vue",
-    #  "src\components\ui\SelectCategory.vue",
-    #  "src\components\ui\SelectAccount.vue",
-    #  "src\components\ui\SelectRecipient.vue",
+      "src\components\ui\SelectCategory.vue",
+      "src\components\ui\SelectAccount.vue",
+      "src\components\ui\SelectRecipient.vue",
     #  "src\components\ui\TagSearchableDropdown.vue",
     #  "src\components\ui\SearchGroup.vue",
     # # "src\components\ui\MainNavigation.vue",
@@ -98,7 +98,7 @@ $searchFiles = @(
     #  "src\utils\categoryTransfer.ts",
     #  "src\utils\runningBalances.ts",
     #  "src\types\*.ts"
-    #  "src\components\ui\SearchGroup.vue",
+      "src\components\ui\SearchGroup.vue",
     # # "*.vue",
     # "src\mock\seed.ts",
 
