@@ -5,6 +5,7 @@ import { useThemeStore } from "../stores/themeStore";
 import { useAccountStore } from "../stores/accountStore";
 import { useCategoryStore } from "../stores/categoryStore";
 import { useTransactionStore } from "../stores/transactionStore";
+import { useTransactionFilterStore } from "../stores/transactionFilterStore";
 import { usePlanningStore } from "../stores/planningStore";
 import { useTagStore } from "../stores/tagStore";
 import { isDebugEnabled } from "../utils/logger";
@@ -217,23 +218,14 @@ const resetData = () => {
         <h3 class="card-title text-lg mb-4">Daten</h3>
 
         <div class="flex flex-col md:flex-row gap-4">
-          <button
-            class="btn btn-primary"
-            @click="exportData"
-          >
-            <span
-              class="iconify mr-2"
-              data-icon="mdi:download"
-            ></span>
+          <button class="btn btn-primary" @click="exportData">
+            <span class="iconify mr-2" data-icon="mdi:download"></span>
             Daten exportieren
           </button>
 
           <div class="form-control">
             <label class="btn btn-outline">
-              <span
-                class="iconify mr-2"
-                data-icon="mdi:upload"
-              ></span>
+              <span class="iconify mr-2" data-icon="mdi:upload"></span>
               Daten importieren
               <input
                 type="file"
@@ -244,14 +236,8 @@ const resetData = () => {
             </label>
           </div>
 
-          <button
-            class="btn btn-error"
-            @click="resetData"
-          >
-            <span
-              class="iconify mr-2"
-              data-icon="mdi:delete"
-            ></span>
+          <button class="btn btn-error" @click="resetData">
+            <span class="iconify mr-2" data-icon="mdi:delete"></span>
             Alle Daten zurücksetzen
           </button>
         </div>

@@ -1,23 +1,50 @@
 <script setup lang="ts">
-import { defineProps, defineEmits, ref, computed, defineExpose } from "vue";
-import { Transaction, TransactionType } from "../../types";
-import { useAccountStore } from "../../stores/accountStore";
-import { useCategoryStore } from "../../stores/categoryStore";
-import { useTagStore } from "../../stores/tagStore";
-import { useRecipientStore } from "../../stores/recipientStore";
-import { formatDate } from "../../utils/formatters";
-import CurrencyDisplay from "../ui/CurrencyDisplay.vue";
-import { Icon } from "@iconify/vue";
-import { hexToRgba } from "../../utils/formatters";
-import BadgeSoft from "../ui/BadgeSoft.vue";
+import { computed } from "vue";
+import { Transaction } from "@/types";
+import { formatDate, formatCurrency } from "@/utils/formatters";
+import TransactionCard from "./TransactionCard.vue";
+import { useAccountStore } from "@/stores/accountStore";
+import { useCategoryStore } from "@/stores/categoryStore";
+import { useReconciliationStore } from "@/stores/reconciliationStore"; // Neuer Import
 
-const props = defineProps<{
-  transactions: Transaction[];
-  showAccount?: boolean;
-  sortKey: keyof Transaction | "";
-  sortOrder: "asc" | "desc";
-}>();
+/**
+ * Pfad zur Komponente: src/components/transaction/TransactionList.vue
+ * Liste von Transaktionen mit Sortier- und Filterfunktionen.
+ *
+ * Komponenten-Props:
+ * - transactions: Transaction[] - Liste der anzuzeigenden Transaktionen
+ * - showAccount: boolean - Optional: Kontenname anzeigen (default: false)
+ * - sortKey: string - Schlüssel, nach dem sortiert wird
+ * - sortOrder: 'asc' | 'desc' - Sortierrichtung
+ *
+ * Emits:
+ * - edit: (transaction: Transaction) - Transaktion bearbeiten
+ * - delete: (transaction: Transaction) - Transaktion löschen
+ * - sort-change: (key: string) - Sortierung ändern
+ * - toggleReconciliation: (transactionId: string) - Abgleichstatus umschalten
+ */
 
+// Props definieren
+const props = defineProps({
+  transactions: {
+    type: Array as () => Transaction[],
+    required: true,
+  },
+  showAccount: {
+    type: Boolean,
+    default: false,
+  },
+  sortKey: {
+    type: String,
+    default: "",
+  },
+  sortOrder: {
+    type: String as () => "asc" | "desc",
+    default: "desc",
+  },
+});
+
+// Emits definieren
 const emit = defineEmits([
   "edit",
   "delete",
@@ -25,256 +52,203 @@ const emit = defineEmits([
   "toggleReconciliation",
 ]);
 
+// Stores initialisieren
 const accountStore = useAccountStore();
 const categoryStore = useCategoryStore();
-const tagStore = useTagStore();
-const recipientStore = useRecipientStore();
+const reconciliationStore = useReconciliationStore();
 
-// Computed: Exclude CATEGORYTRANSFER transactions
-const displayTransactions = computed(() =>
-  props.transactions.filter(
-    (tx) => tx.type !== TransactionType.CATEGORYTRANSFER
-  )
-);
+// Funktionen für Events
+const handleEdit = (tx: Transaction) => {
+  emit("edit", tx);
+};
 
-// Auswahl-Logik
-const selectedIds = ref<string[]>([]);
-const lastSelectedIndex = ref<number | null>(null);
-const currentPageIds = computed(() =>
-  displayTransactions.value.map((tx) => tx.id)
-);
-const allSelected = computed(() =>
-  currentPageIds.value.every((id) => selectedIds.value.includes(id))
-);
+const handleDelete = (tx: Transaction) => {
+  emit("delete", tx);
+};
 
-function handleHeaderCheckboxChange(event: Event) {
-  const checked = (event.target as HTMLInputElement).checked;
-  if (checked) {
-    selectedIds.value = [...currentPageIds.value];
-  } else {
-    selectedIds.value = selectedIds.value.filter(
-      (id) => !currentPageIds.value.includes(id)
-    );
+const toggleReconciliation = (tx: Transaction) => {
+  reconciliationStore.toggleTransactionReconciled(tx.id);
+  emit("toggleReconciliation", tx.id);
+};
+
+// Sortierung
+const toggleSort = (key: string) => {
+  emit("sort-change", key);
+};
+
+// Hilfreiche berechnete Eigenschaften
+const getSortIcon = (key: string) => {
+  if (props.sortKey !== key) return "mdi:sort";
+  return props.sortOrder === "asc"
+    ? "mdi:sort-ascending"
+    : "mdi:sort-descending";
+};
+
+// Hilfsfunktionen zum Formatieren des Transaktionstyps
+const getTransactionTypeLabel = (type: string) => {
+  switch (type) {
+    case "EXPENSE":
+      return "Ausgabe";
+    case "INCOME":
+      return "Einnahme";
+    case "ACCOUNTTRANSFER":
+      return "Übertrag";
+    case "CATEGORYTRANSFER":
+      return "Kat.Transfer";
+    case "RECONCILE":
+      return "Abgleich";
+    default:
+      return type;
   }
-}
+};
 
-function handleCheckboxClick(
-  transactionId: string,
-  index: number,
-  event: MouseEvent
-) {
-  const target = event.target as HTMLInputElement;
-  const isChecked = target.checked;
-  if (event.shiftKey && lastSelectedIndex.value !== null) {
-    const start = Math.min(lastSelectedIndex.value, index);
-    const end = Math.max(lastSelectedIndex.value, index);
-    for (let i = start; i <= end; i++) {
-      const id = displayTransactions.value[i].id;
-      if (isChecked && !selectedIds.value.includes(id)) {
-        selectedIds.value.push(id);
-      } else if (!isChecked) {
-        const pos = selectedIds.value.indexOf(id);
-        if (pos !== -1) selectedIds.value.splice(pos, 1);
-      }
-    }
-  } else {
-    if (isChecked) {
-      if (!selectedIds.value.includes(transactionId)) {
-        selectedIds.value.push(transactionId);
-      }
-    } else {
-      const pos = selectedIds.value.indexOf(transactionId);
-      if (pos !== -1) selectedIds.value.splice(pos, 1);
-    }
-  }
-  lastSelectedIndex.value = index;
-}
+// Gibt den Kontonamen für eine Transaktion zurück
+const getAccountName = (accountId: string) => {
+  const account = accountStore.getAccountById(accountId);
+  return account ? account.name : "Unbekannt";
+};
 
-function getSelectedTransactions(): Transaction[] {
-  return displayTransactions.value.filter((tx) =>
-    selectedIds.value.includes(tx.id)
-  );
-}
+// Gibt den Kategorienamen für eine Transaktion zurück
+const getCategoryName = (categoryId: string | null) => {
+  if (!categoryId) return "—";
+  const category = categoryStore.getCategoryById(categoryId);
+  return category ? category.name : "Unbekannt";
+};
 
-defineExpose({ getSelectedTransactions });
+// CSS-Klassen für Spaltenüberschriften
+const thClasses =
+  "px-3 py-2 text-left font-medium cursor-pointer hover:bg-base-200";
 </script>
 
 <template>
   <div class="overflow-x-auto">
-    <table class="table w-full">
+    <table class="table table-zebra table-compact w-full">
       <thead>
         <tr>
-          <!-- Auswahl-Checkbox Header -->
-          <th class="w-5">
-            <input
-              type="checkbox"
-              class="checkbox checkbox-sm"
-              :checked="allSelected"
-              @change="handleHeaderCheckboxChange"
-            />
-          </th>
-          <th @click="emit('sort-change', 'date')" class="cursor-pointer">
+          <th :class="thClasses" @click="toggleSort('date')">
             <div class="flex items-center">
-              Datum
-              <Icon
-                v-if="sortKey === 'date'"
-                :icon="sortOrder === 'asc' ? 'mdi:arrow-up' : 'mdi:arrow-down'"
-                class="ml-1 text-sm"
-              />
+              <span class="mr-1">Datum</span>
+              <Icon :icon="getSortIcon('date')" class="text-lg" />
             </div>
           </th>
           <th
             v-if="showAccount"
-            @click="emit('sort-change', 'accountId')"
-            class="cursor-pointer"
+            :class="thClasses"
+            @click="toggleSort('accountId')"
           >
             <div class="flex items-center">
-              Konto
-              <Icon
-                v-if="sortKey === 'accountId'"
-                :icon="sortOrder === 'asc' ? 'mdi:arrow-up' : 'mdi:arrow-down'"
-                class="ml-1 text-sm"
-              />
+              <span class="mr-1">Konto</span>
+              <Icon :icon="getSortIcon('accountId')" class="text-lg" />
             </div>
           </th>
-          <th
-            @click="emit('sort-change', 'recipientId')"
-            class="cursor-pointer"
-          >
+          <th :class="thClasses" @click="toggleSort('payee')">
             <div class="flex items-center">
-              Empfänger
-              <Icon
-                v-if="sortKey === 'recipientId'"
-                :icon="sortOrder === 'asc' ? 'mdi:arrow-up' : 'mdi:arrow-down'"
-                class="ml-1 text-sm"
-              />
+              <span class="mr-1">Beschreibung</span>
+              <Icon :icon="getSortIcon('payee')" class="text-lg" />
             </div>
           </th>
-          <th @click="emit('sort-change', 'categoryId')" class="cursor-pointer">
+          <th :class="thClasses" @click="toggleSort('categoryId')">
             <div class="flex items-center">
-              Kategorie
-              <Icon
-                v-if="sortKey === 'categoryId'"
-                :icon="sortOrder === 'asc' ? 'mdi:arrow-up' : 'mdi:arrow-down'"
-                class="ml-1 text-sm"
-              />
+              <span class="mr-1">Kategorie</span>
+              <Icon :icon="getSortIcon('categoryId')" class="text-lg" />
             </div>
           </th>
-          <th>Tags</th>
-          <th
-            @click="emit('sort-change', 'amount')"
-            class="text-right cursor-pointer"
-          >
+          <th :class="thClasses + ' text-right'" @click="toggleSort('amount')">
             <div class="flex items-center justify-end">
-              Betrag
-              <Icon
-                v-if="sortKey === 'amount'"
-                :icon="sortOrder === 'asc' ? 'mdi:arrow-up' : 'mdi:arrow-down'"
-                class="ml-1 text-sm"
-              />
+              <span class="mr-1">Betrag</span>
+              <Icon :icon="getSortIcon('amount')" class="text-lg" />
             </div>
           </th>
-          <!-- Neues Notiz-Feld -->
-          <th class="text-center cursor-pointer flex items-center justify-end">
-            <Icon icon="mdi:note-text-outline" class="text-lg" />
+          <th class="px-3 py-2 text-center">
+            <Icon
+              icon="mdi:check-circle-outline"
+              class="opacity-60"
+              title="Abgeglichen"
+            />
           </th>
-          <th
-            @click="emit('sort-change', 'reconciled')"
-            class="text-center cursor-pointer"
-          >
-            <div class="flex items-center justify-center">
-              <Icon icon="mdi:check-circle-outline" class="text-lg" />
-              <Icon
-                v-if="sortKey === 'reconciled'"
-                :icon="sortOrder === 'asc' ? 'mdi:arrow-up' : 'mdi:arrow-down'"
-                class="ml-1 text-sm"
-              />
-            </div>
-          </th>
-          <th class="text-right">Aktionen</th>
+          <th class="px-3 py-2 text-right">Aktionen</th>
         </tr>
       </thead>
       <tbody>
-        <tr v-for="(tx, index) in displayTransactions" :key="tx.id">
-          <!-- Auswahl-Checkbox in jeder Zeile -->
-          <td>
-            <input
-              type="checkbox"
-              class="checkbox checkbox-sm"
-              :checked="selectedIds.includes(tx.id)"
-              @click="handleCheckboxClick(tx.id, index, $event)"
-            />
-          </td>
-          <td>{{ formatDate(tx.date) }}</td>
-          <td v-if="showAccount">
-            {{ accountStore.getAccountById(tx.accountId)?.name || "Unbekannt" }}
-          </td>
-          <td>
-            <span v-if="tx.type === TransactionType.ACCOUNTTRANSFER">
-              {{
-                accountStore.getAccountById(tx.transferToAccountId)?.name ||
-                "Unbekanntes Konto"
-              }}
-            </span>
-            <span v-else>
-              {{ recipientStore.getRecipientById(tx.recipientId)?.name || "-" }}
-            </span>
-          </td>
-          <td>
-            {{ categoryStore.getCategoryById(tx.categoryId)?.name || "-" }}
-          </td>
-          <td>
-            <div class="flex flex-wrap gap-1">
-              <BadgeSoft
-                v-for="tagId in tx.tagIds"
-                :key="tagId"
-                :label="tagStore.getTagById(tagId)?.name || 'Unbekanntes Tag'"
-                :colorIntensity="
-                  tagStore.getTagById(tagId)?.color || 'secondary'
-                "
-                size="sm"
-              />
+        <tr
+          v-for="transaction in transactions"
+          :key="transaction.id"
+          class="hover:bg-base-200 hover:cursor-pointer"
+          @click.stop="handleEdit(transaction)"
+        >
+          <td class="px-3 py-2">
+            <div>{{ formatDate(transaction.date) }}</div>
+            <div
+              v-if="transaction.date !== transaction.valueDate"
+              class="text-xs opacity-60"
+            >
+              Wert: {{ formatDate(transaction.valueDate || transaction.date) }}
             </div>
           </td>
-          <td class="text-right">
-            <CurrencyDisplay
-              :amount="tx.amount"
-              :show-zero="true"
-              :class="{
-                'text-warning': tx.type === TransactionType.ACCOUNTTRANSFER,
-              }"
-            />
+
+          <td v-if="showAccount" class="px-3 py-2">
+            <div>{{ getAccountName(transaction.accountId) }}</div>
+            <div
+              v-if="transaction.type === 'ACCOUNTTRANSFER'"
+              class="text-xs opacity-60"
+            >
+              → {{ getAccountName(transaction.transferToAccountId || "") }}
+            </div>
           </td>
-          <td class="text-right flex justify-end items-center mt-1">
-            <template v-if="tx.note && tx.note.trim()">
-              <div class="tooltip" :data-tip="tx.note">
-                <Icon icon="mdi:speaker-notes" class="text-lg opacity-50" />
-              </div>
-            </template>
+
+          <td class="px-3 py-2">
+            <div>{{ transaction.payee || transaction.note }}</div>
+            <div
+              v-if="transaction.payee && transaction.note"
+              class="text-xs opacity-60"
+            >
+              {{ transaction.note }}
+            </div>
+            <div class="text-xs badge badge-outline">
+              {{ getTransactionTypeLabel(transaction.type) }}
+            </div>
           </td>
-          <td class="text-center">
+
+          <td class="px-3 py-2">
+            {{ getCategoryName(transaction.categoryId) }}
+          </td>
+
+          <td
+            class="px-3 py-2 text-right"
+            :class="transaction.amount >= 0 ? 'text-success' : 'text-error'"
+          >
+            {{ formatCurrency(transaction.amount) }}
+          </td>
+
+          <td class="px-3 py-2 text-center">
             <input
               type="checkbox"
-              class="checkbox checkbox-xs"
-              :checked="tx.reconciled"
-              @change="$emit('toggleReconciliation', tx, $event.target.checked)"
+              :checked="transaction.reconciled"
+              class="checkbox checkbox-sm"
+              @click.stop="toggleReconciliation(transaction)"
             />
           </td>
-          <td class="text-right">
+
+          <td class="px-3 py-2 text-right">
             <div class="flex justify-end space-x-1">
               <button
-                class="btn btn-ghost btn-xs border-none"
-                @click="$emit('edit', tx)"
+                class="btn btn-ghost btn-xs"
+                @click.stop="handleEdit(transaction)"
               >
-                <Icon icon="mdi:pencil" class="text-base/75" />
+                <Icon icon="mdi:pencil" class="text-base" />
               </button>
               <button
-                class="btn btn-ghost btn-xs border-none text-error/75"
-                @click="$emit('delete', tx)"
+                class="btn btn-ghost btn-xs text-error"
+                @click.stop="handleDelete(transaction)"
               >
                 <Icon icon="mdi:trash-can" class="text-base" />
               </button>
             </div>
+          </td>
+        </tr>
+        <tr v-if="transactions.length === 0">
+          <td colspan="7" class="text-center py-4 opacity-60">
+            Keine Transaktionen gefunden.
           </td>
         </tr>
       </tbody>

@@ -340,5 +340,4 @@ Die empfohlenen Änderungen würden die Architektur der FinWise-Applikation deut
 Die Einführung eines Service Layers und eines Data Access Layers macht die Anwendung flexibler und bereitet sie auf zukünftige Anforderungen vor, wie die Integration mit einem Backend oder andere Persistenzmechanismen. Die Performance-Optimierungen würden die Anwendung auch bei größeren Datenmengen responsiv halten.
 
 # Aufgabe
-Prüfe nun, ob Service- und Datalayer aus Step 1 und 2 gut vorkonfiguriert sind.
-Dann beginne Schritt 3. Store-Refactoring. Prüfe, ob diverse *.vue Dateien in den Importen angepasst werden müssen.
+Prüfe weiter das Store Refactoring, Punkt 3. Im ersten Durchlauf wurden schon neue Stores erstellt. 3.1 ist durch. 3.2 anscheinend nur zum Teil. Prüfe weiteres Refactoring, aber insbesondere auch Schritt 3.3. Prüfe, ob diverse *.vue Dateien in den Importen angepasst werden müssen.

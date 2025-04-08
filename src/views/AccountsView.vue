@@ -5,16 +5,20 @@ import { useAccountStore } from "../stores/accountStore";
 import { useTagStore } from "../stores/tagStore";
 import { useCategoryStore } from "../stores/categoryStore";
 import { useRecipientStore } from "../stores/recipientStore";
+import { useTransactionStore } from "../stores/transactionStore";
+import { useTransactionFilterStore } from "../stores/transactionFilterStore"; // Neuer Import
+import { useReconciliationStore } from "../stores/reconciliationStore"; // Neuer Import
+import { useSearchStore } from "../stores/searchStore"; // Neuer Import
 import AccountGroupCard from "../components/account/AccountGroupCard.vue";
 import AccountForm from "../components/account/AccountForm.vue";
 import AccountGroupForm from "../components/account/AccountGroupForm.vue";
+import AccountReconcileModal from "../components/account/AccountReconcileModal.vue";
 import CurrencyDisplay from "../components/ui/CurrencyDisplay.vue";
 import TransactionCard from "../components/transaction/TransactionCard.vue";
 import TransactionForm from "../components/transaction/TransactionForm.vue";
 import SearchGroup from "../components/ui/SearchGroup.vue";
 import { formatDate } from "../utils/formatters";
 import { groupTransactionsByDateWithRunningBalance } from "../utils/runningBalances";
-import { useTransactionStore } from "../stores/transactionStore";
 import { TransactionType } from "../types";
 import { addAccountTransfer } from "@/utils/accountTransfers";
 import { Icon } from "@iconify/vue";
@@ -28,11 +32,15 @@ const tagStore = useTagStore();
 const categoryStore = useCategoryStore();
 const recipientStore = useRecipientStore();
 const transactionStore = useTransactionStore();
+const transactionFilterStore = useTransactionFilterStore();
+const reconciliationStore = useReconciliationStore();
+const searchStore = useSearchStore();
 
 // State
 const showNewAccountModal = ref(false);
 const showNewGroupModal = ref(false);
 const showTransactionFormModal = ref(false);
+const showReconcileModal = ref(false);
 
 const selectedAccount = ref<any>(null);
 const selectedTransaction = ref<any>(null);
@@ -41,11 +49,13 @@ const selectedTransaction = ref<any>(null);
 const accountGroups = computed(() => accountStore.accountGroups);
 const totalBalance = computed(() => accountStore.totalBalance);
 
-const selectedTransactionType = ref("");
-const selectedReconciledFilter = ref("");
-const selectedTagId = ref("");
-const selectedCategoryId = ref("");
-const searchQuery = ref("");
+// Suchbegriff über den SearchStore
+const searchQuery = computed({
+  get: () => searchStore.globalSearchQuery,
+  set: (value) => searchStore.search(value),
+});
+
+// DateRange
 const dateRange = ref({
   start: new Date(new Date().getFullYear(), new Date().getMonth(), 1)
     .toISOString()
@@ -58,9 +68,11 @@ const dateRange = ref({
 // Lifecycle Hooks
 onMounted(() => {
   const savedTag = localStorage.getItem("accountsView_selectedTagId");
-  if (savedTag !== null) selectedTagId.value = savedTag;
+  if (savedTag !== null) transactionFilterStore.selectedTagId = savedTag;
+
   const savedCat = localStorage.getItem("accountsView_selectedCategoryId");
-  if (savedCat !== null) selectedCategoryId.value = savedCat;
+  if (savedCat !== null) transactionFilterStore.selectedCategoryId = savedCat;
+
   if (!selectedAccount.value && accountStore.activeAccounts.length > 0) {
     selectedAccount.value = accountStore.activeAccounts[0];
     debugLog(
@@ -71,12 +83,18 @@ onMounted(() => {
 });
 
 // Watchers
-watch(selectedTagId, (newVal) => {
-  localStorage.setItem("accountsView_selectedTagId", newVal);
-});
-watch(selectedCategoryId, (newVal) => {
-  localStorage.setItem("accountsView_selectedCategoryId", newVal);
-});
+watch(
+  () => transactionFilterStore.selectedTagId,
+  (newVal) => {
+    localStorage.setItem("accountsView_selectedTagId", newVal);
+  }
+);
+watch(
+  () => transactionFilterStore.selectedCategoryId,
+  (newVal) => {
+    localStorage.setItem("accountsView_selectedCategoryId", newVal);
+  }
+);
 
 //Hilfsfunktion für Datum
 function normalizeDateString(date: string): string {
@@ -103,35 +121,38 @@ const filteredTransactions = computed(() => {
     return txDate >= start && txDate <= end;
   });
 
-  if (selectedTransactionType.value) {
+  if (transactionFilterStore.selectedTransactionType) {
     const typeMap: Record<string, string> = {
       ausgabe: "EXPENSE",
       einnahme: "INCOME",
       transfer: "ACCOUNTTRANSFER",
     };
-    const desired = typeMap[selectedTransactionType.value];
+    const desired = typeMap[transactionFilterStore.selectedTransactionType];
     if (desired) {
       txs = txs.filter((tx) => tx.type === desired);
     }
   }
 
-  if (selectedReconciledFilter.value) {
+  if (transactionFilterStore.selectedReconciledFilter) {
     txs = txs.filter((tx) =>
-      selectedReconciledFilter.value === "abgeglichen"
+      transactionFilterStore.selectedReconciledFilter === "abgeglichen"
         ? tx.reconciled
         : !tx.reconciled
     );
   }
 
-  if (selectedTagId.value) {
+  if (transactionFilterStore.selectedTagId) {
     txs = txs.filter(
       (tx) =>
-        Array.isArray(tx.tagIds) && tx.tagIds.includes(selectedTagId.value)
+        Array.isArray(tx.tagIds) &&
+        tx.tagIds.includes(transactionFilterStore.selectedTagId)
     );
   }
 
-  if (selectedCategoryId.value) {
-    txs = txs.filter((tx) => tx.categoryId === selectedCategoryId.value);
+  if (transactionFilterStore.selectedCategoryId) {
+    txs = txs.filter(
+      (tx) => tx.categoryId === transactionFilterStore.selectedCategoryId
+    );
   }
 
   if (searchQuery.value.trim()) {
@@ -195,11 +216,8 @@ const groupedTransactions = computed(() => {
 });
 
 const clearFilters = () => {
-  selectedTransactionType.value = "";
-  selectedReconciledFilter.value = "";
-  selectedTagId.value = "";
-  selectedCategoryId.value = "";
-  searchQuery.value = "";
+  transactionFilterStore.clearFilters();
+  searchStore.clearSearch();
 };
 
 // Methods
@@ -294,6 +312,18 @@ const handleTransactionSave = (payload: any) => {
   showTransactionFormModal.value = false;
   selectedTransaction.value = null;
 };
+
+// Kontoabgleich starten
+const startReconcile = (account: any) => {
+  selectedAccount.value = account;
+  showReconcileModal.value = true;
+};
+
+// Kontoabgleich abgeschlossen
+const onReconcileComplete = () => {
+  // Aktualisieren der Transaktionsliste nach Abgleich
+  showReconcileModal.value = false;
+};
 </script>
 
 <template>
@@ -343,6 +373,7 @@ const handleTransactionSave = (payload: any) => {
             :group="group"
             :activeAccountId="selectedAccount ? selectedAccount.id : ''"
             @selectAccount="onSelectAccount"
+            @reconcileAccount="startReconcile" <!-- Kontoabgleich Aktion -->
           />
         </div>
       </div>
@@ -446,6 +477,16 @@ const handleTransactionSave = (payload: any) => {
           @click="showTransactionFormModal = false"
         ></div>
       </div>
+    </Teleport>
+    <!-- Kontoabgleich Modal -->
+    <Teleport to="body">
+      <AccountReconcileModal
+        v-if="showReconcileModal && selectedAccount"
+        :account="selectedAccount"
+        :isOpen="showReconcileModal"
+        @close="showReconcileModal = false"
+        @reconcile="onReconcileComplete"
+      />
     </Teleport>
   </div>
 </template>

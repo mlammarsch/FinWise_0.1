@@ -11,7 +11,11 @@ $baseDirectoryFull = [System.IO.Path]::GetFullPath($baseDirectory)
 # --------------------------------------------------------------------------
 $excludedDirectories = @(
     "node_modules",
-    "dist"
+    "dist",
+    "src\router",
+    "src\mock",
+    "src\layouts",
+    "src\components"
 )
 
 $includeDirectories = @(
@@ -23,7 +27,7 @@ $includeDirectories = @(
 # Konfiguration der Dateifilter
 # --------------------------------------------------------------------------
 $excludeFiles = @(
-  #  "./*.*"
+    "./*.*"
 )
 
 $searchFiles = @(
@@ -99,6 +103,7 @@ $searchFiles = @(
     #  "src\components\ui\SearchGroup.vue",
     # # "*.vue",
     # "src\mock\seed.ts",
+
     "*.ts",
     "*.vue"
 )

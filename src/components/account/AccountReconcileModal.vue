@@ -1,145 +1,209 @@
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
-import { Account, TransactionType } from "../../types";
-import { useTransactionStore } from "../../stores/transactionStore";
-import DatePicker from "../ui/DatePicker.vue";
-import CurrencyInput from "../ui/CurrencyInput.vue";
-import CurrencyDisplay from "../ui/CurrencyDisplay.vue"; // Neuer Import
-import { formatCurrency } from "../../utils/formatters"; // Importieren Sie hier!
+import { Account } from "@/types";
+import { formatCurrency, formatDate } from "@/utils/formatters";
+import { useReconciliationStore } from "@/stores/reconciliationStore";
+import { useTransactionStore } from "@/stores/transactionStore";
+import DatePicker from "@/components/ui/DatePicker.vue";
+import CurrencyInput from "@/components/ui/CurrencyInput.vue";
 
 /**
  * Pfad zur Komponente: src/components/account/AccountReconcileModal.vue
- * Kurzbeschreibung: Modal zur Durchführung des Kontoabgleichs
+ * Modal zum Abgleich eines Kontos mit externem Kontostand.
+ *
  * Komponenten-Props:
- * - account: Das Konto, das abgeglichen wird
- * - isOpen: Steuerung der Sichtbarkeit
+ * - account: Account - Das abzugleichende Konto
+ * - isOpen: boolean - Ist das Modal geöffnet
  *
  * Emits:
- * - close: Schließt das Modal
- * - reconciled: Nach erfolgreichem Abgleich
+ * - close - Modal schließen
+ * - reconcile - Abgleich durchführen
  */
-const props = defineProps<{ account: Account; isOpen: boolean }>();
-const emit = defineEmits(["close", "reconciled"]);
+
+const props = defineProps<{
+  account: Account;
+  isOpen: boolean;
+}>();
+
+const emit = defineEmits(["close", "reconcile"]);
+
+const reconciliationStore = useReconciliationStore();
 const transactionStore = useTransactionStore();
 
-const reconcileDate = ref(new Date().toISOString().split("T")[0]);
-const actualBalance = ref(0);
-const note = ref("Kontoabgleich");
+// Werte aus dem ReconciliationStore
+const reconcileDate = computed({
+  get: () => reconciliationStore.reconcileDate,
+  set: (value) => (reconciliationStore.reconcileDate = value),
+});
 
-// Berechnet Saldo zum gewählten Datum
+const actualBalance = computed({
+  get: () => reconciliationStore.actualBalance,
+  set: (value) => (reconciliationStore.actualBalance = value),
+});
+
+const note = computed({
+  get: () => reconciliationStore.note,
+  set: (value) => (reconciliationStore.note = value),
+});
+
+// Differenz zwischen tatsächlichem Saldo und Kontostand
+const difference = computed(() => {
+  return reconciliationStore.differenceValue;
+});
+
+// Berechnet den aktuellen Kontostand für das ausgewählte Datum
 const currentBalance = computed(() => {
-  const target = new Date(reconcileDate.value).getTime();
-  const txs = transactionStore.getTransactionsByAccount(props.account.id) || [];
-  const validTxs = txs.filter((tx) => {
-    const date = new Date(tx.valueDate || tx.date).getTime();
-    return !isNaN(date) && date <= target;
-  });
-  if (validTxs.length === 0) return props.account.balance;
-  validTxs.sort(
-    (a, b) =>
-      new Date(b.valueDate || b.date).getTime() -
-      new Date(a.valueDate || a.date).getTime()
+  return reconciliationStore.currentBalance;
+});
+
+// Flag für anstehende Buchungen
+const hasPendingTransactions = computed(() => {
+  const transactions = transactionStore.getTransactionsByAccount(
+    props.account.id
   );
-  return validTxs[0].runningBalance;
+  const pendingTransactions = transactions.filter((tx) => !tx.reconciled);
+  return pendingTransactions.length > 0;
 });
 
-// Differenz zwischen tatsächlichem und aktuellem Saldo
-const differenceValue = computed({
-  get: () => actualBalance.value - currentBalance.value,
-  set: (val) => (actualBalance.value = currentBalance.value + val),
-});
-
-// Datum ändert -> actualBalance anpassen
-watch(reconcileDate, () => {
-  actualBalance.value = currentBalance.value;
-});
+// Startet einen neuen Kontoabgleich, wenn das Modal geöffnet wird
 watch(
   () => props.isOpen,
-  (open) => {
-    if (open) actualBalance.value = currentBalance.value;
+  (isOpen) => {
+    if (isOpen && props.account) {
+      reconciliationStore.startReconciliation(props.account);
+    }
   }
 );
 
-const reconcileAccount = () => {
-  if (differenceValue.value === 0) {
+// Kontoabgleich durchführen
+function reconcileAccount() {
+  const success = reconciliationStore.reconcileAccount();
+  if (success) {
+    emit("reconcile");
     emit("close");
-    return;
   }
+}
 
-  const altSaldo = formatCurrency(currentBalance.value);
-  note.value = `Kontostandsabgleich: Altsaldo war: ${altSaldo}`;
+// Alle Transaktionen bis zum gewählten Datum abgleichen
+function reconcileAllTransactions() {
+  if (
+    confirm(
+      "Möchten Sie wirklich alle Transaktionen bis zum gewählten Datum als abgeglichen markieren?"
+    )
+  ) {
+    const count = reconciliationStore.reconcileAllTransactionsUntilDate(
+      props.account.id,
+      reconcileDate.value
+    );
+    alert(`${count} Transaktionen wurden als abgeglichen markiert.`);
+  }
+}
 
-  // Aufruf der neuen Funktion für Ausgleichsbuchungen
-  const newTx = transactionStore.addReconcileTransaction(
-    props.account.id,
-    differenceValue.value,
-    reconcileDate.value,
-    note.value
-  );
-  if (newTx) emit("reconciled");
+// Abgleich abbrechen
+function cancelReconciliation() {
+  reconciliationStore.cancelReconciliation();
   emit("close");
-};
+}
 </script>
 
 <template>
-  <div v-if="props.isOpen" class="modal modal-open">
-    <div class="modal-box">
-      <h3 class="font-bold text-lg mb-4">
-        Kontoabgleich: {{ props.account.name }}
-      </h3>
-      <form @submit.prevent="reconcileAccount">
-        <div class="space-y-4">
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text">Aktueller Kontostand</span>
-            </label>
-            <!-- Verwendung von CurrencyDisplay statt Input -->
-            <CurrencyDisplay :amount="currentBalance" />
-          </div>
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text">Nach Abgleich neuer Kontostand</span>
-              <span class="text-error">*</span>
-            </label>
-            <CurrencyInput v-model="actualBalance" required />
-          </div>
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text">Differenz</span>
-            </label>
-            <CurrencyInput v-model="differenceValue" readonly />
-          </div>
-          <DatePicker
-            v-model="reconcileDate"
-            label="Datum des Abgleichs"
-            required
-          />
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text">Notiz</span>
-            </label>
-            <input
-              type="text"
-              v-model="note"
-              class="input input-bordered"
-              placeholder="Grund für den Abgleich"
-            />
-          </div>
+  <div v-if="isOpen" class="modal modal-open">
+    <div class="modal-box max-w-lg">
+      <!-- Header -->
+      <h3 class="font-bold text-lg mb-4">Kontoabgleich: {{ account.name }}</h3>
+
+      <div class="divider my-2"></div>
+
+      <!-- Abgleichdatum -->
+      <div class="form-control mb-4">
+        <label class="label">
+          <span class="label-text">Abgleichdatum</span>
+        </label>
+        <DatePicker v-model="reconcileDate" />
+      </div>
+
+      <!-- Aktueller Kontostand -->
+      <div class="bg-base-200 p-3 rounded-md mb-4">
+        <div class="text-sm opacity-75">
+          Aktueller Kontostand zum gewählten Datum:
         </div>
-        <div class="modal-action">
-          <button type="button" class="btn" @click="emit('close')">
-            Abbrechen
-          </button>
-          <button
-            type="submit"
-            class="btn btn-primary"
-            :disabled="differenceValue === 0"
+        <div class="text-xl font-semibold">
+          {{ formatCurrency(currentBalance) }}
+        </div>
+      </div>
+
+      <!-- Tatsächlicher Kontostand -->
+      <div class="form-control mb-4">
+        <label class="label">
+          <span class="label-text"
+            >Tatsächlicher Kontostand laut Bankauszug</span
           >
-            Abgleichen
+        </label>
+        <CurrencyInput v-model="actualBalance" />
+      </div>
+
+      <!-- Differenz -->
+      <div
+        class="flex justify-between items-center mb-4 p-3 rounded-md"
+        :class="difference === 0 ? 'bg-success/20' : 'bg-error/20'"
+      >
+        <div>
+          <div class="text-sm opacity-75">Differenz:</div>
+          <div
+            class="text-lg font-semibold"
+            :class="difference >= 0 ? 'text-success' : 'text-error'"
+          >
+            {{ formatCurrency(difference) }}
+          </div>
+        </div>
+        <div v-if="difference === 0" class="badge badge-success">
+          Ausgeglichen
+        </div>
+        <div v-else class="badge badge-error">Nicht ausgeglichen</div>
+      </div>
+
+      <!-- Notiz -->
+      <div class="form-control mb-4">
+        <label class="label">
+          <span class="label-text">Notiz</span>
+        </label>
+        <textarea
+          v-model="note"
+          class="textarea textarea-bordered"
+          rows="2"
+        ></textarea>
+      </div>
+
+      <div v-if="hasPendingTransactions" class="alert alert-info mb-4">
+        <div>
+          <Icon icon="mdi:information" class="text-lg" />
+          <span
+            >Es gibt noch nicht abgeglichene Transaktionen für dieses
+            Konto.</span
+          >
+        </div>
+        <div>
+          <button class="btn btn-sm" @click="reconcileAllTransactions">
+            Alle Transaktionen bis zum Datum abgleichen
           </button>
         </div>
-      </form>
+      </div>
+
+      <!-- Aktionen -->
+      <div class="modal-action">
+        <button
+          class="btn btn-primary"
+          @click="reconcileAccount"
+          :disabled="difference === 0"
+        >
+          <Icon icon="mdi:check-circle" class="mr-2" />
+          Abgleichen
+        </button>
+        <button class="btn btn-ghost" @click="cancelReconciliation">
+          Abbrechen
+        </button>
+      </div>
     </div>
-    <div class="modal-backdrop" @click="emit('close')"></div>
+    <div class="modal-backdrop" @click="cancelReconciliation"></div>
   </div>
 </template>

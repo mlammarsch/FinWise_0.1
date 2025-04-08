@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from "vue";
 import { useTransactionStore } from "../stores/transactionStore";
+import { useTransactionFilterStore } from "../stores/transactionFilterStore"; // Neuer Import
+import { useReconciliationStore } from "../stores/reconciliationStore"; // Neuer Import
 import { useAccountStore } from "../stores/accountStore";
 import { useCategoryStore } from "../stores/categoryStore";
 import { useTagStore } from "../stores/tagStore";
 import { useRecipientStore } from "../stores/recipientStore";
+import { useSearchStore } from "../stores/searchStore"; // Neuer Import
 import TransactionList from "../components/transaction/TransactionList.vue";
 import CategoryTransactionList from "../components/transaction/CategoryTransactionList.vue";
 import TransactionDetailModal from "../components/transaction/TransactionDetailModal.vue";
@@ -22,10 +25,13 @@ const refreshKey = ref(0);
 
 // Stores
 const transactionStore = useTransactionStore();
+const transactionFilterStore = useTransactionFilterStore(); // Neuer Store
+const reconciliationStore = useReconciliationStore(); // Neuer Store
 const accountStore = useAccountStore();
 const categoryStore = useCategoryStore();
 const tagStore = useTagStore();
 const recipientStore = useRecipientStore();
+const searchStore = useSearchStore(); // Neuer Store
 
 // Modals
 const showTransactionFormModal = ref(false);
@@ -34,270 +40,101 @@ const transactionListRef = ref<InstanceType<typeof TransactionList> | null>(
   null
 );
 
-// Umschaltmodus: "account" oder "category"
-const currentViewMode = ref<"account" | "category">("account");
+// Umschaltmodus aus dem FilterStore verwenden
+const currentViewMode = computed({
+  get: () => transactionFilterStore.currentViewMode,
+  set: (value) => (transactionFilterStore.currentViewMode = value),
+});
 
 // Gemeinsame Filter und UI-Status
 const selectedTransaction = ref<Transaction | null>(null);
-const searchQuery = ref("");
 const currentPage = ref(1);
 const itemsPerPage = ref(25);
 const itemsPerPageOptions = [10, 20, 25, 50, 100, "all"];
-const dateRange = ref<{ start: string; end: string }>({
-  start: new Date().toISOString().split("T")[0],
-  end: new Date().toISOString().split("T")[0],
+
+// Suchbegriff über den SearchStore
+const searchQuery = computed({
+  get: () => searchStore.globalSearchQuery,
+  set: (value) => searchStore.search(value),
 });
+
+// DateRange über den FilterStore
+const dateRange = computed({
+  get: () => transactionFilterStore.dateRange,
+  set: (value) =>
+    transactionFilterStore.updateDateRange(value.start, value.end),
+});
+
 function handleDateRangeUpdate(payload: { start: string; end: string }) {
-  dateRange.value = payload;
+  transactionFilterStore.updateDateRange(payload.start, payload.end);
   refreshKey.value++;
 }
 
 // Filterung für Konto-Ansicht
-const selectedAccountId = ref("");
-const selectedTransactionType = ref("");
-const selectedReconciledFilter = ref("");
-const selectedTagId = ref("");
-const selectedCategoryId = ref("");
+const selectedAccountId = computed({
+  get: () => transactionFilterStore.selectedAccountId,
+  set: (value) => (transactionFilterStore.selectedAccountId = value),
+});
 
+const selectedTransactionType = computed({
+  get: () => transactionFilterStore.selectedTransactionType,
+  set: (value) => (transactionFilterStore.selectedTransactionType = value),
+});
+
+const selectedReconciledFilter = computed({
+  get: () => transactionFilterStore.selectedReconciledFilter,
+  set: (value) => (transactionFilterStore.selectedReconciledFilter = value),
+});
+
+const selectedTagId = computed({
+  get: () => transactionFilterStore.selectedTagId,
+  set: (value) => (transactionFilterStore.selectedTagId = value),
+});
+
+const selectedCategoryId = computed({
+  get: () => transactionFilterStore.selectedCategoryId,
+  set: (value) => (transactionFilterStore.selectedCategoryId = value),
+});
+
+// Verwenden Sie die vorgefilterten Transaktionen aus dem FilterStore
 const filteredTransactions = computed(() => {
-  refreshKey.value;
-  let txs = transactionStore.transactions;
-  if (selectedTransactionType.value) {
-    const typeMap: Record<string, TransactionType> = {
-      ausgabe: TransactionType.EXPENSE,
-      einnahme: TransactionType.INCOME,
-      transfer: TransactionType.ACCOUNTTRANSFER,
-    };
-    const desired = typeMap[selectedTransactionType.value];
-    if (desired) txs = txs.filter((tx) => tx.type === desired);
-  }
-  if (selectedAccountId.value) {
-    txs = txs.filter((tx) => tx.accountId === selectedAccountId.value);
-  }
-  if (selectedReconciledFilter.value) {
-    txs = txs.filter((tx) =>
-      selectedReconciledFilter.value === "abgeglichen"
-        ? tx.reconciled
-        : !tx.reconciled
-    );
-  }
-  if (selectedTagId.value) {
-    txs = txs.filter(
-      (tx) =>
-        Array.isArray(tx.tagIds) && tx.tagIds.includes(selectedTagId.value)
-    );
-  }
-  if (selectedCategoryId.value) {
-    txs = txs.filter((tx) => tx.categoryId === selectedCategoryId.value);
-  }
-  const start = dateRange.value.start;
-  const end = dateRange.value.end;
-  txs = txs.filter((tx) => {
-    const txDate = tx.date.split("T")[0];
-    return txDate >= start && txDate <= end;
-  });
-  if (!searchQuery.value.trim()) return txs;
-  const lower = searchQuery.value.toLowerCase();
-  const numeric = lower.replace(",", ".");
-  return txs.filter((tx) => {
-    const categoryName = tx.categoryId
-      ? categoryStore.getCategoryById(tx.categoryId)?.name?.toLowerCase() || ""
-      : "";
-    const recipientName = tx.recipientId
-      ? recipientStore.getRecipientById(tx.recipientId)?.name?.toLowerCase() ||
-        ""
-      : "";
-    const tags = Array.isArray(tx.tagIds)
-      ? tx.tagIds
-          .map((id) => tagStore.getTagById(id)?.name?.toLowerCase() || "")
-          .join(" ")
-      : "";
-    const accountName =
-      accountStore.getAccountById(tx.accountId)?.name.toLowerCase() || "";
-    const toAccountName =
-      tx.type === TransactionType.ACCOUNTTRANSFER
-        ? accountStore
-            .getAccountById(tx.transferToAccountId)
-            ?.name.toLowerCase() || ""
-        : "";
-    const payee = tx.payee?.toLowerCase() || "";
-    const formattedAmount = formatCurrency(tx.amount)
-      .replace(/\./g, "")
-      .replace(/,/g, ".");
-    const note = tx.note?.toLowerCase() || "";
-    return [
-      categoryName,
-      recipientName,
-      tags,
-      accountName,
-      toAccountName,
-      payee,
-      formattedAmount,
-      note,
-    ].some((field) => field.includes(lower) || field.includes(numeric));
-  });
+  refreshKey.value; // Abhängigkeit für Zwangsaktualisierung
+  return transactionFilterStore.filteredTransactions;
 });
 
-// Filterung für Kategoriebuchungen – hier Wertstellungsdatum verwenden
+// Verwenden Sie die vorgefilterten Kategorietransaktionen
 const filteredCategoryTransactions = computed(() => {
-  let txs = transactionStore.transactions;
-  if (selectedCategoryId.value) {
-    txs = txs.filter((tx) => tx.categoryId === selectedCategoryId.value);
-  }
-  const start = dateRange.value.start;
-  const end = dateRange.value.end;
-  txs = txs.filter((tx) => {
-    const txDate = tx.valueDate.split("T")[0];
-    return txDate >= start && txDate <= end;
-  });
-
-  if (!searchQuery.value.trim()) return txs;
-  const lower = searchQuery.value.toLowerCase();
-  const numeric = lower.replace(",", ".");
-  return txs.filter((tx) => {
-    const categoryName = tx.categoryId
-      ? categoryStore.getCategoryById(tx.categoryId)?.name?.toLowerCase() || ""
-      : "";
-    const toCategoryName = tx.toCategoryId
-      ? categoryStore.getCategoryById(tx.toCategoryId)?.name?.toLowerCase() ||
-        ""
-      : "";
-    const accountName =
-      accountStore.getAccountById(tx.accountId)?.name.toLowerCase() || "";
-    const date = tx.date;
-    const valueDate = tx.valueDate;
-    const formattedAmount = formatCurrency(tx.amount)
-      .replace(/\./g, "")
-      .replace(/,/g, ".");
-    const note = tx.note?.toLowerCase() || "";
-    return [
-      categoryName,
-      toCategoryName,
-      accountName,
-      date,
-      valueDate,
-      formattedAmount,
-      note,
-    ].some((field) => field.includes(lower) || field.includes(numeric));
-  });
+  refreshKey.value; // Abhängigkeit für Zwangsaktualisierung
+  return transactionFilterStore.filteredCategoryTransactions;
 });
 
-const sortedTransactions = computed(() => {
-  const list = [...filteredTransactions.value];
-  if (sortKey.value) {
-    list.sort((a, b) => {
-      let aVal: any, bVal: any;
-      switch (sortKey.value) {
-        case "accountId":
-          aVal = accountStore.getAccountById(a.accountId)?.name || "";
-          bVal = accountStore.getAccountById(b.accountId)?.name || "";
-          break;
-        case "recipientId":
-          aVal =
-            a.type === "ACCOUNTTRANSFER"
-              ? accountStore.getAccountById(a.transferToAccountId)?.name || ""
-              : recipientStore.getRecipientById(a.recipientId)?.name || "";
-          bVal =
-            b.type === "ACCOUNTTRANSFER"
-              ? accountStore.getAccountById(b.transferToAccountId)?.name || ""
-              : recipientStore.getRecipientById(b.recipientId)?.name || "";
-          break;
-        case "categoryId":
-          aVal = categoryStore.getCategoryById(a.categoryId)?.name || "";
-          bVal = categoryStore.getCategoryById(b.categoryId)?.name || "";
-          break;
-        case "reconciled":
-          aVal = a.reconciled ? 1 : 0;
-          bVal = b.reconciled ? 1 : 0;
-          break;
-        case "amount":
-          aVal = a.amount;
-          bVal = b.amount;
-          break;
-        case "date":
-          aVal = a.date;
-          bVal = b.date;
-          break;
-        case "valueDate":
-          aVal = a.valueDate || a.date;
-          bVal = b.valueDate || b.date;
-          break;
-        default:
-          aVal = a[sortKey.value];
-          bVal = b[sortKey.value];
-      }
-      if (typeof aVal === "string" && typeof bVal === "string") {
-        return sortOrder.value === "asc"
-          ? aVal.localeCompare(bVal)
-          : bVal.localeCompare(aVal);
-      }
-      if (typeof aVal === "number" && typeof bVal === "number") {
-        return sortOrder.value === "asc" ? aVal - bVal : bVal - aVal;
-      }
-      return 0;
-    });
-  }
-  return list;
+// Sortierung
+const sortKey = computed({
+  get: () => transactionFilterStore.sortKey as keyof Transaction,
+  set: (value) => (transactionFilterStore.sortKey = value),
 });
 
-const sortedCategoryTransactions = computed(() => {
-  const list = [...filteredCategoryTransactions.value];
-  if (sortKey.value) {
-    list.sort((a, b) => {
-      let aVal: any, bVal: any;
-      switch (sortKey.value) {
-        case "categoryId":
-          aVal = categoryStore.getCategoryById(a.categoryId)?.name || "";
-          bVal = categoryStore.getCategoryById(b.categoryId)?.name || "";
-          break;
-        case "accountId":
-          if (
-            a.type === TransactionType.CATEGORYTRANSFER &&
-            b.type === TransactionType.CATEGORYTRANSFER
-          ) {
-            aVal = categoryStore.getCategoryById(a.toCategoryId)?.name || "";
-            bVal = categoryStore.getCategoryById(b.toCategoryId)?.name || "";
-          } else {
-            aVal = accountStore.getAccountById(a.accountId)?.name || "";
-            bVal = accountStore.getAccountById(b.accountId)?.name || "";
-          }
-          break;
-        case "amount":
-          aVal = a.amount;
-          bVal = b.amount;
-          break;
-        case "date":
-          aVal = a.date;
-          bVal = b.date;
-          break;
-        case "valueDate":
-          aVal = a.valueDate || a.date;
-          bVal = b.valueDate || b.date;
-          break;
-        default:
-          aVal = a[sortKey.value];
-          bVal = b[sortKey.value];
-      }
-      if (typeof aVal === "string" && typeof bVal === "string") {
-        return sortOrder.value === "asc"
-          ? aVal.localeCompare(bVal)
-          : bVal.localeCompare(aVal);
-      }
-      if (typeof aVal === "number" && typeof bVal === "number") {
-        return sortOrder.value === "asc" ? aVal - bVal : bVal - aVal;
-      }
-      return 0;
-    });
-  } else {
-    // Standard: nach valueDate sortieren, wenn kein sortKey
-    list.sort((a, b) =>
-      sortOrder.value === "asc"
-        ? (a.valueDate || a.date).localeCompare(b.valueDate || b.date)
-        : (b.valueDate || b.date).localeCompare(a.valueDate || a.date)
-    );
-  }
-  return list;
+const sortOrder = computed({
+  get: () => transactionFilterStore.sortOrder,
+  set: (value) => (transactionFilterStore.sortOrder = value),
 });
+
+// Sortierte Transaktionen aus dem FilterStore
+const sortedTransactions = computed(
+  () => transactionFilterStore.sortedTransactions
+);
+const sortedCategoryTransactions = computed(
+  () => transactionFilterStore.sortedCategoryTransactions
+);
+
+function sortBy(key: keyof Transaction) {
+  transactionFilterStore.setSortKey(key);
+  currentPage.value = 1;
+}
+
+function handleSortChange(key: keyof Transaction) {
+  sortBy(key);
+}
 
 const paginatedTransactions = computed(() => {
   if (itemsPerPage.value === "all") return sortedTransactions.value;
@@ -317,36 +154,23 @@ const paginatedCategoryTransactions = computed(() => {
   );
 });
 
-// Sortierung
-const sortKey = ref<keyof Transaction | "">("date");
-const sortOrder = ref<"asc" | "desc">("desc");
-function sortBy(key: keyof Transaction) {
-  if (sortKey.value === key) {
-    sortOrder.value = sortOrder.value === "asc" ? "desc" : "asc";
-  } else {
-    sortKey.value = key;
-    sortOrder.value = "asc";
-  }
-  currentPage.value = 1;
-}
-function handleSortChange(key: keyof Transaction) {
-  sortBy(key);
-}
-
 // Aktionen
 const viewTransaction = (tx: Transaction) => {
   selectedTransaction.value = tx;
   showTransactionDetailModal.value = true;
 };
+
 const editTransaction = (tx: Transaction) => {
   selectedTransaction.value = tx;
   showTransactionFormModal.value = true;
   showTransactionDetailModal.value = false;
 };
+
 const createTransaction = () => {
   selectedTransaction.value = null;
   showTransactionFormModal.value = true;
 };
+
 const handleSave = (payload: any) => {
   if (payload.type === TransactionType.ACCOUNTTRANSFER) {
     const getAccountName = (accountId: string) => {
@@ -381,6 +205,7 @@ const handleSave = (payload: any) => {
   selectedTransaction.value = null;
   refreshKey.value++;
 };
+
 const deleteTransaction = (tx: Transaction) => {
   if (confirm("Möchten Sie diese Transaktion wirklich löschen?")) {
     transactionStore.deleteTransaction(tx.id);
@@ -390,38 +215,31 @@ const deleteTransaction = (tx: Transaction) => {
 };
 
 function clearFilters() {
-  if (currentViewMode.value === "account") {
-    selectedAccountId.value = "";
-    selectedTransactionType.value = "";
-    selectedReconciledFilter.value = "";
-    selectedTagId.value = "";
-  }
-  selectedCategoryId.value = "";
-  searchQuery.value = "";
+  transactionFilterStore.clearFilters();
   debugLog("[TransactionsView] clearFilters");
+}
+
+// Toggle Reconciled Status mit dem ReconciliationStore
+function toggleTransactionReconciled(transactionId: string) {
+  reconciliationStore.toggleTransactionReconciled(transactionId);
 }
 
 // Filter-Persistenz
 onMounted(() => {
-  const savedTag = localStorage.getItem("transactionsView_selectedTagId");
-  if (savedTag !== null) selectedTagId.value = savedTag;
-  const savedCat = localStorage.getItem("transactionsView_selectedCategoryId");
-  if (savedCat !== null) selectedCategoryId.value = savedCat;
-  const savedView = localStorage.getItem("transactionsView_viewMode");
-  if (savedView === "account" || savedView === "category") {
-    currentViewMode.value = savedView;
-  }
-  debugLog("[TransactionsView] onMounted - Loaded saved filters");
+  transactionFilterStore.loadFilters();
+  debugLog("[TransactionsView] onMounted - Loaded filters from store");
 });
 
-watch(selectedTagId, (newVal) => {
-  localStorage.setItem("transactionsView_selectedTagId", newVal);
+watch(selectedTagId, () => {
+  transactionFilterStore.saveFilters();
 });
-watch(selectedCategoryId, (newVal) => {
-  localStorage.setItem("transactionsView_selectedCategoryId", newVal);
+
+watch(selectedCategoryId, () => {
+  transactionFilterStore.saveFilters();
 });
-watch(currentViewMode, (newVal) => {
-  localStorage.setItem("transactionsView_viewMode", newVal);
+
+watch(currentViewMode, () => {
+  transactionFilterStore.saveFilters();
 });
 </script>
 
@@ -569,10 +387,7 @@ watch(currentViewMode, (newVal) => {
             @sort-change="handleSortChange"
             @edit="editTransaction"
             @delete="deleteTransaction"
-            @toggleReconciliation="
-              (tx, val) =>
-                transactionStore.updateTransaction(tx.id, { reconciled: val })
-            "
+            @toggleReconciliation="toggleTransactionReconciled"
           />
           <PagingComponent
             v-model:currentPage="currentPage"
