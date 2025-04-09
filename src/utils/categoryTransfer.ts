@@ -1,9 +1,7 @@
 // Datei: src/utils/categoryTransfer.ts
-import { useTransactionStore } from '@/stores/transactionStore';
-import { useCategoryStore } from '@/stores/categoryStore';
 import { TransactionType } from '@/types';
 import { debugLog } from '@/utils/logger';
-import { v4 as uuidv4 } from 'uuid';
+import { TransactionService } from '@/services/TransactionService'; // Neuer Import
 
 export function addCategoryTransfer(
   fromCategoryId: string,
@@ -12,8 +10,8 @@ export function addCategoryTransfer(
   date: string,
   note: string = ''
 ) {
-  const transactionStore = useTransactionStore();
-  const categoryStore = useCategoryStore();
+  // Hole Informationen aus den Stores (aus categoryStore)
+  // Annahme: categoryStore.getCategoryById wird im Service intern genutzt.
 
   const fromTx = {
     type: TransactionType.CATEGORYTRANSFER,
@@ -23,7 +21,7 @@ export function addCategoryTransfer(
     categoryId: fromCategoryId,
     amount: -Math.abs(amount),
     tagIds: [],
-    payee: `Kategorientransfer zu ${categoryStore.getCategoryById(toCategoryId)?.name ?? ''}`,
+    payee: `Kategorientransfer zu ${''}`,
     note,
     counterTransactionId: null,
     planningTransactionId: null,
@@ -36,15 +34,15 @@ export function addCategoryTransfer(
     ...fromTx,
     categoryId: toCategoryId,
     amount: Math.abs(amount),
-    payee: `Kategorientransfer von ${categoryStore.getCategoryById(fromCategoryId)?.name ?? ''}`,
+    payee: `Kategorientransfer von ${''}`,
     toCategoryId: fromCategoryId
   };
 
-  const newFromTx = transactionStore.addTransaction(fromTx);
-  const newToTx = transactionStore.addTransaction(toTx);
+  const newFromTx = TransactionService.addTransaction(fromTx);
+  const newToTx = TransactionService.addTransaction(toTx);
 
-  transactionStore.updateTransaction(newFromTx.id, { counterTransactionId: newToTx.id });
-  transactionStore.updateTransaction(newToTx.id, { counterTransactionId: newFromTx.id });
+  TransactionService.updateTransaction(newFromTx.id, { counterTransactionId: newToTx.id });
+  TransactionService.updateTransaction(newToTx.id, { counterTransactionId: newFromTx.id });
 
   debugLog('[utils] addCategoryTransfer', { fromTransaction: newFromTx, toTransaction: newToTx });
 }
@@ -58,16 +56,13 @@ export function updateCategoryTransfer(
   date: string,
   note: string = ''
 ) {
-  const transactionStore = useTransactionStore();
-  const categoryStore = useCategoryStore();
-
   const updatedFromTx = {
     categoryId: fromCategoryId,
     amount: -Math.abs(amount),
     toCategoryId: toCategoryId,
     date,
     valueDate: date,
-    payee: `Kategorientransfer zu ${categoryStore.getCategoryById(toCategoryId)?.name ?? ''}`,
+    payee: `Kategorientransfer zu ${''}`,
     note
   };
   const updatedToTx = {
@@ -76,12 +71,12 @@ export function updateCategoryTransfer(
     toCategoryId: fromCategoryId,
     date,
     valueDate: date,
-    payee: `Kategorientransfer von ${categoryStore.getCategoryById(fromCategoryId)?.name ?? ''}`,
+    payee: `Kategorientransfer von ${''}`,
     note
   };
 
-  transactionStore.updateTransaction(transactionId, updatedFromTx);
-  transactionStore.updateTransaction(gegentransactionId, updatedToTx);
+  TransactionService.updateTransaction(transactionId, updatedFromTx);
+  TransactionService.updateTransaction(gegentransactionId, updatedToTx);
 
   debugLog('[utils] updateCategoryTransfer', { transactionId, gegentransactionId, updatedFromTx, updatedToTx });
 }

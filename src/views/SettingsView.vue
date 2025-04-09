@@ -1,9 +1,13 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, watch } from "vue";
 import { useThemeStore } from "@/stores/themeStore";
 import { useReconciliationStore } from "@/stores/reconciliationStore";
 import { LogConfig, LogLevel, historyManager } from "@/utils/logger";
 import { debugLog } from "@/utils/logger";
+import { formatCurrency } from "@/utils/formatters";
+import { useAccountStore } from "@/stores/accountStore";
+import { useCategoryStore } from "@/stores/categoryStore";
+import { useRecipientStore } from "@/stores/recipientStore";
 
 /**
  * Pfad zur Komponente: src/views/SettingsView.vue
@@ -21,6 +25,11 @@ const activeTab = ref("general");
 const themeStore = useThemeStore();
 const reconciliationStore = useReconciliationStore();
 const defaultCurrency = ref("EUR");
+
+// Stores
+const accountStore = useAccountStore();
+const categoryStore = useCategoryStore();
+const recipientStore = useRecipientStore();
 
 // Logger Einstellungen
 const logLevel = ref(LogConfig.level);
@@ -80,6 +89,15 @@ function exportData() {
   document.body.appendChild(downloadAnchorNode);
   downloadAnchorNode.click();
   downloadAnchorNode.remove();
+}
+
+// Modaler Dialog für Alerts statt window.alert()
+const alertMessage = ref("");
+const showAlertModal = ref(false);
+
+function showAlert(message) {
+  alertMessage.value = message;
+  showAlertModal.value = true;
 }
 
 // Logger-Einstellungen speichern
@@ -221,6 +239,82 @@ Die Logger-Konfiguration kann in den Einstellungen unter "Entwicklereinstellunge
   document.body.appendChild(downloadAnchorNode);
   downloadAnchorNode.click();
   downloadAnchorNode.remove();
+
+  showAlert("Logger-Dokumentation wurde exportiert.");
+}
+
+function formatHistoryValue(key: string, value: any): string {
+  // Holen Sie sich den passenden Store basierend auf dem Schlüssel
+  let store;
+  if (key === "accountId" || key === "transferToAccountId") {
+    store = accountStore;
+  } else if (key === "categoryId") {
+    store = categoryStore;
+  } else if (key === "recipientId") {
+    store = recipientStore;
+  }
+
+  // Wenn wir einen Store gefunden haben, holen Sie sich den Namen des Elements
+  if (store && store.getAccountById) {
+    const item = store.getAccountById(value); // Angenommen, Sie haben eine getAccountById-Methode
+    if (item) return item.name;
+  }
+
+  if (store && store.getCategoryById) {
+    const item = store.getCategoryById(value); // Angenommen, Sie haben eine getAccountById-Methode
+    if (item) return item.name;
+  }
+
+  if (store && store.getRecipientById) {
+    const item = store.getRecipientById(value); // Angenommen, Sie haben eine getAccountById-Methode
+    if (item) return item.name;
+  }
+  // Geben Sie andernfalls den Wert als String zurück
+  return String(value);
+}
+// Suchfeld
+const historySearchTerm = ref("");
+
+// Filtered Logs
+const filteredHistoryEntries = computed(() => {
+  if (!historySearchTerm.value.trim()) return historyEntries.value;
+
+  const search = historySearchTerm.value.toLowerCase();
+
+  return historyEntries.value.filter((entry) => {
+    const detailsString = JSON.stringify(entry.details).toLowerCase();
+    return (
+      entry.message.toLowerCase().includes(search) ||
+      entry.category.toLowerCase().includes(search) ||
+      detailsString.includes(search) // Suche in den Details
+    );
+  });
+});
+
+// Logs neu laden bei Tabwechsel
+watch(activeTab, (newTab) => {
+  if (newTab === "logs") {
+    loadHistory();
+  }
+});
+
+function formatHistoryDetails(details: any): string {
+  if (!details) return "";
+
+  const parts = [];
+
+  for (const key in details) {
+    if (key === "id") continue; // ID nicht anzeigen
+    if (["accountId", "categoryId", "recipientId"].includes(key)) {
+      const name = formatHistoryValue(key, details[key]);
+      parts.push(`${key}: ${name}`);
+    } else if (key === "amount") {
+      parts.push(`${key}: ${formatCurrency(details[key])}`); // Betrag formatieren
+    } else {
+      parts.push(`${key}: ${details[key]}`);
+    }
+  }
+  return parts.join(" | ");
 }
 </script>
 
@@ -525,7 +619,7 @@ Die Logger-Konfiguration kann in den Einstellungen unter "Entwicklereinstellunge
       </div>
     </div>
 
-    <!-- Logs & Historie -->
+    <!-- Logs & Änderungshistorie -->
     <div v-if="activeTab === 'logs'" class="space-y-6">
       <div class="card bg-base-100 shadow-md border border-base-300">
         <div class="card-body">
@@ -553,63 +647,61 @@ Die Logger-Konfiguration kann in den Einstellungen unter "Entwicklereinstellunge
             </div>
           </div>
 
+          <!-- Suchfeld -->
+          <div class="mb-4 flex justify-end">
+            <input
+              v-model="historySearchTerm"
+              type="text"
+              placeholder="Logs durchsuchen..."
+              class="input input-sm input-bordered w-full md:w-80"
+            />
+          </div>
+
+          <!-- Tabelle -->
           <div class="overflow-x-auto">
             <table class="table table-zebra w-full">
               <thead>
                 <tr>
                   <th>Zeitstempel</th>
-                  <th>Level</th>
                   <th>Kategorie</th>
                   <th>Nachricht</th>
                   <th>Details</th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(entry, index) in historyEntries" :key="index">
+                <tr
+                  v-for="(entry, index) in filteredHistoryEntries"
+                  :key="index"
+                >
                   <td>{{ formatTimestamp(entry.timestamp) }}</td>
-                  <td>
-                    <span
-                      class="badge"
-                      :class="{
-                        'badge-info': entry.level === LogLevel.DEBUG,
-                        'badge-success': entry.level === LogLevel.INFO,
-                        'badge-warning': entry.level === LogLevel.WARN,
-                        'badge-error': entry.level === LogLevel.ERROR,
-                      }"
-                    >
-                      {{ getLogLevelName(entry.level) }}
-                    </span>
-                  </td>
                   <td>
                     <code>{{ entry.category }}</code>
                   </td>
                   <td>{{ entry.message }}</td>
-                  <td>
-                    <button
-                      v-if="entry.data"
-                      class="btn btn-ghost btn-xs"
-                      @click="
-                        () => {
-                          alert(JSON.stringify(entry.data, null, 2));
-                        }
-                      "
-                    >
-                      <Icon icon="mdi:information-outline" />
-                    </button>
+                  <td class="text-right">
+                    <div class="flex justify-end space-x-1">
+                      <button
+                        class="btn btn-ghost btn-xs border-none"
+                        @click="
+                          showAlert(JSON.stringify(entry.details, null, 2))
+                        "
+                      >
+                        <Icon
+                          icon="mdi:information-outline"
+                          class="text-base"
+                        />
+                      </button>
+                    </div>
                   </td>
                 </tr>
-                <tr v-if="historyEntries.length === 0">
+                <tr v-if="filteredHistoryEntries.length === 0">
                   <td colspan="5" class="text-center py-8">
                     <div class="flex flex-col items-center">
                       <Icon
                         icon="mdi:text-box-remove-outline"
                         class="text-4xl opacity-50 mb-2"
                       />
-                      <span>Keine Log-Einträge vorhanden.</span>
-                      <span class="text-sm opacity-75 mt-1">
-                        Aktivieren Sie das Logging in den
-                        Entwicklereinstellungen.
-                      </span>
+                      <span>Keine passenden Log-Einträge gefunden.</span>
                     </div>
                   </td>
                 </tr>
@@ -618,6 +710,18 @@ Die Logger-Konfiguration kann in den Einstellungen unter "Entwicklereinstellunge
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- Alert-Modal -->
+    <div v-if="showAlertModal" class="modal modal-open">
+      <div class="modal-box">
+        <h3 class="font-bold text-lg">Hinweis</h3>
+        <p class="py-4">{{ alertMessage }}</p>
+        <div class="modal-action">
+          <button class="btn" @click="showAlertModal = false">OK</button>
+        </div>
+      </div>
+      <div class="modal-backdrop" @click="showAlertModal = false"></div>
     </div>
   </div>
 </template>

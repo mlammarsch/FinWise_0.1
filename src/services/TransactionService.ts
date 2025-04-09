@@ -8,6 +8,7 @@ import { Transaction, TransactionType } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 import { debugLog } from '@/utils/logger';
 import { toDateOnlyString } from '@/utils/formatters';
+import { addToHistory } from '@/utils/logger'; // Add direct import if required separately
 
 export const TransactionService = {
   /**
@@ -20,16 +21,14 @@ export const TransactionService = {
     const ruleStore = useRuleStore();
     const monthlyBalanceStore = useMonthlyBalanceStore();
 
-    // Wende Regeln an, falls es sich nicht um einen Kategorientransfer handelt
     let processedTx = { ...transaction };
     if (transaction.type !== TransactionType.CATEGORYTRANSFER) {
       processedTx = ruleStore.applyRulesToTransaction({ ...transaction }, 'PRE');
       processedTx = ruleStore.applyRulesToTransaction({ ...processedTx }, 'DEFAULT');
       processedTx = ruleStore.applyRulesToTransaction({ ...processedTx }, 'POST');
-      debugLog("[TransactionService] addTransaction - Applied rules to transaction", processedTx);
+      debugLog('[TransactionService] addTransaction - Applied rules to transaction', processedTx);
     }
 
-    // Berechne den Running Balance
     let runningBalance = 0;
     if (processedTx.type !== TransactionType.CATEGORYTRANSFER) {
       const accountTransactions = transactionStore.getTransactionsByAccount(processedTx.accountId);
@@ -39,7 +38,6 @@ export const TransactionService = {
       accountStore.updateAccountBalance(processedTx.accountId, runningBalance);
     }
 
-    // Erstelle die neue Transaktion
     const newTransaction: Transaction = {
       ...processedTx,
       id: uuidv4(),
@@ -48,11 +46,10 @@ export const TransactionService = {
       valueDate: toDateOnlyString(processedTx.valueDate || processedTx.date)
     };
 
-    // Füge die Transaktion hinzu
     transactionStore.transactions.push(newTransaction);
-    debugLog("[TransactionService] addTransaction:", newTransaction);
+    debugLog('[TransactionService] addTransaction', newTransaction);
+    addToHistory(0, 'service', 'Transaction hinzugefügt', [newTransaction]);
 
-    // Aktualisiere den Kategoriesaldo, falls erforderlich
     if (processedTx.categoryId) {
       if (processedTx.type === TransactionType.CATEGORYTRANSFER) {
         categoryStore.updateCategoryBalance(processedTx.categoryId, processedTx.amount);
@@ -61,7 +58,6 @@ export const TransactionService = {
       }
     }
 
-    // Speichere die Transaktionen und aktualisiere monatliche Salden
     transactionStore.saveTransactions();
     monthlyBalanceStore.calculateMonthlyBalances();
 
@@ -86,8 +82,7 @@ export const TransactionService = {
 
       transactionStore.transactions[index] = { ...transactionStore.transactions[index], ...updates };
 
-      // Synchronisiere verlinkte Transaktionen (z.B. für Kontotransfers)
-      if (updates.hasOwnProperty("reconciled")) {
+      if (updates.hasOwnProperty('reconciled')) {
         const counterId = transactionStore.transactions[index].counterTransactionId;
         if (counterId) {
           const counterIndex = transactionStore.transactions.findIndex(tx => tx.id === counterId);
@@ -102,7 +97,8 @@ export const TransactionService = {
 
       transactionStore.saveTransactions();
       this.updateRunningBalances(transactionStore.transactions[index].accountId);
-      debugLog("[TransactionService] updateTransaction", { id, updates });
+      debugLog('[TransactionService] updateTransaction', { id, updates });
+      addToHistory(0, 'service', 'Transaction geändert', [{ id, updates }]);
       monthlyBalanceStore.calculateMonthlyBalances();
       return true;
     }
@@ -122,14 +118,14 @@ export const TransactionService = {
     const accountId = transaction.accountId;
     transactionStore.transactions = transactionStore.transactions.filter(tx => tx.id !== id);
 
-    // Lösche auch die Gegenbuchung, falls vorhanden
     if (transaction.counterTransactionId) {
       transactionStore.transactions = transactionStore.transactions.filter(tx => tx.id !== transaction.counterTransactionId);
     }
 
     this.updateRunningBalances(accountId);
     transactionStore.saveTransactions();
-    debugLog("[TransactionService] deleteTransaction", id);
+    debugLog('[TransactionService] deleteTransaction', id);
+    addToHistory(0, 'service', 'Transaction gelöscht', [{ id }]);
     monthlyBalanceStore.calculateMonthlyBalances();
     return true;
   },
@@ -142,24 +138,20 @@ export const TransactionService = {
     const accountStore = useAccountStore();
 
     const accountTxs = transactionStore.transactions.filter(tx => tx.accountId === accountId);
-
-    // Sortiere Transaktionen nach Datum
     accountTxs.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-    // Berechne Running Balances
     let balance = 0;
     accountTxs.forEach(tx => {
       balance += tx.amount;
       tx.runningBalance = balance;
     });
 
-    // Aktualisiere den Kontostand
     if (accountTxs.length > 0) {
       accountStore.updateAccountBalance(accountId, balance);
     }
 
     transactionStore.saveTransactions();
-    debugLog("[TransactionService] updateRunningBalances", { accountId, finalBalance: balance });
+    debugLog('[TransactionService] updateRunningBalances', { accountId, finalBalance: balance });
   },
 
   /**
@@ -169,17 +161,17 @@ export const TransactionService = {
     const transactionPayload = {
       date: toDateOnlyString(date),
       valueDate: toDateOnlyString(date),
-      accountId: accountId,
+      accountId,
       categoryId: null,
       tagIds: [],
-      amount: amount,
-      note: note,
-      recipientId: "",
+      amount,
+      note,
+      recipientId: '',
       reconciled: true,
       type: TransactionType.RECONCILE,
       counterTransactionId: null,
       planningTransactionId: null,
-      isReconciliation: true,
+      isReconciliation: true
     };
 
     return this.addTransaction(transactionPayload);
@@ -192,15 +184,13 @@ export const TransactionService = {
     const transactionStore = useTransactionStore();
     const accountStore = useAccountStore();
 
-    debugLog("[TransactionService] addAccountTransfer called", { fromAccountId, toAccountId, amount, date, valueDate, note });
+    debugLog('[TransactionService] addAccountTransfer called', { fromAccountId, toAccountId, amount, date, valueDate, note });
 
-    // Bestimme Kontonamen für die Beschreibungen
     const getAccountName = (accountId: string) => {
       const account = accountStore.getAccountById(accountId);
-      return account ? account.name : "";
+      return account ? account.name : '';
     };
 
-    // Erstelle Ausgangsbelastung
     const fromTransaction = {
       type: TransactionType.ACCOUNTTRANSFER,
       date,
@@ -214,10 +204,9 @@ export const TransactionService = {
       note,
       counterTransactionId: null,
       planningTransactionId: null,
-      isReconciliation: false,
+      isReconciliation: false
     };
 
-    // Erstelle Eingangsgutschrift
     const toTransaction = {
       ...fromTransaction,
       accountId: toAccountId,
@@ -226,15 +215,13 @@ export const TransactionService = {
       payee: `Transfer von ${getAccountName(fromAccountId)}`
     };
 
-    // Füge beide Transaktionen hinzu
     const newFromTx = this.addTransaction(fromTransaction);
     const newToTx = this.addTransaction(toTransaction);
 
-    // Verknüpfe die Transaktionen miteinander
     this.updateTransaction(newFromTx.id, { counterTransactionId: newToTx.id });
     this.updateTransaction(newToTx.id, { counterTransactionId: newFromTx.id });
 
-    debugLog("[TransactionService] addAccountTransfer", { fromTransaction: newFromTx, toTransaction: newToTx });
+    debugLog('[TransactionService] addAccountTransfer', { fromTransaction: newFromTx, toTransaction: newToTx });
     return { fromTransaction: newFromTx, toTransaction: newToTx };
   }
 };

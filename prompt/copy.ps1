@@ -12,7 +12,7 @@ $baseDirectoryFull = [System.IO.Path]::GetFullPath($baseDirectory)
 $excludedDirectories = @(
     "node_modules",
     "dist",
-#    "src"
+    "src"
 )
 
 $includeDirectories = @(
@@ -33,73 +33,86 @@ $searchFiles = @(
 
     # # ###Account
 
-    #  "src\stores\accountStore.ts",
-    # "src\views\AccountsView.vue",
-    #  "src\components\account\*.vue",
+      "src\stores\accountStore.ts",
+     "src\views\AccountsView.vue",
+      "src\components\account\*.vue",
+      "src\services\AccountService.ts",
 
     # # Planning
     # "src\components\planning\*.vue",
-    # "src\views\PlanningView.vue",
-    # "src\stores\planningStore.ts",
+     "src\views\PlanningView.vue",
+     "src\stores\planningStore.ts",
     # "src\stores\ruleStore.ts",
     # "src\components\rules\RuleForm.vue",
 
     # # ###Transaction
       "src\views\TransactionsView.vue",
-    #  "./src/components/transaction/TransactionCard.vue",
-    #  "src\components\transaction\CategoryTransactionList.vue",
+      "./src/components/transaction/TransactionCard.vue",
+      "src\components\transaction\CategoryTransactionList.vue",
       "src\components\transaction\TransactionList.vue",
-    #  "src\components\transaction\TransactionForm.vue",
-    # "src\stores\transactionStore.ts",
+      "src\components\transaction\TransactionForm.vue",
+     "src\stores\transactionStore.ts",
+     "src\services\TransactionService.ts",
+
+    ### Recipients
     #  "src\stores\recipientStore.ts",
+
 
     # # ###Category - Budget
     #  "src\stores\categoryStore.ts",
-    #  "src\views\BudgetsView.vue",
+      "src\views\BudgetsView.vue",
     # #"src\views\BudgetsView2.vue",
-    #  "src\components\budget\BudgetCategoryColumn.vue",
-    #  "src\components\budget\BudgetMonthCard.vue",
+      "src\components\budget\BudgetCategoryColumn.vue",
+      "src\components\budget\BudgetMonthCard.vue",
     #  "src\components\budget\BudgetMonthHeaderCard.vue",
-    #  "src\components\budget\CategoryTransferModal.vue",
+      "src\components\budget\CategoryTransferModal.vue",
     # "src\components\budget\CategoryForm.vue",
 
     # # ###Tags
     #  "src\stores\tagStore.ts",
 
     # # ###Admin
-     "src\views\admin\AdminAccountsView.vue",
-      "src\views\admin\AdminRecipientsView.vue",
-      "src\views\admin\AdminCategoriesView.vue",
+    # "src\views\admin\AdminAccountsView.vue",
+    #  "src\views\admin\AdminRecipientsView.vue",
+    #  "src\views\admin\AdminCategoriesView.vue",
      "src\views\admin\AdminPlanningView.vue",
-     "src\views\admin\AdminRulesView.vue",
+    # "src\views\admin\AdminRulesView.vue",
      "src\views\SettingsView.vue",
+
     #  "src\layouts\AppLayout.vue",
 
     # # Components
-      "./src/components/ui/PagingComponent.vue",
-      "src\components\ui\PagingYearComponent.vue",
-      "src\components\ui\MonthSelector.vue",
+    #  "./src/components/ui/PagingComponent.vue",
+    #  "src\components\ui\PagingYearComponent.vue",
+    #  "src\components\ui\MonthSelector.vue",
 
     #  "src\components\ui\*.vue",
     #  "src\components\ui\CurrencyInput.vue",
     # # "src\components\ui\SearchableSelect.vue",
-      "src\components\ui\SelectCategory.vue",
-      "src\components\ui\SelectAccount.vue",
-      "src\components\ui\SelectRecipient.vue",
+    #  "src\components\ui\SelectCategory.vue",
+    #  "src\components\ui\SelectAccount.vue",
+    #  "src\components\ui\SelectRecipient.vue",
     #  "src\components\ui\TagSearchableDropdown.vue",
     #  "src\components\ui\SearchGroup.vue",
     # # "src\components\ui\MainNavigation.vue",
 
+    ### Services
+     "src\services\*.ts",
+    #"src\services\TransactionService.ts",
+    #"src\services\PlanningService.ts",
+
+
     # # ###Sonstiges
     # # "./src/stores/*.ts"
     # "src\stores\monthlyBalanceStore.ts",
-      "src\utils\*.ts",
+    #  "src\utils\*.ts",
     #  "src\utils\formatters.ts",
-    #  "src\utils\accountTransfers.ts",
-    #  "src\utils\categoryTransfer.ts",
+      "src\utils\accountTransfers.ts",
+      "src\utils\categoryTransfer.ts",
     #  "src\utils\runningBalances.ts",
+     "src\utils\logger.ts",
     #  "src\types\*.ts"
-      "src\components\ui\SearchGroup.vue",
+    #  "src\components\ui\SearchGroup.vue",
     # # "*.vue",
     # "src\mock\seed.ts",
 

@@ -7,7 +7,7 @@ import { useRecipientStore } from "../stores/recipientStore";
 import { usePlanningStore } from "../stores/planningStore";
 import { useStatisticsStore } from "../stores/statisticsStore";
 import { useThemeStore } from "../stores/themeStore";
-import { logger, LogConfig, LogLevel } from "../utils/logger";
+import { infoLog, warnLog, LogConfig, LogLevel } from "../utils/logger";
 import { createPinia } from "pinia";
 
 const pinia = createPinia();
@@ -139,7 +139,7 @@ export function seedData() {
     });
   }
 
-  logger.info('system', 'Seed-Daten erfolgreich geladen');
+  infoLog('system', 'Seed-Daten erfolgreich geladen');
 }
 
 export function clearData() {
@@ -171,5 +171,5 @@ export function clearData() {
     if (typeof store.reset === "function") store.reset();
   });
 
-  logger.warn('system', 'Alle Daten wurden zurückgesetzt');
+  warnLog('system', 'Alle Daten wurden zurückgesetzt');
 }

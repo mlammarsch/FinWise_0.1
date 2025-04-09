@@ -1,2 +1,39 @@
-1) ich glaube wir haben ein missverständnis was die settings angeht im bereich lock und änderungshistorie hier geht es mir nicht darum dass wir irgendwelche code blöcke loggen in dieser änderungshistorie denn der debug lock in den ausprägungen debug info warn und so weiter betrifft die konsole da geht es mir nur um die konsolen ausgaben in der logs und in änderungshistorie sollen tatsächliche transaktionen planungen budgeteinträge alles was so passiert mit den bewegungs daten archiviert werden aber ganz einfach nur mit dem zeitstempel mit beispielsweise eine kategorie und dann eben die datensatz benennung Neuanlage oder bei Änderung, was geändert wurde. Das sollte dann eine einfache tabelle sein, die auch eine volltextsuche zulässt wie in der Transaction view. Diese Tabelle loggt alle Bewegungsdaten.
-2) Der logger.ts. Sind die Logausgaben der debuglogs in bspw. der src\components\budget\BudgetMonthCard.vue noch kompatibel? Sind diese debuglogs aktiviert, sobald man die settings auf debug stellt?
+Verbesserungsbedarf in Budget- und Planungselementen:
+
+Es gibt Bereiche, in denen noch direkt auf die Stores verwiesen wird, anstatt den Service Layer zu nutzen. Hier einige Beispiele:
+
+BudgetMonthCard.vue: Die Logik zur Berechnung von Salden (calculateCategorySaldo, calculateIncomeCategorySaldo) und zur Aggregation von Ausgaben (aggregateExpense, aggregateIncome) könnte in einen BudgetService ausgelagert werden. Dies würde die Komponente entlasten und die Logik wiederverwendbar machen.
+
+CategoryTransferModal.vue: Die Logik, Kategorien zu übertragen, ist auch in der Komponente vorhanden. Es wäre besser all dies in den CategoryService auszulagern.
+
+CategoryTransactionList.vue: Die Methode editTransaction sollte besser in den TransactionService ausgelagert werden.
+
+Konkrete Beispiele, wo noch direkt auf Stores zugegriffen wird:
+
+In vielen Komponenten (z.B. AccountCard.vue, CategoryTransactionList.vue) werden die Namen von Kategorien, Konten oder Empfängern direkt über accountStore.getAccountById(), categoryStore.getCategoryById() usw. abgerufen.  Diese Zugriffe sollten idealerweise auch über den Service Layer erfolgen, um eine einheitliche Datenzugriffsschicht zu gewährleisten.
+
+Empfehlungen für den Prompt in anderen Bereichen:
+
+Um eine durchgängige Refactorierung zu erreichen, sollte der Prompt folgende Punkte umfassen:
+
+Identifizierung von Komponenten mit direkten Store-Zugriffen: Suche in den UI-Komponenten nach direkten Zugriffen auf accountStore, categoryStore, etc.
+Auslagerung der Logik in Services: Verlagere die betroffene Logik in die entsprechenden Services (z.B. BudgetService, PlanningService, CategoryService, TransactionService).
+Einheitliche Datenzugriffsschicht: Stelle sicher, dass alle Datenzugriffe über den Service Layer erfolgen.
+Entlastung der Komponenten: Reduziere komplexe Logik in den Komponenten und mache sie "dümmer" (dumb components).
+Props definieren: Definiere die entsprechende Variablen als Props, die in die Komponente übertragen werden soll.
+Service Methoden implementieren: Definiere eine oder mehrere Servicemethoden die aufgerufen werden sollen.
+
+Vorschlag die AccountCard zu verändern:
+
+Derzeit werden die Accountdaten über den useAccountStore geladen. Hierbei wird aber nur der Name und die Farbe geladen, aber keine Aktionen ausgeführt wie im TransactionService.
+
+Potenzielle Props:
+
+accountId: string - Die ID des Kontos, das die Komponente anzeigen soll.
+
+Service-Methode:
+
+getAccountInfo(accountId: string) - Gibt ein Objekt mit allen relevanten Informationen für die Kontoanzeige zurück (Name, Saldo, weitere Details).
+
+Aufgabe:
+Bis hier habe ich erklärt, welche konkrete Beispiele refacturiert werden müss

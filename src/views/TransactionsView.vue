@@ -1,3 +1,4 @@
+<!-- Datei: src/views/TransactionsView.vue (vollständig) -->
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from "vue";
 import { useTransactionStore } from "../stores/transactionStore";
@@ -20,6 +21,7 @@ import { Transaction, TransactionType } from "../types";
 import { formatCurrency } from "../utils/formatters";
 import { addAccountTransfer } from "@/utils/accountTransfers";
 import { debugLog } from "@/utils/logger";
+import { TransactionService } from "@/services/TransactionService"; // Neuer Import
 
 const refreshKey = ref(0);
 
@@ -186,8 +188,8 @@ const handleSave = (payload: any) => {
       payload.date,
       payload.valueDate,
       payload.note,
-      transactionStore.addTransaction,
-      transactionStore.updateTransaction,
+      TransactionService.addTransaction,
+      TransactionService.updateTransaction,
       getAccountName
     );
   } else {
@@ -196,9 +198,9 @@ const handleSave = (payload: any) => {
       payee: recipientStore.getRecipientById(payload.recipientId)?.name || "",
     };
     if (selectedTransaction.value) {
-      transactionStore.updateTransaction(selectedTransaction.value.id, tx);
+      TransactionService.updateTransaction(selectedTransaction.value.id, tx);
     } else {
-      transactionStore.addTransaction(tx);
+      TransactionService.addTransaction(tx);
     }
   }
   showTransactionFormModal.value = false;
@@ -208,7 +210,7 @@ const handleSave = (payload: any) => {
 
 const deleteTransaction = (tx: Transaction) => {
   if (confirm("Möchten Sie diese Transaktion wirklich löschen?")) {
-    transactionStore.deleteTransaction(tx.id);
+    TransactionService.deleteTransaction(tx.id);
     showTransactionDetailModal.value = false;
     debugLog("[TransactionsView] deleteTransaction", { id: tx.id });
   }

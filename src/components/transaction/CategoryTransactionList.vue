@@ -45,13 +45,52 @@ const categoryStore = useCategoryStore();
 // Suchfunktionalität
 const searchTerm = ref("");
 
+// Zeige nur EXPENSE, INCOME und positive CATEGORYTRANSFER
+const displayTransactions = computed(() => {
+  const baseTransactions = props.transactions.filter(
+    (tx) =>
+      tx.type === TransactionType.EXPENSE || tx.type === TransactionType.INCOME
+  );
+
+  const positiveCategoryTransfers = props.transactions.filter(
+    (tx) => tx.type === TransactionType.CATEGORYTRANSFER && tx.amount > 0
+  );
+
+  return [...baseTransactions, ...positiveCategoryTransfers];
+});
+
+// Sortierte Transaktionen basierend auf sortKey und sortOrder
+const sortedTransactions = computed(() => {
+  const transactions = [...displayTransactions.value];
+
+  if (!props.sortKey) return transactions;
+
+  return transactions.sort((a, b) => {
+    const key = props.sortKey;
+
+    let valA = a[key];
+    let valB = b[key];
+
+    if (key === "date" || key === "valueDate") {
+      valA = new Date(valA as string).getTime();
+      valB = new Date(valB as string).getTime();
+    }
+
+    if (valA == null) return 1;
+    if (valB == null) return -1;
+
+    if (valA < valB) return props.sortOrder === "asc" ? -1 : 1;
+    if (valA > valB) return props.sortOrder === "asc" ? 1 : -1;
+    return 0;
+  });
+});
+
 // Filtert Transaktionen nach Suchbegriff
 const searchFilteredTransactions = computed(() => {
   const term = searchTerm.value.toLowerCase().trim();
-  if (!term) return displayTransactions.value;
+  if (!term) return sortedTransactions.value;
 
-  return displayTransactions.value.filter((tx) => {
-    // Suche in verschiedenen Feldern
+  return sortedTransactions.value.filter((tx) => {
     const date = formatDate(tx.date);
     const valueDate = formatDate(tx.valueDate);
     const category = categoryStore.getCategoryById(tx.categoryId)?.name || "";
@@ -62,28 +101,10 @@ const searchFilteredTransactions = computed(() => {
     const amount = tx.amount.toString();
     const note = tx.note || "";
 
-    // Prüfe, ob der Suchbegriff in einem der Felder vorkommt
     return [date, valueDate, category, account, toCategory, amount, note].some(
       (field) => field.toLowerCase().includes(term)
     );
   });
-});
-
-// Zeige nur EXPENSE, INCOME und positive CATEGORYTRANSFER
-const displayTransactions = computed(() => {
-  // Grundfilter für Expense und Income Transaktionen
-  const baseTransactions = props.transactions.filter(
-    (tx) =>
-      tx.type === TransactionType.EXPENSE || tx.type === TransactionType.INCOME
-  );
-
-  // Finde alle CATEGORYTRANSFER Transaktionen und filtere auf die mit positiven Beträgen
-  const positiveCategoryTransfers = props.transactions.filter(
-    (tx) => tx.type === TransactionType.CATEGORYTRANSFER && tx.amount > 0
-  );
-
-  // Kombiniere beide Listen
-  return [...baseTransactions, ...positiveCategoryTransfers];
 });
 
 // Auswahl-Logik
@@ -160,7 +181,6 @@ const modalData = ref<{
 
 function editTransaction(tx: Transaction, index: number) {
   if (tx.type === TransactionType.CATEGORYTRANSFER) {
-    // Bei CATEGORYTRANSFER: Ermitteln, ob es sich um den "Von"- oder "Zu"-Eintrag handelt
     const isFrom = tx.amount < 0;
     const transactionId = isFrom ? tx.id : tx.counterTransactionId || "";
     const gegentransactionId = isFrom ? tx.counterTransactionId || "" : tx.id;

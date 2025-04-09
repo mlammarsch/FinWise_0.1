@@ -10,7 +10,9 @@ import { useTransactionFilterStore } from "../../stores/transactionFilterStore";
 import CurrencyDisplay from "../ui/CurrencyDisplay.vue";
 import { formatDate } from "../../utils/formatters";
 import BadgeSoft from "../ui/BadgeSoft.vue";
+import { Icon } from "@iconify/vue";
 import { useAccountStore } from "../../stores/accountStore";
+import { TransactionService } from "@/services/TransactionService"; // Neuer Import
 
 /**
  * Pfad zur Komponente: components/transaction/TransactionCard.vue
@@ -64,7 +66,7 @@ const transactionIcon = computed(() => {
 });
 
 const toggleReconciled = () => {
-  transactionStore.updateTransaction(props.transaction.id, {
+  TransactionService.updateTransaction(props.transaction.id, {
     reconciled: !props.transaction.reconciled,
   });
 };

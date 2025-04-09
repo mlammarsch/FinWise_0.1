@@ -11,6 +11,23 @@ import CurrencyDisplay from "@/components/ui/CurrencyDisplay.vue";
 import BadgeSoft from "@/components/ui/BadgeSoft.vue";
 import { Icon } from "@iconify/vue";
 
+/**
+ * Pfad zur Komponente: src/components/transaction/TransactionList.vue
+ * Liste von Transaktionen mit Sortier- und Filterfunktionen.
+ *
+ * Komponenten-Props:
+ * - transactions: Transaction[] - Die anzuzeigenden Transaktionen
+ * - showAccount: boolean - Ob die Kontospalte angezeigt werden soll
+ * - sortKey: keyof Transaction | "" - Nach welchem Feld sortiert werden soll
+ * - sortOrder: "asc" | "desc" - Die Sortierreihenfolge
+ *
+ * Emits:
+ * - edit: Bearbeiten einer Transaktion
+ * - delete: Löschen einer Transaktion
+ * - sort-change: Änderung der Sortierung
+ * - toggleReconciliation: Abgleichstatus einer Transaktion ändern
+ */
+
 // Props definieren
 const props = defineProps<{
   transactions: Transaction[];

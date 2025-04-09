@@ -6,7 +6,6 @@ import { useAccountStore } from "../../stores/accountStore";
 import { useRecipientStore } from "../../stores/recipientStore";
 import { useCategoryStore } from "../../stores/categoryStore";
 import { useTagStore } from "../../stores/tagStore";
-import { useTransactionStore } from "../../stores/transactionStore";
 import DatePicker from "../ui/DatePicker.vue";
 import CurrencyInput from "../ui/CurrencyInput.vue";
 import ButtonGroup from "../ui/ButtonGroup.vue";
@@ -44,7 +43,6 @@ const accountStore = useAccountStore();
 const recipientStore = useRecipientStore();
 const categoryStore = useCategoryStore();
 const tagStore = useTagStore();
-const transactionStore = useTransactionStore();
 
 const date = ref(new Date().toISOString().split("T")[0]);
 const valueDate = ref(date.value);
