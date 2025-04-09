@@ -69,7 +69,7 @@ export const BudgetService = {
       aggData.saldo += childData.saldo;
     });
 
-      debugLog('[BudgetService] getAggregatedMonthlyBudgetData', { categoryId, monthStart, monthEnd, result: aggData });
+      //debugLog('[BudgetService] getAggregatedMonthlyBudgetData', { categoryId, monthStart, monthEnd, result: aggData });
     return aggData;
   },
 

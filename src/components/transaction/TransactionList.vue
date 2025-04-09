@@ -1,4 +1,22 @@
+<!-- Datei: src/components/transaction/TransactionList.vue -->
 <script setup lang="ts">
+/**
+ * Pfad zur Komponente: src/components/transaction/TransactionList.vue
+ * Zeigt eine Liste von Transaktionen an. Nutzt Stores für Daten.
+ *
+ * Komponenten-Props:
+ * - transactions: Transaction[] - Die anzuzeigenden Transaktionen
+ * - showAccount?: boolean - Optional: Anzeige des Kontos
+ * - sortKey: keyof Transaction | "" - Feld, nach dem sortiert wird
+ * - sortOrder: "asc" | "desc" - Sortierreihenfolge
+ * - searchTerm?: string - Optional: Suchbegriff für Filterung (wird vom globalen Suchfeld übergeben)
+ *
+ * Emits:
+ * - edit: Bearbeiten einer Transaktion
+ * - delete: Löschen einer Transaktion
+ * - sort-change: Anforderung zur Änderung der Sortierung
+ * - toggleReconciliation: Umschalten des Abgleich-Status
+ */
 import { defineProps, defineEmits, ref, computed, defineExpose } from "vue";
 import { Transaction, TransactionType } from "../../types";
 import { useAccountStore } from "../../stores/accountStore";
@@ -8,7 +26,6 @@ import { useRecipientStore } from "../../stores/recipientStore";
 import { formatDate } from "../../utils/formatters";
 import CurrencyDisplay from "../ui/CurrencyDisplay.vue";
 import { Icon } from "@iconify/vue";
-import { hexToRgba } from "../../utils/formatters";
 import BadgeSoft from "../ui/BadgeSoft.vue";
 
 const props = defineProps<{
@@ -16,6 +33,7 @@ const props = defineProps<{
   showAccount?: boolean;
   sortKey: keyof Transaction | "";
   sortOrder: "asc" | "desc";
+  searchTerm?: string;
 }>();
 
 const emit = defineEmits([
@@ -30,14 +48,40 @@ const categoryStore = useCategoryStore();
 const tagStore = useTagStore();
 const recipientStore = useRecipientStore();
 
-// Computed: Exclude CATEGORYTRANSFER transactions
-const displayTransactions = computed(() =>
-  props.transactions.filter(
-    (tx) => tx.type !== TransactionType.CATEGORYTRANSFER
-  )
+// Filterung: CATEGORYTRANSFER-Transaktionen ausschließen
+let list = props.transactions.filter(
+  (tx) => tx.type !== TransactionType.CATEGORYTRANSFER
 );
 
-// Auswahl-Logik
+const displayTransactions = computed(() => {
+  let filtered = list;
+  if (props.searchTerm && props.searchTerm.trim() !== "") {
+    const term = props.searchTerm.toLowerCase().trim();
+    filtered = filtered.filter((tx) => {
+      const dateField = formatDate(tx.date);
+      const accountName = accountStore.getAccountById(tx.accountId)?.name || "";
+      const recipientName =
+        recipientStore.getRecipientById(tx.recipientId)?.name || "";
+      const tagNames = tx.tagIds
+        .map((tagId) => tagStore.getTagById(tagId)?.name || "")
+        .join(" ");
+      const amountStr = tx.amount.toString();
+      const note = tx.note || "";
+      const fields = [
+        dateField,
+        accountName,
+        recipientName,
+        tagNames,
+        amountStr,
+        note,
+      ];
+      return fields.some((field) => field.toLowerCase().includes(term));
+    });
+  }
+  return filtered;
+});
+
+// --- Auswahl-Logik ---
 const selectedIds = ref<string[]>([]);
 const lastSelectedIndex = ref<number | null>(null);
 const currentPageIds = computed(() =>
@@ -78,11 +122,9 @@ function handleCheckboxClick(
       }
     }
   } else {
-    if (isChecked) {
-      if (!selectedIds.value.includes(transactionId)) {
-        selectedIds.value.push(transactionId);
-      }
-    } else {
+    if (isChecked && !selectedIds.value.includes(transactionId)) {
+      selectedIds.value.push(transactionId);
+    } else if (!isChecked) {
       const pos = selectedIds.value.indexOf(transactionId);
       if (pos !== -1) selectedIds.value.splice(pos, 1);
     }
@@ -104,7 +146,6 @@ defineExpose({ getSelectedTransactions });
     <table class="table w-full">
       <thead>
         <tr>
-          <!-- Auswahl-Checkbox Header -->
           <th class="w-5">
             <input
               type="checkbox"
@@ -174,29 +215,14 @@ defineExpose({ getSelectedTransactions });
               />
             </div>
           </th>
-          <!-- Neues Notiz-Feld -->
-          <th class="text-center cursor-pointer flex items-center justify-end">
+          <th class="text-center cursor-pointer">
             <Icon icon="mdi:note-text-outline" class="text-lg" />
-          </th>
-          <th
-            @click="emit('sort-change', 'reconciled')"
-            class="text-center cursor-pointer"
-          >
-            <div class="flex items-center justify-center">
-              <Icon icon="mdi:check-circle-outline" class="text-lg" />
-              <Icon
-                v-if="sortKey === 'reconciled'"
-                :icon="sortOrder === 'asc' ? 'mdi:arrow-up' : 'mdi:arrow-down'"
-                class="ml-1 text-sm"
-              />
-            </div>
           </th>
           <th class="text-right">Aktionen</th>
         </tr>
       </thead>
       <tbody>
         <tr v-for="(tx, index) in displayTransactions" :key="tx.id">
-          <!-- Auswahl-Checkbox in jeder Zeile -->
           <td>
             <input
               type="checkbox"
@@ -252,25 +278,17 @@ defineExpose({ getSelectedTransactions });
               </div>
             </template>
           </td>
-          <td class="text-center">
-            <input
-              type="checkbox"
-              class="checkbox checkbox-xs"
-              :checked="tx.reconciled"
-              @change="$emit('toggleReconciliation', tx, $event.target.checked)"
-            />
-          </td>
           <td class="text-right">
             <div class="flex justify-end space-x-1">
               <button
                 class="btn btn-ghost btn-xs border-none"
-                @click="$emit('edit', tx)"
+                @click="emit('edit', tx)"
               >
                 <Icon icon="mdi:pencil" class="text-base/75" />
               </button>
               <button
                 class="btn btn-ghost btn-xs border-none text-error/75"
-                @click="$emit('delete', tx)"
+                @click="emit('delete', tx)"
               >
                 <Icon icon="mdi:trash-can" class="text-base" />
               </button>

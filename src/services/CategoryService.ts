@@ -327,19 +327,31 @@ export const CategoryService = {
   /**
    * Holt Optionen für das Kategorie-Transfer-Modal, inklusive Salden.
    */
-  getCategoryTransferOptions(monthStart: Date, monthEnd: Date): Array<{ id: string; name: string; saldo: number }> {
+  getCategoryTransferOptions(
+    monthStart: Date,
+    monthEnd: Date
+  ): Array<{ id: string; name: string; saldo: number }> {
     const categoryStore = useCategoryStore();
     const availableFundsCategory = categoryStore.getAvailableFundsCategory();
 
     return categoryStore.categories
-      .filter(cat => cat.isActive && (!cat.isIncomeCategory || cat.id === availableFundsCategory?.id))
+      .filter(cat => cat.isActive)
       .map(cat => {
-        const saldoData = this.calculateCategorySaldo(cat.id, monthStart, monthEnd);
-        return {
-          id: cat.id,
-          name: cat.name,
-          saldo: saldoData.saldo
-        };
+        if (cat.isIncomeCategory && cat.id !== availableFundsCategory?.id) {
+          const saldoData = this.calculateIncomeCategorySaldo(cat.id, monthStart, monthEnd);
+          return {
+            id: cat.id,
+            name: cat.name,
+            saldo: saldoData.saldo
+          };
+        } else {
+          const saldoData = this.calculateCategorySaldo(cat.id, monthStart, monthEnd);
+          return {
+            id: cat.id,
+            name: cat.name,
+            saldo: saldoData.saldo
+          };
+        }
       })
       .sort((a, b) => a.name.localeCompare(b.name));
   }

@@ -1,14 +1,14 @@
-<!-- Datei: src/views/TransactionsView.vue (vollständig) -->
+<!-- Datei: src/views/TransactionsView.vue -->
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from "vue";
 import { useTransactionStore } from "../stores/transactionStore";
-import { useTransactionFilterStore } from "../stores/transactionFilterStore"; // Neuer Import
-import { useReconciliationStore } from "../stores/reconciliationStore"; // Neuer Import
+import { useTransactionFilterStore } from "../stores/transactionFilterStore";
+import { useReconciliationStore } from "../stores/reconciliationStore";
 import { useAccountStore } from "../stores/accountStore";
 import { useCategoryStore } from "../stores/categoryStore";
 import { useTagStore } from "../stores/tagStore";
 import { useRecipientStore } from "../stores/recipientStore";
-import { useSearchStore } from "../stores/searchStore"; // Neuer Import
+import { useSearchStore } from "../stores/searchStore";
 import TransactionList from "../components/transaction/TransactionList.vue";
 import CategoryTransactionList from "../components/transaction/CategoryTransactionList.vue";
 import TransactionDetailModal from "../components/transaction/TransactionDetailModal.vue";
@@ -21,19 +21,19 @@ import { Transaction, TransactionType } from "../types";
 import { formatCurrency } from "../utils/formatters";
 import { addAccountTransfer } from "@/utils/accountTransfers";
 import { debugLog } from "@/utils/logger";
-import { TransactionService } from "@/services/TransactionService"; // Neuer Import
+import { TransactionService } from "@/services/TransactionService";
 
 const refreshKey = ref(0);
 
 // Stores
 const transactionStore = useTransactionStore();
-const transactionFilterStore = useTransactionFilterStore(); // Neuer Store
-const reconciliationStore = useReconciliationStore(); // Neuer Store
+const transactionFilterStore = useTransactionFilterStore();
+const reconciliationStore = useReconciliationStore();
 const accountStore = useAccountStore();
 const categoryStore = useCategoryStore();
 const tagStore = useTagStore();
 const recipientStore = useRecipientStore();
-const searchStore = useSearchStore(); // Neuer Store
+const searchStore = useSearchStore();
 
 // Modals
 const showTransactionFormModal = ref(false);
@@ -42,7 +42,7 @@ const transactionListRef = ref<InstanceType<typeof TransactionList> | null>(
   null
 );
 
-// Umschaltmodus aus dem FilterStore verwenden
+// Umschaltmodus aus dem FilterStore
 const currentViewMode = computed({
   get: () => transactionFilterStore.currentViewMode,
   set: (value) => (transactionFilterStore.currentViewMode = value),
@@ -54,7 +54,7 @@ const currentPage = ref(1);
 const itemsPerPage = ref(25);
 const itemsPerPageOptions = [10, 20, 25, 50, 100, "all"];
 
-// Suchbegriff über den SearchStore
+// Globaler Suchbegriff über den SearchStore
 const searchQuery = computed({
   get: () => searchStore.globalSearchQuery,
   set: (value) => searchStore.search(value),
@@ -98,15 +98,15 @@ const selectedCategoryId = computed({
   set: (value) => (transactionFilterStore.selectedCategoryId = value),
 });
 
-// Verwenden Sie die vorgefilterten Transaktionen aus dem FilterStore
+// Verwende die vorgefilterten Transaktionen aus dem FilterStore
 const filteredTransactions = computed(() => {
-  refreshKey.value; // Abhängigkeit für Zwangsaktualisierung
+  refreshKey.value;
   return transactionFilterStore.filteredTransactions;
 });
 
-// Verwenden Sie die vorgefilterten Kategorietransaktionen
+// Verwende die vorgefilterten Kategorietransaktionen
 const filteredCategoryTransactions = computed(() => {
-  refreshKey.value; // Abhängigkeit für Zwangsaktualisierung
+  refreshKey.value;
   return transactionFilterStore.filteredCategoryTransactions;
 });
 
@@ -221,7 +221,7 @@ function clearFilters() {
   debugLog("[TransactionsView] clearFilters");
 }
 
-// Toggle Reconciled Status mit dem ReconciliationStore
+// Toggle Reconciled Status
 function toggleTransactionReconciled(transactionId: string) {
   reconciliationStore.toggleTransactionReconciled(transactionId);
 }
@@ -386,6 +386,7 @@ watch(currentViewMode, () => {
             :show-account="true"
             :sort-key="sortKey"
             :sort-order="sortOrder"
+            :search-term="searchQuery"
             @sort-change="handleSortChange"
             @edit="editTransaction"
             @delete="deleteTransaction"
@@ -443,6 +444,7 @@ watch(currentViewMode, () => {
             :transactions="paginatedCategoryTransactions"
             :sort-key="sortKey"
             :sort-order="sortOrder"
+            :search-term="searchQuery"
             @sort-change="handleSortChange"
             @edit="editTransaction"
             @delete="deleteTransaction"
