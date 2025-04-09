@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from "vue";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { useThemeStore } from "@/stores/themeStore";
 import { useReconciliationStore } from "@/stores/reconciliationStore";
-import { LogConfig, LogLevel, historyManager } from "@/utils/logger";
+import { LogLevel, historyManager } from "@/utils/logger";
 import { debugLog } from "@/utils/logger";
 import { formatCurrency } from "@/utils/formatters";
 import { useAccountStore } from "@/stores/accountStore";
@@ -12,12 +13,6 @@ import { useRecipientStore } from "@/stores/recipientStore";
 /**
  * Pfad zur Komponente: src/views/SettingsView.vue
  * Einstellungen der Anwendung.
- *
- * Komponenten-Props:
- * - Keine Props vorhanden
- *
- * Emits:
- * - Keine Emits vorhanden
  */
 
 // State
@@ -26,23 +21,30 @@ const themeStore = useThemeStore();
 const reconciliationStore = useReconciliationStore();
 const defaultCurrency = ref("EUR");
 
-// Stores
+// SettingsStore
+const settingsStore = useSettingsStore();
+const logLevel = computed({
+  get: () => settingsStore.logLevel,
+  set: (value) => (settingsStore.logLevel = value),
+});
+const logRetention = computed({
+  get: () => settingsStore.historyRetentionDays,
+  set: (value) => (settingsStore.historyRetentionDays = value),
+});
+const enabledLogCategories = computed({
+  get: () => settingsStore.enabledLogCategories,
+  set: (value) => (settingsStore.enabledLogCategories = value),
+});
+
+// Andere Stores
 const accountStore = useAccountStore();
 const categoryStore = useCategoryStore();
 const recipientStore = useRecipientStore();
 
-// Logger Einstellungen
-const logLevel = ref(LogConfig.level);
-const logRetention = ref(LogConfig.historyRetentionDays);
-const enabledLogCategories = ref(new Set([...LogConfig.enabledCategories]));
-
-// History-Einträge für die Anzeige
+// Logger-Optionen
 const historyEntries = ref<any[]>([]);
-
-// Formular-Status
 const settingsSaved = ref(false);
 
-// Mapping für Log-Level-Anzeige
 const logLevelLabels = {
   [LogLevel.DEBUG]: "Debug",
   [LogLevel.INFO]: "Info",
@@ -50,7 +52,6 @@ const logLevelLabels = {
   [LogLevel.ERROR]: "Fehler",
 };
 
-// Verfügbare Log-Kategorien zur Auswahl
 const availableLogCategories = [
   { value: "store", label: "Datenspeicher" },
   { value: "ui", label: "Benutzeroberfläche" },
@@ -60,15 +61,35 @@ const availableLogCategories = [
   { value: "export", label: "Exporte" },
 ];
 
-// Datenimport/-export Demo-Funktionen
+// Logger-Einstellungen speichern
+function saveLoggerSettings() {
+  settingsStore.setLoggerSettings(
+    logLevel.value,
+    enabledLogCategories.value,
+    logRetention.value
+  );
+  settingsSaved.value = true;
+  debugLog(
+    "[settings]",
+    `Logger-Einstellungen gespeichert: Level=${logLevel.value}, Retention=${
+      logRetention.value
+    }, Kategorien=${[...enabledLogCategories.value].join(", ")}`
+  );
+  setTimeout(() => {
+    settingsSaved.value = false;
+  }, 2000);
+}
+
+// Dateiimport
 function handleFileImport(event: Event) {
   const fileInput = event.target as HTMLInputElement;
   if (fileInput.files && fileInput.files.length > 0) {
     alert(`Datei "${fileInput.files[0].name}" würde importiert werden.`);
-    fileInput.value = ""; // Zurücksetzen
+    fileInput.value = "";
   }
 }
 
+// Datenexport
 function exportData() {
   const demoData = {
     exportDate: new Date().toISOString(),
@@ -79,7 +100,6 @@ function exportData() {
       categories: "...",
     },
   };
-
   const dataStr =
     "data:text/json;charset=utf-8," +
     encodeURIComponent(JSON.stringify(demoData, null, 2));
@@ -91,7 +111,7 @@ function exportData() {
   downloadAnchorNode.remove();
 }
 
-// Modaler Dialog für Alerts statt window.alert()
+// Modal
 const alertMessage = ref("");
 const showAlertModal = ref(false);
 
@@ -100,31 +120,12 @@ function showAlert(message) {
   showAlertModal.value = true;
 }
 
-// Logger-Einstellungen speichern
-function saveLoggerSettings() {
-  LogConfig.level = logLevel.value;
-  LogConfig.historyRetentionDays = logRetention.value;
-  LogConfig.enabledCategories = new Set([...enabledLogCategories.value]);
-  settingsSaved.value = true;
-
-  // Log-Eintrag für die Änderung
-  debugLog(
-    "[settings]",
-    `Logger-Einstellungen aktualisiert: Level=${LogConfig.level}, Retention=${LogConfig.historyRetentionDays}`
-  );
-
-  setTimeout(() => {
-    settingsSaved.value = false;
-  }, 2000);
-}
-
-// Log-Tab aktivieren und History laden
+// Logs
 function activateLogTab() {
   activeTab.value = "logs";
   loadHistory();
 }
 
-// Logdaten laden
 function loadHistory() {
   historyEntries.value = historyManager
     .getEntries()
@@ -132,7 +133,6 @@ function loadHistory() {
     .slice(0, 200);
 }
 
-// History löschen
 function clearHistory() {
   if (confirm("Möchten Sie wirklich die gesamte Log-Historie löschen?")) {
     historyManager.clear();
@@ -140,97 +140,68 @@ function clearHistory() {
   }
 }
 
-// Alte Einträge bereinigen
 function cleanupHistory() {
   historyManager.cleanupOldEntries();
   loadHistory();
 }
 
-// Initialisieren
 onMounted(() => {
   debugLog("[settings]", "SettingsView geladen");
-  // Wir laden nicht sofort die History, sondern erst wenn der Tab aktiviert wird
 });
 
-// Formatierung der Zeitstempel
 function formatTimestamp(timestamp: number): string {
   return new Date(timestamp).toLocaleString("de-DE");
 }
 
-// Loglevelnamen formatieren
 function getLogLevelName(level: LogLevel): string {
   return logLevelLabels[level] || `Level ${level}`;
 }
 
-// Daten exportieren für Logger Doku
 function exportLoggerDocs() {
   const docs = `# Logger-Dokumentation für FinWise
 
 ## Verwendung des Logger-Moduls
 
 \`\`\`typescript
-// Importieren
 import { debugLog, infoLog, warnLog, errorLog } from "@/utils/logger";
 
-// Verwendung in Funktionen
 function myFunction() {
-  // Debug-Ausgabe (nur für Entwickler)
   debugLog("[modulName]", "Beschreibung", optionalesObjekt);
-
-  // Info-Ausgabe (allgemeine Informationen)
   infoLog("[modulName]", "Beschreibung", optionalesObjekt);
-
-  // Warnungs-Ausgabe (potenzielle Probleme)
   warnLog("[modulName]", "Beschreibung", optionalesObjekt);
-
-  // Fehler-Ausgabe (schwerwiegende Probleme)
   errorLog("[modulName]", "Beschreibung", optionalesObjekt);
 }
 \`\`\`
 
 ## Log-Kategorien
 
-Die folgenden Kategorien stehen zur Verfügung:
-- \`store\`: Datenspeicher-Operationen (Hinzufügen, Aktualisieren, Löschen)
-- \`ui\`: Benutzeroberflächen-Aktionen und Ereignisse
-- \`service\`: Dienst-Operationen und Hintergrundprozesse
-- \`api\`: API-Anfragen und Antworten
-- \`import\`: Daten-Import-Prozesse
-- \`export\`: Daten-Export-Prozesse
+- \`store\`
+- \`ui\`
+- \`service\`
+- \`api\`
+- \`import\`
+- \`export\`
 
 ## Best Practices
 
-1. Verwende immer eine konsistente Kategorie-Kennung im Format \`[kategorie]\`
-2. Logge bei wichtigen Aktionen wie:
-   - Hinzufügen von Objekten
-   - Aktualisieren von Objekten
-   - Löschen von Objekten
-   - Laden von Daten
-   - Wichtige Berechnungen
-3. Füge relevante Daten als drittes Argument hinzu
-4. Vermeide übermäßiges Logging in UI-Rendering-Zyklen
+- Konsistente Kategorie-Kennung
+- Relevante Daten hinzufügen
+- Keine überflüssigen Logs
 
 ## Beispiele
 
 \`\`\`typescript
-// Transaktion hinzufügen
 debugLog("[transactionStore]", "Transaktion hinzugefügt", { id: tx.id, amount: tx.amount });
-
-// Fehler beim Laden von Daten
-errorLog("[accountService]", "Fehler beim Laden der Konten", error);
-
-// Benutzeraktion
-debugLog("[ui]", "Benutzer hat Datei ausgewählt", { filename: file.name, size: file.size });
+errorLog("[accountService]", "Fehler beim Laden", error);
+debugLog("[ui]", "Datei ausgewählt", { filename: file.name, size: file.size });
 \`\`\`
 
-## Aktivierung und Konfiguration
+## Aktivierung
 
-Die Logger-Konfiguration kann in den Einstellungen unter "Entwicklereinstellungen" angepasst werden:
-1. Log-Level einstellen (Debug, Info, Warnung, Fehler)
-2. Relevante Kategorien aktivieren
-3. Aufbewahrungszeit für Logs festlegen
+- Log-Level einstellen
+- Kategorien aktivieren
+- Aufbewahrungszeit setzen
 `;
-
   const dataStr =
     "data:text/markdown;charset=utf-8," + encodeURIComponent(docs);
   const downloadAnchorNode = document.createElement("a");
@@ -239,12 +210,10 @@ Die Logger-Konfiguration kann in den Einstellungen unter "Entwicklereinstellunge
   document.body.appendChild(downloadAnchorNode);
   downloadAnchorNode.click();
   downloadAnchorNode.remove();
-
   showAlert("Logger-Dokumentation wurde exportiert.");
 }
 
 function formatHistoryValue(key: string, value: any): string {
-  // Holen Sie sich den passenden Store basierend auf dem Schlüssel
   let store;
   if (key === "accountId" || key === "transferToAccountId") {
     store = accountStore;
@@ -253,45 +222,36 @@ function formatHistoryValue(key: string, value: any): string {
   } else if (key === "recipientId") {
     store = recipientStore;
   }
-
-  // Wenn wir einen Store gefunden haben, holen Sie sich den Namen des Elements
-  if (store && store.getAccountById) {
-    const item = store.getAccountById(value); // Angenommen, Sie haben eine getAccountById-Methode
+  if (store?.getAccountById) {
+    const item = store.getAccountById(value);
     if (item) return item.name;
   }
-
-  if (store && store.getCategoryById) {
-    const item = store.getCategoryById(value); // Angenommen, Sie haben eine getAccountById-Methode
+  if (store?.getCategoryById) {
+    const item = store.getCategoryById(value);
     if (item) return item.name;
   }
-
-  if (store && store.getRecipientById) {
-    const item = store.getRecipientById(value); // Angenommen, Sie haben eine getAccountById-Methode
+  if (store?.getRecipientById) {
+    const item = store.getRecipientById(value);
     if (item) return item.name;
   }
-  // Geben Sie andernfalls den Wert als String zurück
   return String(value);
 }
-// Suchfeld
+
 const historySearchTerm = ref("");
 
-// Filtered Logs
 const filteredHistoryEntries = computed(() => {
   if (!historySearchTerm.value.trim()) return historyEntries.value;
-
   const search = historySearchTerm.value.toLowerCase();
-
   return historyEntries.value.filter((entry) => {
     const detailsString = JSON.stringify(entry.details).toLowerCase();
     return (
       entry.message.toLowerCase().includes(search) ||
       entry.category.toLowerCase().includes(search) ||
-      detailsString.includes(search) // Suche in den Details
+      detailsString.includes(search)
     );
   });
 });
 
-// Logs neu laden bei Tabwechsel
 watch(activeTab, (newTab) => {
   if (newTab === "logs") {
     loadHistory();
@@ -300,16 +260,14 @@ watch(activeTab, (newTab) => {
 
 function formatHistoryDetails(details: any): string {
   if (!details) return "";
-
   const parts = [];
-
   for (const key in details) {
-    if (key === "id") continue; // ID nicht anzeigen
+    if (key === "id") continue;
     if (["accountId", "categoryId", "recipientId"].includes(key)) {
       const name = formatHistoryValue(key, details[key]);
       parts.push(`${key}: ${name}`);
     } else if (key === "amount") {
-      parts.push(`${key}: ${formatCurrency(details[key])}`); // Betrag formatieren
+      parts.push(`${key}: ${formatCurrency(details[key])}`);
     } else {
       parts.push(`${key}: ${details[key]}`);
     }

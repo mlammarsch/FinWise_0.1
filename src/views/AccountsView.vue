@@ -20,7 +20,7 @@ import SearchGroup from "../components/ui/SearchGroup.vue";
 import { formatDate } from "../utils/formatters";
 import { groupTransactionsByDateWithRunningBalance } from "../utils/runningBalances";
 import { TransactionType } from "../types";
-import { addAccountTransfer } from "@/utils/accountTransfers";
+import { TransactionService } from "@/services/TransactionService"; // Service importieren statt Util
 import { Icon } from "@iconify/vue";
 import { debugLog } from "@/utils/logger";
 import MonthSelector from "../components/ui/MonthSelector.vue";
@@ -276,37 +276,30 @@ const editTransaction = (transaction: any) => {
   showTransactionFormModal.value = true;
 };
 
+// Diese Funktion wurde geändert, um den TransactionService zu verwenden
 const handleTransactionSave = (payload: any) => {
   if (payload.type === TransactionType.ACCOUNTTRANSFER) {
-    const getAccountName = (accountId: string) => {
-      const account = accountStore.activeAccounts.find(
-        (a) => a.id === accountId
-      );
-      return account ? account.name : "";
-    };
-    addAccountTransfer(
+    // Verwende TransactionService für Account Transfers
+    TransactionService.addAccountTransfer(
       payload.fromAccountId,
       payload.toAccountId,
       payload.amount,
       payload.date,
-      payload.valueDate,
-      payload.note,
-      transactionStore.addTransaction,
-      transactionStore.updateTransaction,
-      getAccountName
+      payload.note
     );
-    debugLog("[AccountView] Added ACCOUNTTRANSFER", payload);
+    debugLog("[AccountView] Added ACCOUNTTRANSFER via service", payload);
   } else {
+    // Für reguläre Transaktionen auch TransactionService verwenden
     const tx = {
       ...payload,
       payee: recipientStore.getRecipientById(payload.recipientId)?.name || "",
     };
     if (selectedTransaction.value) {
-      transactionStore.updateTransaction(selectedTransaction.value.id, tx);
-      debugLog("[AccountView] Updated transaction", tx);
+      TransactionService.updateTransaction(selectedTransaction.value.id, tx);
+      debugLog("[AccountView] Updated transaction via service", tx);
     } else {
-      transactionStore.addTransaction(tx);
-      debugLog("[AccountView] Added transaction", tx);
+      TransactionService.addTransaction(tx);
+      debugLog("[AccountView] Added transaction via service", tx);
     }
   }
   showTransactionFormModal.value = false;

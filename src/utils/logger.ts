@@ -1,9 +1,9 @@
-// src/utils/logger.ts
 import { reactive } from 'vue';
 import { formatCurrency } from './formatters';
 import { useAccountStore } from './../stores/accountStore';
 import { useCategoryStore } from './../stores/categoryStore';
 import { useRecipientStore } from './../stores/recipientStore';
+import { useSettingsStore } from './../stores/settingsStore'; // Settings-Store
 
 /**
  * Log-Level Definitionen
@@ -16,7 +16,19 @@ export enum LogLevel {
 }
 
 /**
- * Globale Log-Konfiguration
+ * Globales Cache-Objekt
+ */
+let cachedSettingsStore: ReturnType<typeof useSettingsStore> | null = null;
+
+function getSettingsStore() {
+  if (!cachedSettingsStore) {
+    cachedSettingsStore = useSettingsStore();
+  }
+  return cachedSettingsStore;
+}
+
+/**
+ * Globale Log-Konfiguration (nur für Defaultwerte notwendig)
  */
 export const LogConfig = reactive({
     level: LogLevel.INFO,
@@ -28,15 +40,17 @@ export const LogConfig = reactive({
  * Haupt-Logging-Funktion
  */
 export function log(level: LogLevel, category: string, message: string, ...args: any[]) {
-    // Ausgabe in Konsole nur bei aktivem Level und Kategorie
-    if (level >= LogConfig.level && LogConfig.enabledCategories.has(category)) {
-        const levelPrefix = LogLevel[level].padEnd(5);
-        console.log(`[${levelPrefix}][${category}] ${message}`, ...args);
+    const settingsStore = useSettingsStore();
+    const cleanCategory = category.replace(/\[|\]/g, '');
+
+    if (level >= settingsStore.logLevel ) { //settingsStore.enabledLogCategories.has(cleanCategory)
+        const levelPrefix = LogLevel[level].toString().padEnd(5);
+        console.log(`[${levelPrefix}][${cleanCategory}] ${message}`, ...args);
     }
 
     // History-Log immer unabhängig vom Level
     if (shouldAddToHistory(message, args)) {
-        addToHistory(level, category, message, args);
+        addToHistory(level, cleanCategory, message, args);
     }
 }
 
@@ -95,13 +109,12 @@ interface HistoryEntry {
 /**
  * In-Memory Liste der History-Entries
  */
-const historyEntries: HistoryEntry[] = loadHistory();
+const historyEntries: HistoryEntry[] = []; // Start leer, wird später gefüllt
 
 /**
  * Extrahiert relevante Details aus den übergebenen Daten
  */
 function extractDetails(data: any): any {
-    // Holen Sie sich die Stores
     const accountStore = useAccountStore();
     const categoryStore = useCategoryStore();
     const recipientStore = useRecipientStore();
@@ -110,7 +123,6 @@ function extractDetails(data: any): any {
 
     const details: any = {};
 
-    // Basics
     if (data.id) details.id = data.id;
     if (data.name) details.name = data.name;
     if (data.amount !== undefined) details.amount = data.amount;
@@ -122,23 +134,23 @@ function extractDetails(data: any): any {
     if (data.accountId) {
         const account = accountStore.getAccountById(data.accountId);
         details.accountName = account ? account.name : 'Unbekanntes Konto';
-    } if (data.updates) {
-         details.changes = {};
-                Object.entries(data.updates).forEach(([key, value]) => {
-                        if (key === 'accountId') {
-                                    const account = accountStore.getAccountById(value);
-                                    details.changes["accountName"] = account ? account.name : 'Unbekanntes Konto';
-                            } else if (key === 'categoryId') {
-                                    const cat = categoryStore.getCategoryById(value);
-                                    details.changes["categoryName"] = cat ? cat.name : 'Unbekannte Kategorie';
-                        }
-          else if (key === 'amount') {
+    }
+    if (data.updates) {
+        details.changes = {};
+        Object.entries(data.updates).forEach(([key, value]) => {
+            if (key === 'accountId') {
+                const account = accountStore.getAccountById(value);
+                details.changes["accountName"] = account ? account.name : 'Unbekanntes Konto';
+            } else if (key === 'categoryId') {
+                const cat = categoryStore.getCategoryById(value);
+                details.changes["categoryName"] = cat ? cat.name : 'Unbekannte Kategorie';
+            } else if (key === 'amount') {
                 details.changes[key] = formatCurrency(Number(value));
-                } else {
+            } else {
                 details.changes[key] = value;
-                }
-         });
-      }
+            }
+        });
+    }
 
     return details;
 }
@@ -185,44 +197,43 @@ function loadHistory(): HistoryEntry[] {
  * Entfernt alte History-Einträge basierend auf Aufbewahrungsdauer
  */
 function cleanupHistory(entries: HistoryEntry[]): HistoryEntry[] {
-    const cutoffTime = Date.now() - (LogConfig.historyRetentionDays * 24 * 60 * 60 * 1000);
+    const settingsStore = useSettingsStore();
+    const cutoffTime = Date.now() - (settingsStore.historyRetentionDays * 24 * 60 * 60 * 1000);
     return entries.filter(entry => entry.timestamp >= cutoffTime);
 }
 
- /**
+/**
  * Formatiert Details für die Anzeige in der History
-            */
+ */
 export function formatHistoryDetails(details: any): string {
-                if (!details) return '';
+    if (!details) return '';
 
-                const parts = [];
+    const parts = [];
 
-                 if (details.id) parts.push(`ID: ${details.id}`);
-                 if (details.name) parts.push(`Name: ${details.name}`);
-                 if (details.accountName) parts.push(`Konto: ${details.accountName}`);
-                 if (details.categoryName) parts.push(`Kategorie: ${details.categoryName}`);
-                 if (details.transactionType) parts.push(`Typ: ${details.transactionType}`);
-                 if (details.amount !== undefined) parts.push(`Betrag: ${formatCurrency(details.amount)}`);
-                 if (details.date) parts.push(`Datum: ${details.date}`);
-                if (details.changes) {
-                        Object.entries(details.changes).forEach(([key, value]) => {
-                                if (key === 'amount') {
-                                        parts.push(`${key}: ${formatCurrency(Number(value))}`);
-                                }
-                else if (key === 'accountName') {
-                        parts.push(`Konto: ${value}`); // Anzeige des Namens
-                }
-                                else if (key === 'categoryName') {
-                        parts.push(`Category: ${value}`); // Anzeige des Namens
-                }
-                                else {
-                                        parts.push(`${key}: ${value}`);
-                                }
-                        });
-                }
+    if (details.id) parts.push(`ID: ${details.id}`);
+    if (details.name) parts.push(`Name: ${details.name}`);
+    if (details.accountName) parts.push(`Konto: ${details.accountName}`);
+    if (details.categoryName) parts.push(`Kategorie: ${details.categoryName}`);
+    if (details.transactionType) parts.push(`Typ: ${details.transactionType}`);
+    if (details.amount !== undefined) parts.push(`Betrag: ${formatCurrency(details.amount)}`);
+    if (details.date) parts.push(`Datum: ${details.date}`);
+    if (details.changes) {
+        Object.entries(details.changes).forEach(([key, value]) => {
+            if (key === 'amount') {
+                parts.push(`${key}: ${formatCurrency(Number(value))}`);
+            } else if (key === 'accountName') {
+                parts.push(`Konto: ${value}`);
+            } else if (key === 'categoryName') {
+                parts.push(`Kategorie: ${value}`);
+            } else {
+                parts.push(`${key}: ${value}`);
+            }
+        });
+    }
 
-                return parts.join(' | ');
+    return parts.join(' | ');
 }
+
 /**
  * Öffentliche Verwaltung der History
  */
@@ -239,3 +250,12 @@ export const historyManager = {
         saveHistory();
     }
 };
+
+/**
+ * Initialisiert die Logger-History nach Pinia-Start
+ */
+export function initializeLogger() {
+    const entries = loadHistory();
+    historyEntries.length = 0;
+    historyEntries.push(...entries);
+}

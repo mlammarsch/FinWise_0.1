@@ -2,13 +2,25 @@
 import { useCategoryStore } from '@/stores/categoryStore';
 import { useTransactionStore } from '@/stores/transactionStore';
 import { useMonthlyBalanceStore } from '@/stores/monthlyBalanceStore';
-import { TransactionType, Category } from '@/types';
+import { TransactionType, Category, Transaction } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 import { debugLog } from '@/utils/logger';
+import { TransactionService } from './TransactionService';
+import { toDateOnlyString } from '@/utils/formatters';
+import {
+  calculateCategorySaldo as calculateSaldoUtil,
+  calculateIncomeCategorySaldo as calculateIncomeSaldoUtil,
+} from '@/utils/runningBalances';
+
+interface CategorySaldoData {
+  budgeted: number;
+  spent: number;
+  saldo: number;
+}
 
 export const CategoryService = {
   /**
-   * Fügt einen Kategorietransfer hinzu
+   * Fügt einen Kategorientransfer hinzu
    */
   addCategoryTransfer(
     fromCategoryId: string,
@@ -17,45 +29,42 @@ export const CategoryService = {
     date: string,
     note: string = ''
   ) {
-    const transactionStore = useTransactionStore();
     const categoryStore = useCategoryStore();
-    const monthlyBalanceStore = useMonthlyBalanceStore();
+    const fromCategoryName = categoryStore.getCategoryById(fromCategoryId)?.name ?? '';
+    const toCategoryName = categoryStore.getCategoryById(toCategoryId)?.name ?? '';
+    const normalizedDate = toDateOnlyString(date);
 
     const fromTx = {
       type: TransactionType.CATEGORYTRANSFER,
-      date,
-      valueDate: date,
+      date: normalizedDate,
+      valueDate: normalizedDate,
       accountId: '',
       categoryId: fromCategoryId,
       amount: -Math.abs(amount),
       tagIds: [],
-      payee: `Kategorientransfer zu ${categoryStore.getCategoryById(toCategoryId)?.name ?? ''}`,
+      payee: `Kategorientransfer zu ${toCategoryName}`,
       note,
       counterTransactionId: null,
       planningTransactionId: null,
       isReconciliation: false,
       isCategoryTransfer: true,
-      toCategoryId: toCategoryId
+      toCategoryId: toCategoryId,
+      reconciled: false,
     };
 
     const toTx = {
       ...fromTx,
       categoryId: toCategoryId,
       amount: Math.abs(amount),
-      payee: `Kategorientransfer von ${categoryStore.getCategoryById(fromCategoryId)?.name ?? ''}`,
-      toCategoryId: fromCategoryId
+      payee: `Kategorientransfer von ${fromCategoryName}`,
+      toCategoryId: fromCategoryId,
     };
 
-    // Hier verwende ich den TransactionStore direkt, in einer größeren Anwendung
-    // sollte man überlegen, wie man zirkuläre Abhängigkeiten vermeidet
-    const newFromTx = transactionStore.addTransaction(fromTx);
-    const newToTx = transactionStore.addTransaction(toTx);
+    const newFromTx = TransactionService.addTransaction(fromTx as Omit<Transaction, 'id' | 'runningBalance'>);
+    const newToTx = TransactionService.addTransaction(toTx as Omit<Transaction, 'id' | 'runningBalance'>);
 
-    transactionStore.updateTransaction(newFromTx.id, { counterTransactionId: newToTx.id });
-    transactionStore.updateTransaction(newToTx.id, { counterTransactionId: newFromTx.id });
-
-    // Monatliche Salden aktualisieren
-    monthlyBalanceStore.calculateMonthlyBalances();
+    TransactionService.updateTransaction(newFromTx.id, { counterTransactionId: newToTx.id });
+    TransactionService.updateTransaction(newToTx.id, { counterTransactionId: newFromTx.id });
 
     debugLog('[CategoryService] addCategoryTransfer', { fromTransaction: newFromTx, toTransaction: newToTx });
 
@@ -63,7 +72,33 @@ export const CategoryService = {
   },
 
   /**
-   * Aktualisiert einen Kategorietransfer
+   * Fügt eine Income-Transaktion hinzu und verteilt automatisch zur Kategorie "Verfügbare Mittel".
+   */
+  async handleIncomeTransaction(transaction: Transaction) {
+    const categoryStore = useCategoryStore();
+    const availableFundsCategory = categoryStore.getAvailableFundsCategory();
+
+    if (!availableFundsCategory) {
+      throw new Error("Kategorie 'Verfügbare Mittel' nicht gefunden.");
+    }
+
+    const savedIncome = TransactionService.addTransaction(transaction);
+
+    if (transaction.categoryId && savedIncome.amount > 0) {
+      CategoryService.addCategoryTransfer(
+        transaction.categoryId,
+        availableFundsCategory.id,
+        savedIncome.amount,
+        savedIncome.date,
+        `Automatischer Transfer von Einnahmen`
+      );
+    }
+
+    debugLog('[CategoryService] handleIncomeTransaction - Income transaction and auto-transfer executed.', { transaction });
+  },
+
+  /**
+   * Aktualisiert einen Kategorientransfer
    */
   updateCategoryTransfer(
     transactionId: string,
@@ -74,35 +109,33 @@ export const CategoryService = {
     date: string,
     note: string = ''
   ) {
-    const transactionStore = useTransactionStore();
     const categoryStore = useCategoryStore();
-    const monthlyBalanceStore = useMonthlyBalanceStore();
+    const fromCategoryName = categoryStore.getCategoryById(fromCategoryId)?.name ?? '';
+    const toCategoryName = categoryStore.getCategoryById(toCategoryId)?.name ?? '';
+    const normalizedDate = toDateOnlyString(date);
 
-    const updatedFromTx = {
+    const updatedFromTx: Partial<Transaction> = {
       categoryId: fromCategoryId,
       amount: -Math.abs(amount),
       toCategoryId: toCategoryId,
-      date,
-      valueDate: date,
-      payee: `Kategorientransfer zu ${categoryStore.getCategoryById(toCategoryId)?.name ?? ''}`,
+      date: normalizedDate,
+      valueDate: normalizedDate,
+      payee: `Kategorientransfer zu ${toCategoryName}`,
       note
     };
 
-    const updatedToTx = {
+    const updatedToTx: Partial<Transaction> = {
       categoryId: toCategoryId,
       amount: Math.abs(amount),
       toCategoryId: fromCategoryId,
-      date,
-      valueDate: date,
-      payee: `Kategorientransfer von ${categoryStore.getCategoryById(fromCategoryId)?.name ?? ''}`,
+      date: normalizedDate,
+      valueDate: normalizedDate,
+      payee: `Kategorientransfer von ${fromCategoryName}`,
       note
     };
 
-    transactionStore.updateTransaction(transactionId, updatedFromTx);
-    transactionStore.updateTransaction(gegentransactionId, updatedToTx);
-
-    // Monatliche Salden aktualisieren
-    monthlyBalanceStore.calculateMonthlyBalances();
+    TransactionService.updateTransaction(transactionId, updatedFromTx);
+    TransactionService.updateTransaction(gegentransactionId, updatedToTx);
 
     debugLog('[CategoryService] updateCategoryTransfer', { transactionId, gegentransactionId, updatedFromTx, updatedToTx });
 
@@ -121,14 +154,18 @@ export const CategoryService = {
       balance: 0,
       startBalance: 0,
       transactionCount: 0,
-      averageTransactionValue: 0
+      averageTransactionValue: 0,
+      sortOrder: category.sortOrder ?? categoryStore.categories.length
     };
 
-    categoryStore.categories.push(newCategory);
-    debugLog("[CategoryService] addCategory:", newCategory);
-    categoryStore.saveCategories();
-
-    return newCategory;
+    const addedCategory = categoryStore.addCategory(newCategory);
+    if (addedCategory) {
+      debugLog("[CategoryService] addCategory:", addedCategory);
+      return addedCategory;
+    } else {
+      debugLog("[CategoryService] addCategory - Failed to add category");
+      return null;
+    }
   },
 
   /**
@@ -136,15 +173,13 @@ export const CategoryService = {
    */
   updateCategory(id: string, updates: Partial<Category>) {
     const categoryStore = useCategoryStore();
-
-    const index = categoryStore.categories.findIndex(category => category.id === id);
-    if (index !== -1) {
-      categoryStore.categories[index] = { ...categoryStore.categories[index], ...updates };
-      debugLog("[CategoryService] updateCategory - Updated:", categoryStore.categories[index]);
-      categoryStore.saveCategories();
-      return true;
+    const success = categoryStore.updateCategory(id, updates);
+    if (success) {
+      debugLog("[CategoryService] updateCategory - Updated:", id);
+    } else {
+      debugLog("[CategoryService] updateCategory - Failed to update:", id);
     }
-    return false;
+    return success;
   },
 
   /**
@@ -153,15 +188,159 @@ export const CategoryService = {
   deleteCategory(id: string) {
     const categoryStore = useCategoryStore();
 
-    // Prüfe, ob die Kategorie Kinder hat
     const hasChildren = categoryStore.categories.some(category => category.parentCategoryId === id);
     if (hasChildren) {
+      debugLog("[CategoryService] deleteCategory - Failed: Category has children:", id);
       return false;
     }
 
-    categoryStore.categories = categoryStore.categories.filter(category => category.id !== id);
-    debugLog("[CategoryService] deleteCategory - Deleted category id:", id);
-    categoryStore.saveCategories();
-    return true;
+    const success = categoryStore.deleteCategory(id);
+    if (success) {
+      debugLog("[CategoryService] deleteCategory - Deleted category id:", id);
+    } else {
+      debugLog("[CategoryService] deleteCategory - Failed to delete category id:", id);
+    }
+    return success;
+  },
+
+  /**
+   * Holt den Namen einer Kategorie anhand ihrer ID.
+   */
+  getCategoryName(id: string | null): string {
+    if (!id) return 'Keine Kategorie';
+    const categoryStore = useCategoryStore();
+    return categoryStore.getCategoryById(id)?.name || 'Unbekannte Kategorie';
+  },
+
+  /**
+   * Berechnet den Saldo einer Ausgabenkategorie für einen Zeitraum.
+   */
+  calculateCategorySaldo(
+    categoryId: string,
+    monthStart: Date,
+    monthEnd: Date
+  ): CategorySaldoData {
+    const transactionStore = useTransactionStore();
+    const monthlyBalanceStore = useMonthlyBalanceStore();
+    const categoryStore = useCategoryStore();
+
+    const normalizedMonthStart = new Date(toDateOnlyString(monthStart));
+    const normalizedMonthEnd = new Date(toDateOnlyString(monthEnd));
+
+    const category = categoryStore.getCategoryById(categoryId);
+    const startBalanceInfo =
+      monthlyBalanceStore.getLatestPersistedCategoryBalance(categoryId, normalizedMonthStart) ||
+      { balance: category?.startBalance || 0, date: normalizedMonthStart };
+
+    const filteredTxsForSaldo = transactionStore.transactions.filter(tx => {
+      const txDate = new Date(toDateOnlyString(tx.date));
+      const isInPeriodOrAtStart = txDate >= startBalanceInfo.date && txDate <= normalizedMonthEnd;
+      if (!isInPeriodOrAtStart) return false;
+      return (tx.type === TransactionType.CATEGORYTRANSFER && (tx.categoryId === categoryId || tx.toCategoryId === categoryId)) ||
+             (tx.categoryId === categoryId &&
+              (tx.type === TransactionType.EXPENSE ||
+               tx.type === TransactionType.INCOME ||
+               tx.type === TransactionType.RECONCILE));
+    });
+
+    const filteredTxsForSpent = transactionStore.transactions.filter(tx => {
+      const txDate = new Date(toDateOnlyString(tx.date));
+      return tx.categoryId === categoryId &&
+             txDate >= normalizedMonthStart && txDate <= normalizedMonthEnd &&
+             tx.type === TransactionType.EXPENSE;
+    });
+
+    const saldoData = calculateSaldoUtil(
+      filteredTxsForSaldo,
+      categoryId,
+      normalizedMonthStart,
+      normalizedMonthEnd,
+      startBalanceInfo
+    );
+
+    const spentAmount = filteredTxsForSpent.reduce((sum, tx) => sum + tx.amount, 0);
+
+    const result: CategorySaldoData = {
+      budgeted: saldoData.budgeted,
+      spent: Math.abs(spentAmount),
+      saldo: saldoData.saldo
+    };
+    return result;
+  },
+
+  /**
+   * Berechnet den Saldo einer Einnahmenkategorie für einen Zeitraum.
+   */
+  calculateIncomeCategorySaldo(
+    categoryId: string,
+    monthStart: Date,
+    monthEnd: Date
+  ): CategorySaldoData {
+    const transactionStore = useTransactionStore();
+    const monthlyBalanceStore = useMonthlyBalanceStore();
+    const categoryStore = useCategoryStore();
+
+    const normalizedMonthStart = new Date(toDateOnlyString(monthStart));
+    const normalizedMonthEnd = new Date(toDateOnlyString(monthEnd));
+
+    const category = categoryStore.getCategoryById(categoryId);
+    const startBalanceInfo =
+      monthlyBalanceStore.getLatestPersistedCategoryBalance(categoryId, normalizedMonthStart) ||
+      { balance: category?.startBalance || 0, date: normalizedMonthStart };
+
+    const filteredTxsForSaldo = transactionStore.transactions.filter(tx => {
+      const txDate = new Date(toDateOnlyString(tx.date));
+      const isInPeriodOrAtStart = txDate >= startBalanceInfo.date && txDate <= normalizedMonthEnd;
+      if (!isInPeriodOrAtStart) return false;
+      return (tx.type === TransactionType.CATEGORYTRANSFER && (tx.categoryId === categoryId || tx.toCategoryId === categoryId)) ||
+             (tx.categoryId === categoryId &&
+              (tx.type === TransactionType.EXPENSE ||
+               tx.type === TransactionType.INCOME ||
+               tx.type === TransactionType.RECONCILE));
+    });
+
+    const filteredTxsForSpent = transactionStore.transactions.filter(tx => {
+      const txDate = new Date(toDateOnlyString(tx.date));
+      return tx.categoryId === categoryId &&
+             txDate >= normalizedMonthStart && txDate <= normalizedMonthEnd &&
+             tx.type === TransactionType.INCOME;
+    });
+
+    const saldoData = calculateIncomeSaldoUtil(
+      filteredTxsForSaldo,
+      categoryId,
+      normalizedMonthStart,
+      normalizedMonthEnd,
+      startBalanceInfo
+    );
+
+    const receivedAmount = filteredTxsForSpent.reduce((sum, tx) => sum + tx.amount, 0);
+
+    const result: CategorySaldoData = {
+      budgeted: saldoData.budgeted,
+      spent: receivedAmount,
+      saldo: saldoData.saldo
+    };
+    return result;
+  },
+
+  /**
+   * Holt Optionen für das Kategorie-Transfer-Modal, inklusive Salden.
+   */
+  getCategoryTransferOptions(monthStart: Date, monthEnd: Date): Array<{ id: string; name: string; saldo: number }> {
+    const categoryStore = useCategoryStore();
+    const availableFundsCategory = categoryStore.getAvailableFundsCategory();
+
+    return categoryStore.categories
+      .filter(cat => cat.isActive && (!cat.isIncomeCategory || cat.id === availableFundsCategory?.id))
+      .map(cat => {
+        const saldoData = this.calculateCategorySaldo(cat.id, monthStart, monthEnd);
+        return {
+          id: cat.id,
+          name: cat.name,
+          saldo: saldoData.saldo
+        };
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
   }
 };

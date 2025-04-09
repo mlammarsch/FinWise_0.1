@@ -62,9 +62,9 @@ $searchFiles = @(
     # "src\components\budget\BudgetMonthHeaderCard.vue",
     # "src\components\budget\CategoryForm.vue",
     # "src\components\budget\CategoryTransferModal.vue",
-    # "src\services\BudgetService.ts",
-    # "src\services\CategoryService.ts",
-    # "src\stores\categoryStore.ts",
+    "src\services\BudgetService.ts",
+    "src\services\CategoryService.ts",
+    "src\stores\categoryStore.ts",
     #"src\views\BudgetsView.vue",
     # "src\views\BudgetsView2.vue",
 
@@ -73,7 +73,7 @@ $searchFiles = @(
 
     # ### Admin
     # "src\layouts\AppLayout.vue",
-    #  "src\views\SettingsView.vue",
+     "src\views\SettingsView.vue",
     # "src\views\admin\AdminAccountsView.vue",
     # "src\views\admin\AdminCategoriesView.vue",
     # "src\views\admin\AdminPlanningView.vue",
@@ -110,8 +110,8 @@ $searchFiles = @(
     # "src\utils\logger.ts",
     # "src\utils\runningBalances.ts",
     # "*.vue",
-    # "src\main.ts",
-    # "src\stores\settingsStore.ts",
+    "src\main.ts",
+    "src\stores\settingsStore.ts",
     "*.ts"
     # "src\views\*.vue"
 )

@@ -2,130 +2,98 @@
 <script setup lang="ts">
 /**
  * Pfad zur Komponente: src/components/transaction/CategoryTransactionList.vue
- * Zeigt eine Liste von Transaktionen geordnet nach Kategorien an.
+ * Zeigt eine Liste von Transaktionen geordnet nach Kategorien an. Nutzt Services für Daten.
  *
  * Komponenten-Props:
- * - transactions: Transaction[] - Die anzuzeigenden Transaktionen
- * - sortKey: keyof Transaction | "" - Nach welchem Feld sortiert werden soll
- * - sortOrder: "asc" | "desc" - Die Sortierreihenfolge
- * - viewMode?: "normal" - Optionaler Anzeigemodus
+ * - transactions: Transaction[] - Die anzuzeigenden Transaktionen (bereits vorgefiltert und sortiert)
+ * - sortKey: keyof Transaction | "" - Nach welchem Feld sortiert wird (Info für UI)
+ * - sortOrder: "asc" | "desc" - Die Sortierreihenfolge (Info für UI)
  *
  * Emits:
- * - edit: Bearbeiten einer Transaktion
+ * - edit: Bearbeiten einer Standardtransaktion (öffnet TransactionForm)
  * - delete: Löschen einer Transaktion
- * - sort-change: Änderung der Sortierung
+ * - sort-change: Anforderung zur Änderung der Sortierung
  */
 import { defineProps, defineEmits, ref, computed, defineExpose } from "vue";
 import { Transaction, TransactionType } from "../../types";
-import { useAccountStore } from "../../stores/accountStore";
-import { useCategoryStore } from "../../stores/categoryStore";
-import { useTransactionStore } from "../../stores/transactionStore";
-import { useTransactionFilterStore } from "../../stores/transactionFilterStore";
 import { formatDate } from "../../utils/formatters";
 import CurrencyDisplay from "../ui/CurrencyDisplay.vue";
 import { Icon } from "@iconify/vue";
 import CategoryTransferModal from "../budget/CategoryTransferModal.vue";
-import { updateCategoryTransfer } from "@/utils/categoryTransfer";
+// Import Services instead of Stores for data fetching/display names
+import { AccountService } from "@/services/AccountService";
+import { CategoryService } from "@/services/CategoryService";
 import { debugLog } from "@/utils/logger";
 
 const props = defineProps<{
-  transactions: Transaction[];
+  transactions: Transaction[]; // Expect pre-filtered and pre-sorted transactions
   sortKey: keyof Transaction | "";
   sortOrder: "asc" | "desc";
-  viewMode?: "normal";
 }>();
 
-const viewMode = computed(() => props.viewMode || "normal");
-
 const emit = defineEmits(["edit", "delete", "sort-change"]);
-
-const accountStore = useAccountStore();
-const categoryStore = useCategoryStore();
 
 // Suchfunktionalität
 const searchTerm = ref("");
 
-// Zeige nur EXPENSE, INCOME und positive CATEGORYTRANSFER
+// Verwende die bereits übergebenen, sortierten/gefilterten Transaktionen
 const displayTransactions = computed(() => {
-  const baseTransactions = props.transactions.filter(
-    (tx) =>
-      tx.type === TransactionType.EXPENSE || tx.type === TransactionType.INCOME
-  );
-
-  const positiveCategoryTransfers = props.transactions.filter(
-    (tx) => tx.type === TransactionType.CATEGORYTRANSFER && tx.amount > 0
-  );
-
-  return [...baseTransactions, ...positiveCategoryTransfers];
-});
-
-// Sortierte Transaktionen basierend auf sortKey und sortOrder
-const sortedTransactions = computed(() => {
-  const transactions = [...displayTransactions.value];
-
-  if (!props.sortKey) return transactions;
-
-  return transactions.sort((a, b) => {
-    const key = props.sortKey;
-
-    let valA = a[key];
-    let valB = b[key];
-
-    if (key === "date" || key === "valueDate") {
-      valA = new Date(valA as string).getTime();
-      valB = new Date(valB as string).getTime();
-    }
-
-    if (valA == null) return 1;
-    if (valB == null) return -1;
-
-    if (valA < valB) return props.sortOrder === "asc" ? -1 : 1;
-    if (valA > valB) return props.sortOrder === "asc" ? 1 : -1;
-    return 0;
-  });
-});
-
-// Filtert Transaktionen nach Suchbegriff
-const searchFilteredTransactions = computed(() => {
   const term = searchTerm.value.toLowerCase().trim();
-  if (!term) return sortedTransactions.value;
+  if (!term) return props.transactions;
 
-  return sortedTransactions.value.filter((tx) => {
+  // Filter based on search term
+  return props.transactions.filter((tx) => {
     const date = formatDate(tx.date);
     const valueDate = formatDate(tx.valueDate);
-    const category = categoryStore.getCategoryById(tx.categoryId)?.name || "";
-    const account = accountStore.getAccountById(tx.accountId)?.name || "";
+    const category = CategoryService.getCategoryName(tx.categoryId);
+    const account = AccountService.getAccountName(tx.accountId); // Assuming exists for ACCOUNTTRANSFER payee display
     const toCategory = tx.toCategoryId
-      ? categoryStore.getCategoryById(tx.toCategoryId)?.name || ""
+      ? CategoryService.getCategoryName(tx.toCategoryId)
       : "";
     const amount = tx.amount.toString();
     const note = tx.note || "";
+    const payee = tx.payee || ""; // Include payee from CategoryTransfer
 
-    return [date, valueDate, category, account, toCategory, amount, note].some(
-      (field) => field.toLowerCase().includes(term)
-    );
+    return [
+      date,
+      valueDate,
+      category,
+      account,
+      toCategory,
+      amount,
+      note,
+      payee,
+    ].some((field) => field.toLowerCase().includes(term));
   });
 });
 
-// Auswahl-Logik
+// --- Selection Logic (remains the same) ---
 const selectedIds = ref<string[]>([]);
 const lastSelectedIndex = ref<number | null>(null);
 const currentPageIds = computed(() =>
-  searchFilteredTransactions.value.map((tx) => tx.id)
+  displayTransactions.value.map((tx) => tx.id)
 );
-const allSelected = computed(() =>
-  currentPageIds.value.every((id) => selectedIds.value.includes(id))
+const allSelected = computed(
+  () =>
+    currentPageIds.value.length > 0 &&
+    currentPageIds.value.every((id) => selectedIds.value.includes(id))
 );
 
 function handleHeaderCheckboxChange(event: Event) {
   const checked = (event.target as HTMLInputElement).checked;
   if (checked) {
-    selectedIds.value = [...currentPageIds.value];
+    // Add only visible IDs to selection
+    selectedIds.value = [
+      ...new Set([...selectedIds.value, ...currentPageIds.value]),
+    ];
   } else {
+    // Remove only visible IDs from selection
+    const currentPageIdSet = new Set(currentPageIds.value);
     selectedIds.value = selectedIds.value.filter(
-      (id) => !currentPageIds.value.includes(id)
+      (id) => !currentPageIdSet.has(id)
     );
   }
+  lastSelectedIndex.value = null; // Reset last index after header action
 }
 
 function handleCheckboxClick(
@@ -135,16 +103,25 @@ function handleCheckboxClick(
 ) {
   const target = event.target as HTMLInputElement;
   const isChecked = target.checked;
-  if (event.shiftKey && lastSelectedIndex.value !== null) {
+  const displayedTxs = displayTransactions.value; // Use the potentially filtered list
+
+  if (
+    event.shiftKey &&
+    lastSelectedIndex.value !== null &&
+    lastSelectedIndex.value < displayedTxs.length
+  ) {
     const start = Math.min(lastSelectedIndex.value, index);
     const end = Math.max(lastSelectedIndex.value, index);
     for (let i = start; i <= end; i++) {
-      const id = searchFilteredTransactions.value[i].id;
-      if (isChecked && !selectedIds.value.includes(id)) {
-        selectedIds.value.push(id);
-      } else if (!isChecked) {
-        const pos = selectedIds.value.indexOf(id);
-        if (pos !== -1) selectedIds.value.splice(pos, 1);
+      if (i < displayedTxs.length) {
+        // Ensure index is within bounds
+        const id = displayedTxs[i].id;
+        if (isChecked && !selectedIds.value.includes(id)) {
+          selectedIds.value.push(id);
+        } else if (!isChecked) {
+          const pos = selectedIds.value.indexOf(id);
+          if (pos !== -1) selectedIds.value.splice(pos, 1);
+        }
       }
     }
   } else {
@@ -157,52 +134,93 @@ function handleCheckboxClick(
       if (pos !== -1) selectedIds.value.splice(pos, 1);
     }
   }
+  // Update last selected index relative to the *currently displayed* list
   lastSelectedIndex.value = index;
 }
 
 function getSelectedTransactions(): Transaction[] {
-  return searchFilteredTransactions.value.filter((tx) =>
-    selectedIds.value.includes(tx.id)
-  );
+  // Filter the original full list based on selectedIds
+  // This assumes props.transactions might be the full list or a pre-filtered one.
+  // If props.transactions is always the paginated/filtered list, use displayTransactions.value
+  return props.transactions.filter((tx) => selectedIds.value.includes(tx.id));
 }
 
-defineExpose({ getSelectedTransactions });
+defineExpose({ getSelectedTransactions, selectedIds }); // Expose selectedIds if needed
 
-// Modal-Logik für Bearbeitung von Kategorie-Transfers
+// --- Modal Logic for Editing Category Transfers ---
 const showTransferModal = ref(false);
 const modalData = ref<{
-  transactionId: string;
-  gegentransactionId: string;
+  transactionId: string; // ID of the negative transaction
+  gegentransactionId: string; // ID of the positive transaction
   prefillAmount: number;
   fromCategoryId: string;
   toCategoryId: string;
   prefillDate: string;
+  note?: string; // Add note to modal data
 } | null>(null);
 
-function editTransaction(tx: Transaction, index: number) {
+function editTransactionLocal(tx: Transaction) {
   if (tx.type === TransactionType.CATEGORYTRANSFER) {
-    const isFrom = tx.amount < 0;
-    const transactionId = isFrom ? tx.id : tx.counterTransactionId || "";
-    const gegentransactionId = isFrom ? tx.counterTransactionId || "" : tx.id;
-    const fromCatId = isFrom ? tx.categoryId : tx.toCategoryId || "";
-    const toCatId = isFrom ? tx.toCategoryId || "" : tx.categoryId;
+    // It's a category transfer, determine which part we clicked (+ or - amount)
+    const isFromPart = tx.amount < 0; // True if this is the transaction decreasing the 'from' category
+
+    // IDs need to be correctly assigned based on which part was clicked
+    const transactionId = isFromPart ? tx.id : tx.counterTransactionId || ""; // The negative amount tx ID
+    const gegentransactionId = isFromPart
+      ? tx.counterTransactionId || ""
+      : tx.id; // The positive amount tx ID
+
+    // Categories need to be determined based on the stored relationship
+    const fromCatId = isFromPart ? tx.categoryId : tx.toCategoryId || ""; // The source category
+    const toCatId = isFromPart ? tx.toCategoryId || "" : tx.categoryId; // The destination category
+
+    if (!transactionId || !gegentransactionId) {
+      console.error(
+        "Counter transaction ID missing for category transfer:",
+        tx
+      );
+      // Potentially show an error to the user
+      return;
+    }
+
     modalData.value = {
       transactionId,
       gegentransactionId,
       prefillAmount: Math.abs(tx.amount),
       fromCategoryId: fromCatId,
       toCategoryId: toCatId,
-      prefillDate: tx.date,
+      prefillDate: tx.date, // Use the transaction's date
+      note: tx.note, // Pass the note
     };
+    debugLog(
+      "[CategoryTransactionList] Opening edit modal for transfer",
+      modalData.value
+    );
     showTransferModal.value = true;
   } else {
+    // It's a regular transaction, emit edit event for the parent view
+    debugLog(
+      "[CategoryTransactionList] Emitting edit for standard transaction",
+      tx
+    );
     emit("edit", tx);
   }
+}
+
+// Handles successful transfer from the modal
+function onTransferComplete() {
+  showTransferModal.value = false;
+  // Optionally emit an event or refresh data if needed,
+  // although the service update should trigger reactivity.
+  debugLog(
+    "[CategoryTransactionList] Transfer modal closed, operation successful."
+  );
+  // emit('refresh-data'); // Example if parent needs explicit refresh
 }
 </script>
 
 <template>
-  <div class="overflow-x-auto">
+  <div>
     <!-- Suchfeld -->
     <div class="mb-4 flex justify-end">
       <div class="join flex items-center relative">
@@ -215,7 +233,8 @@ function editTransaction(tx: Transaction, index: number) {
         <button
           v-if="searchTerm"
           @click="searchTerm = ''"
-          class="absolute right-2 top-1/2 -translate-y-1/2 text-base text-neutral/60 hover:text-error/60"
+          class="absolute right-[40px] top-1/2 -translate-y-1/2 text-base text-neutral/60 hover:text-error/60"
+          aria-label="Suche zurücksetzen"
         >
           <Icon icon="mdi:close-circle-outline" />
         </button>
@@ -227,177 +246,201 @@ function editTransaction(tx: Transaction, index: number) {
       </div>
     </div>
 
-    <table class="table w-full">
-      <thead>
-        <tr>
-          <!-- Auswahl -->
-          <th class="w-5">
-            <input
-              type="checkbox"
-              class="checkbox checkbox-sm"
-              :checked="allSelected"
-              @change="handleHeaderCheckboxChange"
-            />
-          </th>
-          <th @click="emit('sort-change', 'date')" class="cursor-pointer">
-            <div class="flex items-center">
-              Datum
-              <Icon
-                v-if="sortKey === 'date'"
-                :icon="sortOrder === 'asc' ? 'mdi:arrow-up' : 'mdi:arrow-down'"
-                class="ml-1 text-sm"
+    <div class="overflow-x-auto">
+      <!-- Added overflow-x-auto here -->
+      <table class="table w-full table-zebra table-sm">
+        <!-- Added table-sm -->
+        <thead>
+          <tr>
+            <!-- Auswahl -->
+            <th class="w-5 px-1">
+              <input
+                type="checkbox"
+                class="checkbox checkbox-sm"
+                :checked="allSelected"
+                @change="handleHeaderCheckboxChange"
               />
-            </div>
-          </th>
-          <th @click="emit('sort-change', 'valueDate')" class="cursor-pointer">
-            <div class="flex items-center">
-              Wertstellungsdatum
-              <Icon
-                v-if="sortKey === 'valueDate'"
-                :icon="sortOrder === 'asc' ? 'mdi:arrow-up' : 'mdi:arrow-down'"
-                class="ml-1 text-sm"
-              />
-            </div>
-          </th>
-          <th @click="emit('sort-change', 'categoryId')" class="cursor-pointer">
-            <div class="flex items-center">
-              Kategorie
-              <Icon
-                v-if="sortKey === 'categoryId'"
-                :icon="sortOrder === 'asc' ? 'mdi:arrow-up' : 'mdi:arrow-down'"
-                class="ml-1 text-sm"
-              />
-            </div>
-          </th>
-          <th @click="emit('sort-change', 'accountId')" class="cursor-pointer">
-            <div class="flex items-center">
-              <template
-                v-if="
-                  searchFilteredTransactions[0] &&
-                  searchFilteredTransactions[0].type ===
-                    TransactionType.CATEGORYTRANSFER
-                "
-              >
-                Zielkategorie
-              </template>
-              <template v-else>Konto</template>
-              <Icon
-                v-if="sortKey === 'accountId'"
-                :icon="sortOrder === 'asc' ? 'mdi:arrow-up' : 'mdi:arrow-down'"
-                class="ml-1 text-sm"
-              />
-            </div>
-          </th>
-          <th
-            class="text-right cursor-pointer"
-            @click="emit('sort-change', 'amount')"
-          >
-            <div class="flex items-center justify-end">
-              Betrag
-              <Icon
-                v-if="sortKey === 'amount'"
-                :icon="sortOrder === 'asc' ? 'mdi:arrow-up' : 'mdi:arrow-down'"
-                class="ml-1 text-sm"
-              />
-            </div>
-          </th>
-          <th class="text-center cursor-pointer">
-            <Icon icon="mdi:note-text-outline" class="text-lg" />
-          </th>
-          <th class="text-right">Aktionen</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="(tx, index) in searchFilteredTransactions" :key="tx.id">
-          <td>
-            <input
-              type="checkbox"
-              class="checkbox checkbox-sm"
-              :checked="selectedIds.includes(tx.id)"
-              @click="handleCheckboxClick(tx.id, index, $event)"
-            />
-          </td>
-          <td>{{ formatDate(tx.date) }}</td>
-          <td>{{ formatDate(tx.valueDate) }}</td>
-          <td>
-            {{
-              categoryStore.getCategoryById(tx.categoryId)?.name || "Unbekannt"
-            }}
-          </td>
-          <td>
-            <template v-if="tx.type === TransactionType.CATEGORYTRANSFER">
-              {{
-                categoryStore.getCategoryById(tx.toCategoryId)?.name ||
-                "Unbekannt"
-              }}
-            </template>
-            <template v-else>
-              {{
-                accountStore.getAccountById(tx.accountId)?.name || "Unbekannt"
-              }}
-            </template>
-          </td>
-          <td class="text-right">
-            <CurrencyDisplay
-              :amount="tx.amount"
-              :show-zero="true"
-              :class="{
-                'text-warning': tx.type === TransactionType.CATEGORYTRANSFER,
-              }"
-            />
-          </td>
-          <td class="text-center">
-            <template v-if="tx.note && tx.note.trim()">
-              <div class="tooltip" :data-tip="tx.note">
-                <Icon icon="mdi:speaker-notes" class="text-lg opacity-50" />
+            </th>
+            <th
+              @click="$emit('sort-change', 'date')"
+              class="cursor-pointer px-2"
+            >
+              <div class="flex items-center">
+                Datum
+                <Icon
+                  v-if="sortKey === 'date'"
+                  :icon="
+                    sortOrder === 'asc' ? 'mdi:arrow-up' : 'mdi:arrow-down'
+                  "
+                  class="ml-1 text-xs"
+                />
               </div>
-            </template>
-          </td>
-          <td class="text-right">
-            <div class="flex justify-end space-x-1">
-              <button
-                class="btn btn-ghost btn-xs border-none"
-                @click="editTransaction(tx, index)"
-              >
-                <Icon icon="mdi:pencil" class="text-base/75" />
-              </button>
-              <button
-                class="btn btn-ghost btn-xs border-none text-error/75"
-                @click="$emit('delete', tx)"
-              >
-                <Icon icon="mdi:trash-can" class="text-base" />
-              </button>
-            </div>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
+            </th>
+            <th
+              @click="$emit('sort-change', 'valueDate')"
+              class="cursor-pointer px-2"
+            >
+              <div class="flex items-center">
+                Wertstellung
+                <Icon
+                  v-if="sortKey === 'valueDate'"
+                  :icon="
+                    sortOrder === 'asc' ? 'mdi:arrow-up' : 'mdi:arrow-down'
+                  "
+                  class="ml-1 text-xs"
+                />
+              </div>
+            </th>
+            <th
+              @click="$emit('sort-change', 'categoryId')"
+              class="cursor-pointer px-2"
+            >
+              <div class="flex items-center">
+                Von Kat.
+                <Icon
+                  v-if="sortKey === 'categoryId'"
+                  :icon="
+                    sortOrder === 'asc' ? 'mdi:arrow-up' : 'mdi:arrow-down'
+                  "
+                  class="ml-1 text-xs"
+                />
+              </div>
+            </th>
+            <th
+              @click="$emit('sort-change', 'toCategoryId')"
+              class="cursor-pointer px-2"
+            >
+              <div class="flex items-center">
+                Zu Kat./Konto
+                <Icon
+                  v-if="sortKey === 'toCategoryId'"
+                  :icon="
+                    sortOrder === 'asc' ? 'mdi:arrow-up' : 'mdi:arrow-down'
+                  "
+                  class="ml-1 text-xs"
+                />
+              </div>
+            </th>
+            <th
+              class="text-right cursor-pointer px-2"
+              @click="$emit('sort-change', 'amount')"
+            >
+              <div class="flex items-center justify-end">
+                Betrag
+                <Icon
+                  v-if="sortKey === 'amount'"
+                  :icon="
+                    sortOrder === 'asc' ? 'mdi:arrow-up' : 'mdi:arrow-down'
+                  "
+                  class="ml-1 text-xs"
+                />
+              </div>
+            </th>
+            <th class="text-center cursor-pointer px-1">
+              <Icon icon="mdi:note-text-outline" class="text-base" />
+            </th>
+            <th class="text-right px-2">Aktionen</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            v-for="(tx, index) in displayTransactions"
+            :key="tx.id"
+            class="hover"
+          >
+            <td class="px-1">
+              <input
+                type="checkbox"
+                class="checkbox checkbox-sm"
+                :checked="selectedIds.includes(tx.id)"
+                @click="handleCheckboxClick(tx.id, index, $event)"
+              />
+            </td>
+            <td class="px-2">{{ formatDate(tx.date) }}</td>
 
+            <td class="px-2">{{ formatDate(tx.valueDate) }}</td>
+
+            <td class="px-2">
+              {{ CategoryService.getCategoryName(tx.categoryId) }}
+            </td>
+            <td class="px-2">
+              <template v-if="tx.type === TransactionType.CATEGORYTRANSFER">
+                {{ CategoryService.getCategoryName(tx.toCategoryId) }}
+              </template>
+              <template v-else>
+                <!-- Should not happen if only category transfers are shown, but as fallback -->
+                {{ AccountService.getAccountName(tx.accountId) }}
+              </template>
+            </td>
+            <td class="text-right px-2">
+              <CurrencyDisplay
+                :amount="tx.amount"
+                :show-zero="true"
+                :asInteger="false"
+                :class="{
+                  'text-success':
+                    tx.type === TransactionType.INCOME ||
+                    (tx.type === TransactionType.CATEGORYTRANSFER &&
+                      tx.amount > 0),
+                  'text-error':
+                    tx.type === TransactionType.EXPENSE ||
+                    (tx.type === TransactionType.CATEGORYTRANSFER &&
+                      tx.amount < 0),
+                  'text-info': tx.type === TransactionType.ACCOUNTTRANSFER, // Although likely not shown here
+                  'text-warning': tx.type === TransactionType.RECONCILE, // Although likely not shown here
+                }"
+              />
+            </td>
+            <td class="text-center px-1">
+              <template v-if="tx.note && tx.note.trim()">
+                <div class="tooltip tooltip-left" :data-tip="tx.note">
+                  <Icon
+                    icon="mdi:comment-text-outline"
+                    class="text-base opacity-60 cursor-help"
+                  />
+                </div>
+              </template>
+            </td>
+            <td class="text-right px-2">
+              <div class="flex justify-end space-x-1">
+                <button
+                  class="btn btn-ghost btn-xs border-none px-1"
+                  @click="editTransactionLocal(tx)"
+                  title="Bearbeiten"
+                >
+                  <Icon icon="mdi:pencil" class="text-base" />
+                </button>
+                <button
+                  class="btn btn-ghost btn-xs border-none text-error/75 px-1"
+                  @click="$emit('delete', tx)"
+                  title="Löschen"
+                >
+                  <Icon icon="mdi:trash-can" class="text-base" />
+                </button>
+              </div>
+            </td>
+          </tr>
+          <tr v-if="displayTransactions.length === 0">
+            <td colspan="8" class="text-center py-4 text-base-content/70">
+              Keine Transaktionen für die Filter gefunden.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
   <!-- Kategorie-Transfer Modal für Bearbeitung -->
   <CategoryTransferModal
-    v-if="showTransferModal"
+    v-if="showTransferModal && modalData"
     :is-open="showTransferModal"
-    :prefillAmount="modalData?.prefillAmount || 0"
-    :prefillDate="modalData?.prefillDate"
-    :fromCategoryId="modalData?.fromCategoryId"
-    :toCategoryId="modalData?.toCategoryId"
-    :transactionId="modalData?.transactionId"
-    :gegentransactionId="modalData?.gegentransactionId"
+    :prefillAmount="modalData.prefillAmount"
+    :prefillDate="modalData.prefillDate"
+    :fromCategoryId="modalData.fromCategoryId"
+    :toCategoryId="modalData.toCategoryId"
+    :transactionId="modalData.transactionId"
+    :gegentransactionId="modalData.gegentransactionId"
+    :note="modalData.note"
     @close="showTransferModal = false"
-    @transfer="
-      (data) => {
-        updateCategoryTransfer(
-          data.transactionId,
-          data.gegentransactionId,
-          data.fromCategoryId,
-          data.toCategoryId,
-          data.amount,
-          data.date,
-          data.note
-        );
-        showTransferModal = false;
-      }
-    "
+    @transfer="onTransferComplete"
   />
 </template>

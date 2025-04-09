@@ -1,159 +1,91 @@
 // src/stores/reconciliationStore.ts
-import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
-import { useTransactionStore } from './transactionStore'
-import { useAccountStore } from './accountStore'
-import { Account, TransactionType } from '@/types'
-import { debugLog } from '@/utils/logger'
+import { defineStore } from 'pinia';
+import { Account, Transaction } from '@/types';
+import { useTransactionStore } from './transactionStore';
+import { toDateOnlyString } from '@/utils/formatters';
+import { debugLog } from '@/utils/logger';
 
-export const useReconciliationStore = defineStore('reconciliation', () => {
-  const transactionStore = useTransactionStore();
-  const accountStore = useAccountStore();
+interface ReconciliationState {
+  currentAccount: Account | null;
+  reconcileDate: string; // YYYY-MM-DD
+  actualBalance: number; // Tatsächlicher Kontostand von der Bank
+  note: string;          // Notiz für die Ausgleichsbuchung
+}
 
-  // State für Kontoabgleich
-  const accountBeingReconciled = ref<Account | null>(null);
-  const reconcileDate = ref(new Date().toISOString().split("T")[0]);
-  const actualBalance = ref(0);
-  const note = ref("Kontoabgleich");
+export const useReconciliationStore = defineStore('reconciliation', {
+  state: (): ReconciliationState => ({
+    currentAccount: null,
+    reconcileDate: toDateOnlyString(new Date()), // Default to today
+    actualBalance: 0,
+    note: '',
+  }),
 
-  // Berechnet Saldo zum gewählten Datum für das aktuell abgeglichene Konto
-  const currentBalance = computed(() => {
-    if (!accountBeingReconciled.value) return 0;
+  getters: {
+     /**
+     * Berechnet den aktuellen Kontostand in der App *bis* zum Abgleichsdatum
+     * basierend auf dem Startsaldo und den Transaktionen.
+     * Nur für Anzeige im Modal relevant. Die tatsächliche Kontobilanz ist im AccountStore.
+     */
+    currentBalance(state): number {
+      if (!state.currentAccount) return 0;
+      const transactionStore = useTransactionStore();
+      const targetDate = new Date(state.reconcileDate);
 
-    const target = new Date(reconcileDate.value).getTime();
-    const txs = transactionStore.getTransactionsByAccount(accountBeingReconciled.value.id) || [];
+      // Start with the account's initial balance
+      let balance = state.currentAccount.startBalance || 0;
 
-    const validTxs = txs.filter((tx) => {
-      const date = new Date(tx.valueDate || tx.date).getTime();
-      return !isNaN(date) && date <= target;
-    });
+       // Add amounts of all transactions up to and including the reconcile date
+       transactionStore.transactions
+        .filter(tx => tx.accountId === state.currentAccount?.id && new Date(toDateOnlyString(tx.date)) <= targetDate)
+        .forEach(tx => {
+            balance += tx.amount;
+        });
 
-    if (validTxs.length === 0) return accountBeingReconciled.value.balance;
+        debugLog("[ReconciliationStore] Calculated currentBalance up to date", { accountId: state.currentAccount.id, date: state.reconcileDate, balance });
+        return balance;
+    },
 
-    validTxs.sort(
-      (a, b) =>
-        new Date(b.valueDate || b.date).getTime() -
-        new Date(a.valueDate || a.date).getTime()
-    );
+    /**
+     * Berechnet die Differenz zwischen dem tatsächlichen Kontostand und dem App-Kontostand.
+     */
+    differenceValue(state): number {
+       if (!state.currentAccount) return 0;
+       const diff = state.actualBalance - this.currentBalance; // Use the getter for current balance
+       // Round to avoid floating point issues with currency
+       return Math.round(diff * 100) / 100;
+    },
+  },
 
-    return validTxs[0].runningBalance;
-  });
+  actions: {
+    /**
+     * Wird vom ReconciliationService aufgerufen, um den Abgleich zu starten.
+     */
+    startReconciliation(account: Account) {
+      this.currentAccount = account;
+      // Set default date to today, actualBalance might be pre-filled or zeroed
+      this.reconcileDate = toDateOnlyString(new Date());
+      this.actualBalance = 0; // Reset actual balance input
+      this.note = ''; // Reset note
+      debugLog("[ReconciliationStore] startReconciliation", { accountId: account.id });
+    },
 
-  // Differenz zwischen tatsächlichem und aktuellem Saldo
-  const differenceValue = computed(() => {
-    return actualBalance.value - currentBalance.value;
-  });
+    /**
+     * Wird vom ReconciliationService aufgerufen, wenn der Abgleich abgebrochen wird.
+     */
+    cancelReconciliation() {
+       debugLog("[ReconciliationStore] cancelReconciliation - Resetting state");
+       this.reset();
+    },
 
-  // Startet einen Kontoabgleich
-  function startReconciliation(account: Account) {
-    accountBeingReconciled.value = account;
-    reconcileDate.value = new Date().toISOString().split("T")[0];
-    actualBalance.value = account.balance; // Startpunkt: aktueller Kontostand
-    note.value = "Kontoabgleich";
+     /**
+     * Setzt den Store-Zustand zurück (nach erfolgreichem Abgleich oder Abbruch).
+     * Wird intern oder vom Service aufgerufen.
+     */
+    reset() {
+      this.$reset(); // Pinia's built-in reset
+      debugLog("[ReconciliationStore] State reset");
+    },
 
-    debugLog('[reconciliationStore] startReconciliation', {
-      accountId: account.id,
-      currentBalance: account.balance,
-      date: reconcileDate.value
-    });
-  }
-
-  // Führt den Kontoabgleich durch
-  function reconcileAccount() {
-    if (!accountBeingReconciled.value) return false;
-    if (differenceValue.value === 0) return true; // Keine Änderung nötig
-
-    const accountId = accountBeingReconciled.value.id;
-    const altSaldo = formatCurrency(currentBalance.value);
-    const reconcileNote = `Kontostandsabgleich: Altsaldo war: ${altSaldo}`;
-
-    const newTx = transactionStore.addReconcileTransaction(
-      accountId,
-      differenceValue.value,
-      reconcileDate.value,
-      reconcileNote
-    );
-
-    accountBeingReconciled.value = null;
-
-    debugLog('[reconciliationStore] reconcileAccount', {
-      amount: differenceValue.value,
-      newTransactionId: newTx?.id
-    });
-
-    return !!newTx;
-  }
-
-  // Bricht den Kontoabgleich ab
-  function cancelReconciliation() {
-    accountBeingReconciled.value = null;
-    debugLog('[reconciliationStore] cancelReconciliation');
-  }
-
-  function formatCurrency(amount: number): string {
-    return amount.toLocaleString('de-DE', {
-      style: 'currency',
-      currency: 'EUR'
-    });
-  }
-
-  // Toggles den Reconciled-Status einer Transaktion
-  function toggleTransactionReconciled(transactionId: string) {
-    const transaction = transactionStore.getTransactionById(transactionId);
-    if (!transaction) return false;
-
-    const newValue = !transaction.reconciled;
-    const result = transactionStore.updateTransaction(transactionId, { reconciled: newValue });
-
-    debugLog('[reconciliationStore] toggleTransactionReconciled', {
-      transactionId,
-      newStatus: newValue,
-      success: result
-    });
-
-    return result;
-  }
-
-  // Markiert alle Transaktionen eines Kontos bis zu einem bestimmten Datum als abgeglichen
-  function reconcileAllTransactionsUntilDate(accountId: string, date: string) {
-    const txs = transactionStore.getTransactionsByAccount(accountId) || [];
-    const targetDate = new Date(date).getTime();
-
-    let updatedCount = 0;
-
-    txs.forEach(tx => {
-      const txDate = new Date(tx.date).getTime();
-      if (txDate <= targetDate && !tx.reconciled) {
-        transactionStore.updateTransaction(tx.id, { reconciled: true });
-        updatedCount++;
-      }
-    });
-
-    debugLog('[reconciliationStore] reconcileAllTransactionsUntilDate', {
-      accountId,
-      date,
-      updatedCount
-    });
-
-    return updatedCount;
-  }
-
-  return {
-    // State
-    accountBeingReconciled,
-    reconcileDate,
-    actualBalance,
-    note,
-
-    // Computed
-    currentBalance,
-    differenceValue,
-
-    // Actions
-    startReconciliation,
-    reconcileAccount,
-    cancelReconciliation,
-    toggleTransactionReconciled,
-    reconcileAllTransactionsUntilDate
+     // updateBalancesAfterReconciliation() - Removed: Balance updates are handled by the stores/services reacting to new/updated transactions.
   }
 });

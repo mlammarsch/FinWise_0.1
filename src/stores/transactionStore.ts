@@ -75,6 +75,56 @@ export const useTransactionStore = defineStore('transaction', () => {
     debugLog("[transactionStore] reset - Reset transactions.")
   }
 
+  // Neue Funktionen zur Verwaltung von Transaktionen
+
+  /**
+   * Fügt eine Transaktion hinzu und speichert die Liste.
+   * @param transaction Neue Transaktion (ExtendedTransaction)
+   * @returns Hinzugefügte Transaktion
+   */
+  function addTransaction(transaction: ExtendedTransaction): ExtendedTransaction {
+    transactions.value.push(transaction)
+    saveTransactions()
+    debugLog("[transactionStore] addTransaction", transaction)
+    return transaction
+  }
+
+  /**
+   * Aktualisiert eine vorhandene Transaktion.
+   * @param id ID der Transaktion
+   * @param updates Teilupdates der Transaktion
+   * @returns true, falls Aktualisierung erfolgte, ansonsten false
+   */
+  function updateTransaction(id: string, updates: Partial<ExtendedTransaction>): boolean {
+    const index = transactions.value.findIndex(tx => tx.id === id)
+    if (index === -1) {
+      debugLog("[transactionStore] updateTransaction - Transaction not found:", id)
+      return false
+    }
+    transactions.value[index] = { ...transactions.value[index], ...updates }
+    saveTransactions()
+    debugLog("[transactionStore] updateTransaction - Updated:", id)
+    return true
+  }
+
+  /**
+   * Löscht eine Transaktion anhand der ID.
+   * @param id ID der zu löschenden Transaktion
+   * @returns true, falls Löschung erfolgte, ansonsten false
+   */
+  function deleteTransaction(id: string): boolean {
+    const initialLength = transactions.value.length
+    transactions.value = transactions.value.filter(tx => tx.id !== id)
+    const success = transactions.value.length < initialLength
+    if (success) {
+      saveTransactions()
+      debugLog("[transactionStore] deleteTransaction - Deleted:", id)
+    } else {
+      debugLog("[transactionStore] deleteTransaction - Transaction not found:", id)
+    }
+    return success
+  }
+
   loadTransactions()
 
   return {
@@ -86,5 +136,8 @@ export const useTransactionStore = defineStore('transaction', () => {
     loadTransactions,
     saveTransactions,
     reset,
+    addTransaction,
+    updateTransaction,
+    deleteTransaction
   }
 })

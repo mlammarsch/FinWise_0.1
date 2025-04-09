@@ -1,34 +1,16 @@
 <script setup lang="ts">
-import { ref, computed } from "vue";
-import { Transaction, TransactionType } from "@/types";
-import { useAccountStore } from "@/stores/accountStore";
-import { useCategoryStore } from "@/stores/categoryStore";
-import { useTagStore } from "@/stores/tagStore";
-import { useRecipientStore } from "@/stores/recipientStore";
-import { useReconciliationStore } from "@/stores/reconciliationStore";
-import { formatDate, formatCurrency } from "@/utils/formatters";
-import CurrencyDisplay from "@/components/ui/CurrencyDisplay.vue";
-import BadgeSoft from "@/components/ui/BadgeSoft.vue";
+import { defineProps, defineEmits, ref, computed, defineExpose } from "vue";
+import { Transaction, TransactionType } from "../../types";
+import { useAccountStore } from "../../stores/accountStore";
+import { useCategoryStore } from "../../stores/categoryStore";
+import { useTagStore } from "../../stores/tagStore";
+import { useRecipientStore } from "../../stores/recipientStore";
+import { formatDate } from "../../utils/formatters";
+import CurrencyDisplay from "../ui/CurrencyDisplay.vue";
 import { Icon } from "@iconify/vue";
+import { hexToRgba } from "../../utils/formatters";
+import BadgeSoft from "../ui/BadgeSoft.vue";
 
-/**
- * Pfad zur Komponente: src/components/transaction/TransactionList.vue
- * Liste von Transaktionen mit Sortier- und Filterfunktionen.
- *
- * Komponenten-Props:
- * - transactions: Transaction[] - Die anzuzeigenden Transaktionen
- * - showAccount: boolean - Ob die Kontospalte angezeigt werden soll
- * - sortKey: keyof Transaction | "" - Nach welchem Feld sortiert werden soll
- * - sortOrder: "asc" | "desc" - Die Sortierreihenfolge
- *
- * Emits:
- * - edit: Bearbeiten einer Transaktion
- * - delete: Löschen einer Transaktion
- * - sort-change: Änderung der Sortierung
- * - toggleReconciliation: Abgleichstatus einer Transaktion ändern
- */
-
-// Props definieren
 const props = defineProps<{
   transactions: Transaction[];
   showAccount?: boolean;
@@ -36,7 +18,6 @@ const props = defineProps<{
   sortOrder: "asc" | "desc";
 }>();
 
-// Emits definieren
 const emit = defineEmits([
   "edit",
   "delete",
@@ -44,12 +25,10 @@ const emit = defineEmits([
   "toggleReconciliation",
 ]);
 
-// Stores initialisieren
 const accountStore = useAccountStore();
 const categoryStore = useCategoryStore();
 const tagStore = useTagStore();
 const recipientStore = useRecipientStore();
-const reconciliationStore = useReconciliationStore();
 
 // Computed: Exclude CATEGORYTRANSFER transactions
 const displayTransactions = computed(() =>
@@ -111,14 +90,13 @@ function handleCheckboxClick(
   lastSelectedIndex.value = index;
 }
 
-function toggleReconciliation(tx: Transaction, checked: boolean) {
-  reconciliationStore.toggleTransactionReconciled(tx.id);
-  emit("toggleReconciliation", tx.id);
+function getSelectedTransactions(): Transaction[] {
+  return displayTransactions.value.filter((tx) =>
+    selectedIds.value.includes(tx.id)
+  );
 }
 
-function toggleSort(key: keyof Transaction) {
-  emit("sort-change", key);
-}
+defineExpose({ getSelectedTransactions });
 </script>
 
 <template>
@@ -135,7 +113,7 @@ function toggleSort(key: keyof Transaction) {
               @change="handleHeaderCheckboxChange"
             />
           </th>
-          <th @click="toggleSort('date')" class="cursor-pointer">
+          <th @click="emit('sort-change', 'date')" class="cursor-pointer">
             <div class="flex items-center">
               Datum
               <Icon
@@ -147,7 +125,7 @@ function toggleSort(key: keyof Transaction) {
           </th>
           <th
             v-if="showAccount"
-            @click="toggleSort('accountId')"
+            @click="emit('sort-change', 'accountId')"
             class="cursor-pointer"
           >
             <div class="flex items-center">
@@ -159,7 +137,10 @@ function toggleSort(key: keyof Transaction) {
               />
             </div>
           </th>
-          <th @click="toggleSort('recipientId')" class="cursor-pointer">
+          <th
+            @click="emit('sort-change', 'recipientId')"
+            class="cursor-pointer"
+          >
             <div class="flex items-center">
               Empfänger
               <Icon
@@ -169,7 +150,7 @@ function toggleSort(key: keyof Transaction) {
               />
             </div>
           </th>
-          <th @click="toggleSort('categoryId')" class="cursor-pointer">
+          <th @click="emit('sort-change', 'categoryId')" class="cursor-pointer">
             <div class="flex items-center">
               Kategorie
               <Icon
@@ -180,7 +161,10 @@ function toggleSort(key: keyof Transaction) {
             </div>
           </th>
           <th>Tags</th>
-          <th @click="toggleSort('amount')" class="text-right cursor-pointer">
+          <th
+            @click="emit('sort-change', 'amount')"
+            class="text-right cursor-pointer"
+          >
             <div class="flex items-center justify-end">
               Betrag
               <Icon
@@ -190,11 +174,12 @@ function toggleSort(key: keyof Transaction) {
               />
             </div>
           </th>
-          <th class="text-center">
+          <!-- Neues Notiz-Feld -->
+          <th class="text-center cursor-pointer flex items-center justify-end">
             <Icon icon="mdi:note-text-outline" class="text-lg" />
           </th>
           <th
-            @click="toggleSort('reconciled')"
+            @click="emit('sort-change', 'reconciled')"
             class="text-center cursor-pointer"
           >
             <div class="flex items-center justify-center">
@@ -272,9 +257,7 @@ function toggleSort(key: keyof Transaction) {
               type="checkbox"
               class="checkbox checkbox-xs"
               :checked="tx.reconciled"
-              @change="
-                ($event) => toggleReconciliation(tx, $event.target.checked)
-              "
+              @change="$emit('toggleReconciliation', tx, $event.target.checked)"
             />
           </td>
           <td class="text-right">
