@@ -205,7 +205,22 @@ function transferBetweenCategories() {
     @keydown.escape="$emit('close')"
   >
     <div class="modal-box w-full max-w-sm">
-      <h3 class="font-bold text-lg mb-4">Kategorietransfer bearbeiten</h3>
+      <!-- Überschrift basierend auf dem Modus anpassen -->
+      <h3 class="font-bold text-lg mb-4">
+        <template v-if="mode === 'transfer'">
+          Transferiere von
+          {{
+            categoryStore.getCategoryById(preselectedCategoryId)?.name || ""
+          }}...
+        </template>
+        <template v-else-if="mode === 'fill'">
+          Fülle
+          {{
+            categoryStore.getCategoryById(preselectedCategoryId)?.name || ""
+          }}...
+        </template>
+        <template v-else> Kategorietransfer bearbeiten </template>
+      </h3>
       <form
         @submit.prevent="transferBetweenCategories"
         class="flex flex-col space-y-4 w-full"

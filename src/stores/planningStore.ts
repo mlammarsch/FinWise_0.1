@@ -82,9 +82,9 @@ export const usePlanningStore = defineStore('planning', () => {
     const isSaturday = date.day() === 6
 
     switch (handling) {
-      case WeekendHandlingType.PREVIOUS_WEEKDAY:
+      case WeekendHandlingType.BEFORE:
         return isSaturday ? date.subtract(1, 'day') : date.subtract(2, 'day') // Freitag
-      case WeekendHandlingType.NEXT_WEEKDAY:
+      case WeekendHandlingType.AFTER:
         return isSaturday ? date.add(2, 'day') : date.add(1, 'day') // Montag
       default:
         return date
@@ -199,12 +199,17 @@ export const usePlanningStore = defineStore('planning', () => {
       description: planning.description || '',
       amount: planning.amount || 0,
       amountType: planning.amountType || AmountType.EXACT,
+      approximateAmount: planning.approximateAmount,
+      minAmount: planning.minAmount,
+      maxAmount: planning.maxAmount,
       type: planning.type || TransactionType.EXPENSE,
       startDate: planning.startDate || new Date().toISOString(),
+      valueDate: planning.valueDate || planning.startDate || new Date().toISOString(),
       endDate: planning.endDate,
       accountId: planning.accountId || '',
       transferToAccountId: planning.transferToAccountId || '',
       categoryId: planning.categoryId || '',
+      tagIds: planning.tagIds || [],
       recipientId: planning.recipientId || '',
       recurrencePattern: planning.recurrencePattern || RecurrencePattern.ONCE,
       recurrenceEndType: planning.recurrenceEndType || RecurrenceEndType.NEVER,
@@ -214,10 +219,17 @@ export const usePlanningStore = defineStore('planning', () => {
       note: planning.note || '',
       isActive: planning.isActive !== undefined ? planning.isActive : true,
       autoExecute: planning.autoExecute !== undefined ? planning.autoExecute : false,
+      transactionType: planning.transactionType
     }
 
     planningTransactions.value.push(newPlanning)
     savePlanningTransactions()
+
+    debugLog('[planningStore] addPlanningTransaction', {
+      id: newPlanning.id,
+      name: newPlanning.name,
+      amount: newPlanning.amount
+    })
 
     // Monatliche Saldos nach Änderung neu berechnen
     monthlyBalanceStore.calculateMonthlyBalances()
@@ -236,6 +248,12 @@ export const usePlanningStore = defineStore('planning', () => {
       }
       savePlanningTransactions()
 
+      debugLog('[planningStore] updatePlanningTransaction', {
+        id,
+        name: planningTransactions.value[index].name,
+        updates: Object.keys(planning).join(', ')
+      })
+
       // Monatliche Saldos nach Änderung neu berechnen
       monthlyBalanceStore.calculateMonthlyBalances()
 
@@ -246,6 +264,14 @@ export const usePlanningStore = defineStore('planning', () => {
 
   // Funktion zum Löschen einer Planung
   function deletePlanningTransaction(id: string) {
+    const planToDelete = planningTransactions.value.find(p => p.id === id)
+    if (planToDelete) {
+      debugLog('[planningStore] deletePlanningTransaction', {
+        id,
+        name: planToDelete.name
+      })
+    }
+
     planningTransactions.value = planningTransactions.value.filter(p => p.id !== id)
     savePlanningTransactions()
 
@@ -256,25 +282,39 @@ export const usePlanningStore = defineStore('planning', () => {
   // Funktion zum Ausführen einer geplanten Transaktion
   function executePlanningTransaction(planningId: string, executionDate: string) {
     const planning = getPlanningTransactionById.value(planningId)
-    if (!planning) return false
+    if (!planning) {
+      debugLog('[planningStore] executePlanningTransaction - Planning not found', {
+        planningId
+      })
+      return false
+    }
 
     // Neue Transaktion erstellen
     const transaction = {
       date: executionDate,
+      valueDate: planning.valueDate || executionDate,
       amount: planning.amount,
-      type: planning.type,
+      type: planning.transactionType || (planning.amount < 0 ? TransactionType.EXPENSE : TransactionType.INCOME),
       description: planning.description || '',
       note: planning.note || '',
       accountId: planning.accountId,
       transferToAccountId: planning.transferToAccountId || '',
       categoryId: planning.categoryId || '',
+      tagIds: planning.tagIds || [],
       recipientId: planning.recipientId || '',
       planningId: planning.id // Zuordnung zur Planung
     }
 
     // Transaktion hinzufügen
     const ruleStore = useRuleStore()
-    transactionStore.addTransaction(transaction, false)
+    const newTx = transactionStore.addTransaction(transaction, false)
+
+    debugLog('[planningStore] executePlanningTransaction', {
+      planningId: planning.id,
+      name: planning.name,
+      executionDate,
+      transactionId: newTx.id
+    })
 
     // Regeln anwenden
     ruleStore.applyRules()
@@ -288,10 +328,16 @@ export const usePlanningStore = defineStore('planning', () => {
   // Funktion zum Ausführen aller fälligen Auto-Ausführen-Planungen
   function executeAllDuePlanningTransactions() {
     const today = new Date()
+    const todayStr = toDateOnlyString(today)
+
+    debugLog('[planningStore] executeAllDuePlanningTransactions - Checking for due transactions', {
+      todayDate: todayStr
+    })
+
     const upcomingToday = getUpcomingTransactions.value(0)
       .filter(tx => {
         // Nur Transaktionen für heute berücksichtigen
-        return tx.date === toDateOnlyString(today) && tx.transaction.autoExecute
+        return tx.date === todayStr && tx.transaction.autoExecute && tx.transaction.isActive
       })
 
     let executedCount = 0
@@ -299,7 +345,14 @@ export const usePlanningStore = defineStore('planning', () => {
     // Führe jede fällige Planung aus
     upcomingToday.forEach(tx => {
       const success = executePlanningTransaction(tx.transaction.id, tx.date)
-      if (success) executedCount++
+      if (success) {
+        executedCount++
+        debugLog('[planningStore] executeAllDuePlanningTransactions - Executed transaction', {
+          id: tx.transaction.id,
+          name: tx.transaction.name,
+          date: tx.date
+        })
+      }
     })
 
     return executedCount
@@ -322,7 +375,8 @@ export const usePlanningStore = defineStore('planning', () => {
           recurrenceEndType: tx.recurrenceEndType || RecurrenceEndType.NEVER,
           isActive: tx.isActive !== undefined ? tx.isActive : true,
           autoExecute: tx.autoExecute !== undefined ? tx.autoExecute : false,
-          name: tx.name || tx.payee || ''
+          name: tx.name || tx.payee || '',
+          valueDate: tx.valueDate || tx.date // Stellt sicher, dass valueDate immer vorhanden ist
         }))
 
         debugLog('[planningStore] loadPlanningTransactions - Loaded', planningTransactions.value.length, 'transactions')

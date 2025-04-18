@@ -250,6 +250,9 @@ defineExpose({ focusInput });
           class="px-2 py-1 text-sm cursor-pointer hover:bg-base-200"
           :class="{
             'bg-base-300': option.account && option.account.id === selected,
+            'bg-base-300':
+              !option.isHeader &&
+              visibleOptions.indexOf(option) === highlightedIndex,
           }"
           @click="selectAccount(option.account!)"
         >

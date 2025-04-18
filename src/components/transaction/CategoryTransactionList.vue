@@ -1,5 +1,20 @@
 <!-- Datei: src/components/transaction/CategoryTransactionList.vue -->
 <script setup lang="ts">
+/**
+ * Pfad zur Komponente: src/components/transaction/CategoryTransactionList.vue
+ * Zeigt eine Liste von Transaktionen geordnet nach Kategorien an.
+ *
+ * Komponenten-Props:
+ * - transactions: Transaction[] - Die anzuzeigenden Transaktionen
+ * - sortKey: keyof Transaction | "" - Nach welchem Feld sortiert werden soll
+ * - sortOrder: "asc" | "desc" - Die Sortierreihenfolge
+ * - viewMode?: "normal" - Optionaler Anzeigemodus
+ *
+ * Emits:
+ * - edit: Bearbeiten einer Transaktion
+ * - delete: Löschen einer Transaktion
+ * - sort-change: Änderung der Sortierung
+ */
 import { defineProps, defineEmits, ref, computed, defineExpose } from "vue";
 import { Transaction, TransactionType } from "../../types";
 import { useAccountStore } from "../../stores/accountStore";
@@ -9,6 +24,7 @@ import CurrencyDisplay from "../ui/CurrencyDisplay.vue";
 import { Icon } from "@iconify/vue";
 import CategoryTransferModal from "../budget/CategoryTransferModal.vue";
 import { updateCategoryTransfer } from "@/utils/categoryTransfer";
+import { debugLog } from "@/utils/logger";
 
 const props = defineProps<{
   transactions: Transaction[];
@@ -24,21 +40,55 @@ const emit = defineEmits(["edit", "delete", "sort-change"]);
 const accountStore = useAccountStore();
 const categoryStore = useCategoryStore();
 
-// Zeige nur EXPENSE, INCOME und CATEGORYTRANSFER
-const displayTransactions = computed(() =>
-  props.transactions.filter(
+// Suchfunktionalität
+const searchTerm = ref("");
+
+// Filtert Transaktionen nach Suchbegriff
+const searchFilteredTransactions = computed(() => {
+  const term = searchTerm.value.toLowerCase().trim();
+  if (!term) return displayTransactions.value;
+
+  return displayTransactions.value.filter((tx) => {
+    // Suche in verschiedenen Feldern
+    const date = formatDate(tx.date);
+    const valueDate = formatDate(tx.valueDate);
+    const category = categoryStore.getCategoryById(tx.categoryId)?.name || "";
+    const account = accountStore.getAccountById(tx.accountId)?.name || "";
+    const toCategory = tx.toCategoryId
+      ? categoryStore.getCategoryById(tx.toCategoryId)?.name || ""
+      : "";
+    const amount = tx.amount.toString();
+    const note = tx.note || "";
+
+    // Prüfe, ob der Suchbegriff in einem der Felder vorkommt
+    return [date, valueDate, category, account, toCategory, amount, note].some(
+      (field) => field.toLowerCase().includes(term)
+    );
+  });
+});
+
+// Zeige nur EXPENSE, INCOME und positive CATEGORYTRANSFER
+const displayTransactions = computed(() => {
+  // Grundfilter für Expense und Income Transaktionen
+  const baseTransactions = props.transactions.filter(
     (tx) =>
-      tx.type === TransactionType.EXPENSE ||
-      tx.type === TransactionType.INCOME ||
-      tx.type === TransactionType.CATEGORYTRANSFER
-  )
-);
+      tx.type === TransactionType.EXPENSE || tx.type === TransactionType.INCOME
+  );
+
+  // Finde alle CATEGORYTRANSFER Transaktionen und filtere auf die mit positiven Beträgen
+  const positiveCategoryTransfers = props.transactions.filter(
+    (tx) => tx.type === TransactionType.CATEGORYTRANSFER && tx.amount > 0
+  );
+
+  // Kombiniere beide Listen
+  return [...baseTransactions, ...positiveCategoryTransfers];
+});
 
 // Auswahl-Logik
 const selectedIds = ref<string[]>([]);
 const lastSelectedIndex = ref<number | null>(null);
 const currentPageIds = computed(() =>
-  displayTransactions.value.map((tx) => tx.id)
+  searchFilteredTransactions.value.map((tx) => tx.id)
 );
 const allSelected = computed(() =>
   currentPageIds.value.every((id) => selectedIds.value.includes(id))
@@ -66,7 +116,7 @@ function handleCheckboxClick(
     const start = Math.min(lastSelectedIndex.value, index);
     const end = Math.max(lastSelectedIndex.value, index);
     for (let i = start; i <= end; i++) {
-      const id = displayTransactions.value[i].id;
+      const id = searchFilteredTransactions.value[i].id;
       if (isChecked && !selectedIds.value.includes(id)) {
         selectedIds.value.push(id);
       } else if (!isChecked) {
@@ -88,7 +138,7 @@ function handleCheckboxClick(
 }
 
 function getSelectedTransactions(): Transaction[] {
-  return displayTransactions.value.filter((tx) =>
+  return searchFilteredTransactions.value.filter((tx) =>
     selectedIds.value.includes(tx.id)
   );
 }
@@ -131,6 +181,30 @@ function editTransaction(tx: Transaction, index: number) {
 
 <template>
   <div class="overflow-x-auto">
+    <!-- Suchfeld -->
+    <div class="mb-4 flex justify-end">
+      <div class="join flex items-center relative">
+        <input
+          v-model="searchTerm"
+          type="text"
+          placeholder="Suchen..."
+          class="input join-item rounded-l-full input-sm input-bordered border-1 border-base-300 text-center pr-8"
+        />
+        <button
+          v-if="searchTerm"
+          @click="searchTerm = ''"
+          class="absolute right-2 top-1/2 -translate-y-1/2 text-base text-neutral/60 hover:text-error/60"
+        >
+          <Icon icon="mdi:close-circle-outline" />
+        </button>
+        <button
+          class="btn join-item btn-sm btn-soft border border-base-300 rounded-r-full flex items-center justify-center"
+        >
+          <Icon icon="mdi:magnify" class="text-lg" />
+        </button>
+      </div>
+    </div>
+
     <table class="table w-full">
       <thead>
         <tr>
@@ -177,8 +251,8 @@ function editTransaction(tx: Transaction, index: number) {
             <div class="flex items-center">
               <template
                 v-if="
-                  displayTransactions[0] &&
-                  displayTransactions[0].type ===
+                  searchFilteredTransactions[0] &&
+                  searchFilteredTransactions[0].type ===
                     TransactionType.CATEGORYTRANSFER
                 "
               >
@@ -212,7 +286,7 @@ function editTransaction(tx: Transaction, index: number) {
         </tr>
       </thead>
       <tbody>
-        <tr v-for="(tx, index) in displayTransactions" :key="tx.id">
+        <tr v-for="(tx, index) in searchFilteredTransactions" :key="tx.id">
           <td>
             <input
               type="checkbox"

@@ -32,11 +32,17 @@ export const useMonthlyBalanceStore = defineStore('monthlyBalance', () => {
     debugLog('[monthlyBalanceStore] calculateMonthlyBalances - Start calculation')
     const months: Set<string> = new Set()
 
-    transactionStore.transactions.forEach(tx => {
-      const date = new Date(tx.date)
-      const key = `${date.getFullYear()}-${date.getMonth()}`
-      months.add(key)
-    })
+    // Prüfen, dass transactions initialisiert ist, bevor forEach verwendet wird
+    if (transactionStore.transactions) {
+      transactionStore.transactions.forEach(tx => {
+        const date = new Date(tx.date)
+        const key = `${date.getFullYear()}-${date.getMonth()}`
+        months.add(key)
+      })
+    } else {
+      debugLog('[monthlyBalanceStore] Keine Transaktionen gefunden - Erstelle nur Zukunftsmonate')
+      // Wenn keine Transaktionen vorhanden, nur Zukunftsmonate erstellen
+    }
 
     const now = new Date()
     for (let i = 0; i < 12; i++) {
@@ -84,12 +90,45 @@ export const useMonthlyBalanceStore = defineStore('monthlyBalance', () => {
       categoryBalances[category.id] = balance
     })
 
+    // Berechnung der projizierten Salden mit kumulierten Werten
+    // Wir starten mit den aktuellen Salden und addieren prognostizierte Buchungen
     const projectedAccountBalances = { ...accountBalances }
     const projectedCategoryBalances = { ...categoryBalances }
 
-    const now = new Date()
-    // In dieser Version importieren wir NICHT planningStore direkt, um die zirkuläre Abhängigkeit zu vermeiden
-    // Stattdessen lassen wir die Prognose-Aktualisierung durch den planningStore selbst anstoßen
+    // Hier können wir pottentielle Planungsbuchungen für die nächsten Monate hinzufügen
+    // In dieser Version importieren wir keine planningStore-Daten direkt,
+    // um zirkuläre Abhängigkeit zu vermeiden.
+
+    // Stattdessen berechnen wir die kumulierten projizierten Salden für kommende Monate
+    const currentMonth = new Date().getMonth()
+    const currentYear = new Date().getFullYear()
+
+    // Nur für Monate in der Zukunft kumulieren wir die projizierten Salden
+    if (year > currentYear || (year === currentYear && month > currentMonth)) {
+      // Finde den letzten bekannten Monat (vorheriger Monat)
+      const prevMonth = month === 0 ? 11 : month - 1
+      const prevYear = month === 0 ? year - 1 : year
+
+      // Suche den vorherigen Monatssaldo
+      const prevMonthBalance = monthlyBalances.value.find(
+        mb => mb.year === prevYear && mb.month === prevMonth
+      )
+
+      if (prevMonthBalance) {
+        // Kumuliere die Salden: Vormonatssaldo + aktuelle Transaktionen
+        Object.keys(prevMonthBalance.projectedAccountBalances).forEach(accountId => {
+          if (projectedAccountBalances[accountId] !== undefined) {
+            projectedAccountBalances[accountId] += prevMonthBalance.projectedAccountBalances[accountId]
+          }
+        })
+
+        Object.keys(prevMonthBalance.projectedCategoryBalances).forEach(categoryId => {
+          if (projectedCategoryBalances[categoryId] !== undefined) {
+            projectedCategoryBalances[categoryId] += prevMonthBalance.projectedCategoryBalances[categoryId]
+          }
+        })
+      }
+    }
 
     return {
       year,

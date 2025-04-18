@@ -60,6 +60,7 @@ const approximateAmount = ref(0);
 const minAmount = ref(0);
 const maxAmount = ref(0);
 const startDate = ref(dayjs().format("YYYY-MM-DD"));
+const valueDate = ref(startDate.value); // Wertstellungsdatum
 const accountId = ref("");
 const categoryId = ref<string | null>(null);
 const tagIds = ref<string[]>([]);
@@ -101,6 +102,8 @@ onMounted(() => {
     minAmount.value = props.transaction.minAmount || 0;
     maxAmount.value = props.transaction.maxAmount || 0;
     startDate.value = props.transaction.startDate;
+    valueDate.value =
+      props.transaction.valueDate || props.transaction.startDate;
     accountId.value = props.transaction.accountId;
     categoryId.value = props.transaction.categoryId;
     tagIds.value = props.transaction.tagIds || [];
@@ -157,6 +160,12 @@ watch(
     calculateUpcomingDates();
   }
 );
+
+watch(startDate, (newDate) => {
+  if (valueDate.value === startDate.value) {
+    valueDate.value = newDate;
+  }
+});
 
 function updateDateDescription() {
   if (!repeatsEnabled.value) {
@@ -372,6 +381,7 @@ function savePlanningTransaction() {
       amountType.value === AmountType.RANGE ? maxAmount.value : undefined,
     note: note.value,
     startDate: startDate.value,
+    valueDate: valueDate.value, // Hinzugefügtes Wertstellungsdatum
     endDate:
       effectiveRecurrenceEndType === RecurrenceEndType.DATE
         ? endDate.value
@@ -647,6 +657,19 @@ function saveRuleAndCloseModal(ruleData: any) {
             </label>
           </div>
         </div>
+      </div>
+
+      <!-- Wertstellungsdatum -->
+      <div class="form-control mt-4">
+        <label class="label">
+          <span class="label-text">Wertstellung</span>
+        </label>
+        <input
+          type="date"
+          v-model="valueDate"
+          class="input input-bordered"
+          required
+        />
       </div>
 
       <div v-if="repeatsEnabled" class="space-y-4 mt-2">

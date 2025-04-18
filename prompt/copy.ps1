@@ -59,7 +59,7 @@ $searchFiles = @(
      "src\components\budget\BudgetCategoryColumn.vue",
      "src\components\budget\BudgetMonthCard.vue",
     # "src\components\budget\BudgetMonthHeaderCard.vue",
-    # "src\components\budget\CategoryTransferModal.vue",
+     "src\components\budget\CategoryTransferModal.vue",
     #"src\components\budget\CategoryForm.vue",
 
     # ###Tags
@@ -98,6 +98,7 @@ $searchFiles = @(
      "src\types\*.ts"
      "src\components\ui\SearchGroup.vue",
     # "*.vue",
+    "src\mock\seed.ts",
     "*.ts"
 )
 

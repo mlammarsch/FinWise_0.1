@@ -16,6 +16,7 @@ import SearchableSelectLite from "../components/ui/SearchableSelectLite.vue";
 import { Transaction, TransactionType } from "../types";
 import { formatCurrency } from "../utils/formatters";
 import { addAccountTransfer } from "@/utils/accountTransfers";
+import { debugLog } from "@/utils/logger";
 
 const refreshKey = ref(0);
 
@@ -149,7 +150,36 @@ const filteredCategoryTransactions = computed(() => {
     const txDate = tx.valueDate.split("T")[0];
     return txDate >= start && txDate <= end;
   });
-  return txs;
+
+  if (!searchQuery.value.trim()) return txs;
+  const lower = searchQuery.value.toLowerCase();
+  const numeric = lower.replace(",", ".");
+  return txs.filter((tx) => {
+    const categoryName = tx.categoryId
+      ? categoryStore.getCategoryById(tx.categoryId)?.name?.toLowerCase() || ""
+      : "";
+    const toCategoryName = tx.toCategoryId
+      ? categoryStore.getCategoryById(tx.toCategoryId)?.name?.toLowerCase() ||
+        ""
+      : "";
+    const accountName =
+      accountStore.getAccountById(tx.accountId)?.name.toLowerCase() || "";
+    const date = tx.date;
+    const valueDate = tx.valueDate;
+    const formattedAmount = formatCurrency(tx.amount)
+      .replace(/\./g, "")
+      .replace(/,/g, ".");
+    const note = tx.note?.toLowerCase() || "";
+    return [
+      categoryName,
+      toCategoryName,
+      accountName,
+      date,
+      valueDate,
+      formattedAmount,
+      note,
+    ].some((field) => field.includes(lower) || field.includes(numeric));
+  });
 });
 
 const sortedTransactions = computed(() => {
@@ -188,6 +218,10 @@ const sortedTransactions = computed(() => {
           aVal = a.date;
           bVal = b.date;
           break;
+        case "valueDate":
+          aVal = a.valueDate || a.date;
+          bVal = b.valueDate || b.date;
+          break;
         default:
           aVal = a[sortKey.value];
           bVal = b[sortKey.value];
@@ -208,11 +242,60 @@ const sortedTransactions = computed(() => {
 
 const sortedCategoryTransactions = computed(() => {
   const list = [...filteredCategoryTransactions.value];
-  list.sort((a, b) =>
-    sortOrder.value === "asc"
-      ? a.valueDate.localeCompare(b.valueDate)
-      : b.valueDate.localeCompare(a.valueDate)
-  );
+  if (sortKey.value) {
+    list.sort((a, b) => {
+      let aVal: any, bVal: any;
+      switch (sortKey.value) {
+        case "categoryId":
+          aVal = categoryStore.getCategoryById(a.categoryId)?.name || "";
+          bVal = categoryStore.getCategoryById(b.categoryId)?.name || "";
+          break;
+        case "accountId":
+          if (
+            a.type === TransactionType.CATEGORYTRANSFER &&
+            b.type === TransactionType.CATEGORYTRANSFER
+          ) {
+            aVal = categoryStore.getCategoryById(a.toCategoryId)?.name || "";
+            bVal = categoryStore.getCategoryById(b.toCategoryId)?.name || "";
+          } else {
+            aVal = accountStore.getAccountById(a.accountId)?.name || "";
+            bVal = accountStore.getAccountById(b.accountId)?.name || "";
+          }
+          break;
+        case "amount":
+          aVal = a.amount;
+          bVal = b.amount;
+          break;
+        case "date":
+          aVal = a.date;
+          bVal = b.date;
+          break;
+        case "valueDate":
+          aVal = a.valueDate || a.date;
+          bVal = b.valueDate || b.date;
+          break;
+        default:
+          aVal = a[sortKey.value];
+          bVal = b[sortKey.value];
+      }
+      if (typeof aVal === "string" && typeof bVal === "string") {
+        return sortOrder.value === "asc"
+          ? aVal.localeCompare(bVal)
+          : bVal.localeCompare(aVal);
+      }
+      if (typeof aVal === "number" && typeof bVal === "number") {
+        return sortOrder.value === "asc" ? aVal - bVal : bVal - aVal;
+      }
+      return 0;
+    });
+  } else {
+    // Standard: nach valueDate sortieren, wenn kein sortKey
+    list.sort((a, b) =>
+      sortOrder.value === "asc"
+        ? (a.valueDate || a.date).localeCompare(b.valueDate || b.date)
+        : (b.valueDate || b.date).localeCompare(a.valueDate || a.date)
+    );
+  }
   return list;
 });
 
@@ -302,6 +385,7 @@ const deleteTransaction = (tx: Transaction) => {
   if (confirm("Möchten Sie diese Transaktion wirklich löschen?")) {
     transactionStore.deleteTransaction(tx.id);
     showTransactionDetailModal.value = false;
+    debugLog("[TransactionsView] deleteTransaction", { id: tx.id });
   }
 };
 
@@ -314,6 +398,7 @@ function clearFilters() {
   }
   selectedCategoryId.value = "";
   searchQuery.value = "";
+  debugLog("[TransactionsView] clearFilters");
 }
 
 // Filter-Persistenz
@@ -322,12 +407,21 @@ onMounted(() => {
   if (savedTag !== null) selectedTagId.value = savedTag;
   const savedCat = localStorage.getItem("transactionsView_selectedCategoryId");
   if (savedCat !== null) selectedCategoryId.value = savedCat;
+  const savedView = localStorage.getItem("transactionsView_viewMode");
+  if (savedView === "account" || savedView === "category") {
+    currentViewMode.value = savedView;
+  }
+  debugLog("[TransactionsView] onMounted - Loaded saved filters");
 });
+
 watch(selectedTagId, (newVal) => {
   localStorage.setItem("transactionsView_selectedTagId", newVal);
 });
 watch(selectedCategoryId, (newVal) => {
   localStorage.setItem("transactionsView_selectedCategoryId", newVal);
+});
+watch(currentViewMode, (newVal) => {
+  localStorage.setItem("transactionsView_viewMode", newVal);
 });
 </script>
 
@@ -339,25 +433,27 @@ watch(selectedCategoryId, (newVal) => {
       @search="(query) => (searchQuery = query)"
       @btn-right-click="createTransaction"
     />
-    <!-- Umschalt-Buttons -->
-    <div class="flex space-x-4 mb-2">
-      <button
-        :class="
-          currentViewMode === 'account' ? 'btn btn-primary' : 'btn btn-ghost'
-        "
+
+    <!-- Umschalter zwischen Tabs -->
+    <div class="tabs tabs-boxed mb-4">
+      <a
+        class="tab"
+        :class="{ 'tab-active': currentViewMode === 'account' }"
         @click="currentViewMode = 'account'"
       >
+        <Icon icon="mdi:bank" class="mr-2" />
         Kontobuchungen
-      </button>
-      <button
-        :class="
-          currentViewMode === 'category' ? 'btn btn-primary' : 'btn btn-ghost'
-        "
+      </a>
+      <a
+        class="tab"
+        :class="{ 'tab-active': currentViewMode === 'category' }"
         @click="currentViewMode = 'category'"
       >
+        <Icon icon="mdi:folder-multiple" class="mr-2" />
         Kategoriebuchungen
-      </button>
+      </a>
     </div>
+
     <!-- Filterleiste und Liste abhängig vom Modus -->
     <div v-if="currentViewMode === 'account'">
       <div class="card bg-base-100 shadow-md border border-base-300">
@@ -459,10 +555,7 @@ watch(selectedCategoryId, (newVal) => {
             class="btn btn-sm btn-ghost btn-circle self-end mb-1"
             @click="clearFilters"
           >
-            <Icon
-              icon="mdi:filter-off"
-              class="text-xl"
-            />
+            <Icon icon="mdi:filter-off" class="text-xl" />
           </button>
         </div>
         <div class="divider px-5 m-0" />
@@ -524,10 +617,7 @@ watch(selectedCategoryId, (newVal) => {
             class="btn btn-sm btn-ghost btn-circle self-end mb-1"
             @click="clearFilters"
           >
-            <Icon
-              icon="mdi:filter-off"
-              class="text-xl"
-            />
+            <Icon icon="mdi:filter-off" class="text-xl" />
           </button>
         </div>
         <div class="divider px-5 m-0" />
@@ -565,10 +655,7 @@ watch(selectedCategoryId, (newVal) => {
     </Teleport>
     <!-- Formular-Modal -->
     <Teleport to="body">
-      <div
-        v-if="showTransactionFormModal"
-        class="modal modal-open"
-      >
+      <div v-if="showTransactionFormModal" class="modal modal-open">
         <div class="modal-box overflow-visible relative w-full max-w-2xl">
           <TransactionForm
             :transaction="selectedTransaction"
