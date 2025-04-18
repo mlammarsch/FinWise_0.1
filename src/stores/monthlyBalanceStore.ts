@@ -4,7 +4,6 @@ import { ref, computed } from 'vue'
 import { useAccountStore } from './accountStore'
 import { useCategoryStore } from './categoryStore'
 import { useTransactionStore } from './transactionStore'
-import { usePlanningStore } from './planningStore'
 import { toDateOnlyString } from '@/utils/formatters'
 import { debugLog } from '@/utils/logger'
 
@@ -28,7 +27,6 @@ export const useMonthlyBalanceStore = defineStore('monthlyBalance', () => {
   const accountStore = useAccountStore()
   const categoryStore = useCategoryStore()
   const transactionStore = useTransactionStore()
-  const planningStore = usePlanningStore()
 
   function calculateMonthlyBalances() {
     debugLog('[monthlyBalanceStore] calculateMonthlyBalances - Start calculation')
@@ -90,32 +88,8 @@ export const useMonthlyBalanceStore = defineStore('monthlyBalance', () => {
     const projectedCategoryBalances = { ...categoryBalances }
 
     const now = new Date()
-    if (startDate >= now) {
-      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 12, 0)
-      const futureTransactions = planningStore.getUpcomingTransactions(
-        Math.ceil((monthEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-      )
-
-      futureTransactions.forEach(({ date, transaction }) => {
-        const txDate = new Date(date)
-        if (txDate >= startDate && txDate <= endDate) {
-          if (transaction.accountId) {
-            projectedAccountBalances[transaction.accountId] =
-              (projectedAccountBalances[transaction.accountId] || 0) + transaction.amount
-          }
-
-          if (transaction.categoryId) {
-            projectedCategoryBalances[transaction.categoryId] =
-              (projectedCategoryBalances[transaction.categoryId] || 0) + transaction.amount
-          }
-
-          if (transaction.transactionType === 'ACCOUNTTRANSFER' && transaction.transferToAccountId) {
-            projectedAccountBalances[transaction.transferToAccountId] =
-              (projectedAccountBalances[transaction.transferToAccountId] || 0) + Math.abs(transaction.amount)
-          }
-        }
-      })
-    }
+    // In dieser Version importieren wir NICHT planningStore direkt, um die zirkuläre Abhängigkeit zu vermeiden
+    // Stattdessen lassen wir die Prognose-Aktualisierung durch den planningStore selbst anstoßen
 
     return {
       year,

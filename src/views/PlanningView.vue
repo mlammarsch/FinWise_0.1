@@ -49,6 +49,12 @@ const selectedAccountId = ref("");
 // Aktive Registerkarte
 const activeTab = ref<"upcoming" | "accounts" | "categories">("upcoming");
 
+// Für die Anzeige des letzten Updates
+const lastUpdateDate = computed(() => {
+  const timestamp = localStorage.getItem("finwise_last_forecast_update");
+  return timestamp ? new Date(parseInt(timestamp)) : null;
+});
+
 // Hilfsfunktion: Formatiert Datum
 function handleDateRangeUpdate(payload: { start: string; end: string }) {
   dateRange.value = payload;
@@ -180,6 +186,17 @@ function executeAutomaticTransactions() {
   alert(`${count} automatische Planungsbuchungen ausgeführt.`);
 }
 
+// Funktion zum manuellen Aktualisieren der Prognosen
+const updateForecasts = () => {
+  if (planningStore.checkAndUpdateForecast) {
+    planningStore.checkAndUpdateForecast();
+    alert("Prognosen wurden aktualisiert.");
+  } else {
+    monthlyBalanceStore.calculateMonthlyBalances();
+    alert("Monatliche Saldi wurden aktualisiert.");
+  }
+};
+
 // Beim Laden: Prüfen auf automatische Planungen
 onMounted(() => {
   // Monatliche Saldos berechnen
@@ -209,7 +226,18 @@ onMounted(() => {
     <!-- Kopfzeile mit Titel und Aktionen -->
     <div class="flex justify-between items-center">
       <h2 class="text-xl font-bold">Finanzplanung und Prognose</h2>
-      <div class="flex space-x-2">
+      <div class="flex items-center gap-3">
+        <div class="text-sm opacity-70" v-if="lastUpdateDate">
+          Prognosen aktualisiert am: {{ formatDate(lastUpdateDate) }}
+        </div>
+        <button
+          class="btn btn-outline"
+          @click="updateForecasts"
+          title="Prognosen aktualisieren"
+        >
+          <Icon icon="mdi:refresh" class="mr-2" />
+          Prognosen aktualisieren
+        </button>
         <button class="btn btn-outline" @click="executeAutomaticTransactions">
           <Icon icon="mdi:play-circle" class="mr-2" />
           Auto-Ausführen

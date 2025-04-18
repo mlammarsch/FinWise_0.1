@@ -1,28 +1,17 @@
-1. Beim Öffnen der Select Account kommt Konsolenfehler:
-main.ts:21 <Suspense> is an experimental feature and its API will likely change.
-chunk-U3LI7FBV.js?v=8003b7b0:2116 [Vue warn]: Unhandled error during execution of native event handler
-  at <SelectAccount modelValue="59fe7044-baa2-4b79-ac57-2305aceac92c" onUpdate:modelValue=fn >
-  at <PlanningTransactionForm onSave=fn<savePlanning> onCancel=fn >
-  at <PlanningView onVnodeUnmounted=fn<onVnodeUnmounted> ref=Ref< Proxy(Object) {__v_skip: true} > key=0 >
-  at <RouterView>
-  at <AppLayout>
-  at <App>
-warn$1 @ chunk-U3LI7FBV.js?v=8003b7b0:2116
-logError @ chunk-U3LI7FBV.js?v=8003b7b0:2327
-handleError @ chunk-U3LI7FBV.js?v=8003b7b0:2319
-callWithErrorHandling @ chunk-U3LI7FBV.js?v=8003b7b0:2265
-callWithAsyncErrorHandling @ chunk-U3LI7FBV.js?v=8003b7b0:2270
-invoker @ chunk-U3LI7FBV.js?v=8003b7b0:11202
-chunk-U3LI7FBV.js?v=8003b7b0:2332 Uncaught ReferenceError: nextTick is not defined
-    at toggleDropdown (SelectAccount.vue:160:5)
-    at callWithErrorHandling (chunk-U3LI7FBV.js?v=8003b7b0:2263:19)
-    at callWithAsyncErrorHandling (chunk-U3LI7FBV.js?v=8003b7b0:2270:17)
-    at HTMLInputElement.invoker (chunk-U3LI7FBV.js?v=8003b7b0:11202:5)
-toggleDropdown @ SelectAccount.vue:160
-callWithErrorHandling @ chunk-U3LI7FBV.js?v=8003b7b0:2263
-callWithAsyncErrorHandling @ chunk-U3LI7FBV.js?v=8003b7b0:2270
-invoker @ chunk-U3LI7FBV.js?v=8003b7b0:11202
-
-2. In den anstehenden Buchungen erscheinen künftige Buchungen keine 24 Monate lang. Ich möchte bspw. eine Endlos angelegte, sich monatlich wiederholende Buchung bis 24 Monate in den anstehenden Buchungen sehen. Diese Werte werden auch gebraucht zur Kontoprognosendarstellung. Wie weit in die Zukunft werden angelegte Planbuchungen interpoliert?
-
-3. Unbedingt prüfen, warum eine ausgeführte Planbuchung noch minutenlang in den Anstehenden Buchungen im PlanningView stehenbleibt und dann erst verschwindet. Außerdem werden weder Kontosalden aktualisiert, noch sieht man diese auto angelegten  Transaktion in TransactionList und Accountview (Transactionlist). Ausgeführte Planbuchungen müssen komplett alles aktualisieren.
+1. Der Suchmechanismuss (Searchgroup) in der Transactionlist / TransactionView greift nur bei der Transactionlist. Wenn ich auf die Kategorienbuchung gehe, möchte ich auch dort filtern können.
+3. Die Kontoprognosen stimmen nicht. Die Prognostizierten Salden von Regelbuchungsen müssen kumuliert dargestellt sein. Im Moment ist in jedem Zukunftsmonat der prognostizierte Saldo gleich der Ausgabe oder Einnahme im jeweiligen Monat. Bitte auch bei den Kategorieprognosen Berücksichtigen. Außerdem ist Bei der Saldenberechnung immer vom aktuellen Kontostand des Kontos oder der Kategorie auszugehen und die Prognosebuchungen sind dort aufzusummieren, passend der prognostizierten Buchungsdaten (Buchungstage).
+4. Bringe bei der Planbuchung auch das dateValue mit ein. In der src\components\planning\PlanningTransactionForm.vue muss das setzbar sein. Das Verhalten und Zusammenspiel beider Felder bei der src\components\transaction\TransactionForm.vue abschauen. Änderung Date nimmt Wertstellung immer mit. Wertstellung verändert nichts an Date.
+5. In der Select Account kann ich nicht mit den Pfeiltasten navigieren. Bitte diese Navigation an der SelectCategory abschauen und genauso umsetzen.
+6. Wenn ich in einem Incognitobrowser die Website erstmals öffne ohne Daten zu haben, erscheint folgende Meldung:
+monthlyBalanceStore.ts:35 Uncaught TypeError: Cannot read properties of undefined (reading 'forEach')
+    at calculateMonthlyBalances (monthlyBalanceStore.ts:35:35)
+    at loadMonthlyBalances (monthlyBalanceStore.ts:221:7)
+    at monthlyBalanceStore.ts:231:3
+    at pinia.js?v=505609c2:1171:96
+    at EffectScope.run (chunk-U3LI7FBV.js?v=505609c2:365:16)
+    at pinia.js?v=505609c2:1171:86
+    at EffectScope.run (chunk-U3LI7FBV.js?v=505609c2:365:16)
+    at pinia.js?v=505609c2:1171:52
+    at fallbackRunWithContext (pinia.js?v=505609c2:929:38)
+    at createSetupStore (pinia.js?v=505609c2:1171:22)
+7. Kann es sein, dass der Browser nicht mitbekommt, welches Systemdatum wir haben? Ich stelle künstlich das Datum um und möchte eine Planbuchung durchführen. Wenn ich dann auch Auto-Ausführen klicke, kommt eine Browserabfrage mit der Info: 0 automatische Planungsbuchungen ausgeführt. Ich dachte, wenn ich diesen Button klicke, prüft die App das Systemdatum und führt die Buchungen durch die <= Planbuchungstag sind? Da liegt ein Fehler vor. Außerdem werden gebuchte Planbuchungen nicht im Transactionstore angezeigt. Es werden keine Buchungen angelegt, so dass sich alle Transaktionslisten nicht verändern. Da ist ein Bug.

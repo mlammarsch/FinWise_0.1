@@ -13,6 +13,7 @@ import { ref, computed, watch, onMounted, defineExpose } from "vue";
 import { useAccountStore } from "@/stores/accountStore";
 import CurrencyDisplay from "./CurrencyDisplay.vue";
 import { debugLog } from "@/utils/logger";
+import { nextTick } from "vue";
 
 const props = defineProps<{
   modelValue?: string;
