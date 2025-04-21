@@ -2,16 +2,17 @@
 <script setup lang="ts">
 /**
  * Pfad zur Komponente: src/components/budget/BudgetMonthCard.vue
- * Zeigt pro Monat die Budget‑, Transaktions‑ und Saldo‑Werte an. Nutzt BudgetService.
+ * Zeigt pro Monat die Budget‑, Transaktions‑ und Saldo‑Werte an.
  *
  * Props:
  * - month: { start: Date; end: Date; label: string }
  * - categories: Category[]
  *
- * Interne Logik:
- * - Rechtsklick öffnet Context‑Dropdown
- * - Dropdown schließt bei Blur (mit Fokus‑Check)
- * - Öffnen des CategoryTransferModal
+ * Rechtsklick öffnet ein Context‑Dropdown.
+ * Das Dropdown schließt bei Blur, ESC oder Klick außerhalb.
+ * Über das Dropdown kann man entweder
+ *  – „Transferiere zu …“ (Mode: transfer)
+ *  – „Fülle auf von …“ (Mode: fill) aufrufen.
  */
 import { computed, ref, nextTick } from "vue";
 import { useCategoryStore } from "../../stores/categoryStore";
@@ -30,7 +31,13 @@ const props = defineProps<{
 const categoryStore = useCategoryStore();
 const budgetService = BudgetService;
 
-// Normalisiertes Monats‑Intervall
+// Kategorie für verfügbare Mittel und Filter-Funktion
+const availableFundsCategory = categoryStore.getAvailableFundsCategory();
+function isVerfuegbareMittel(cat: Category) {
+  return availableFundsCategory?.id === cat.id;
+}
+
+// Normalisierte Zeitgrenzen
 const normalizedMonthStart = computed(
   () => new Date(toDateOnlyString(props.month.start))
 );
@@ -38,12 +45,7 @@ const normalizedMonthEnd = computed(
   () => new Date(toDateOnlyString(props.month.end))
 );
 
-// „Verfügbare Mittel“-Kategorie
-const availableFundsCategory = categoryStore.getAvailableFundsCategory();
-const isVerfuegbareMittel = (cat: Category) =>
-  availableFundsCategory?.id === cat.id;
-
-// BudgetService‑Wrapper
+// Hilfsfunktionen für Budget‑Daten
 function getAggregatedData(cat: Category) {
   return budgetService.getAggregatedMonthlyBudgetData(
     cat.id,
@@ -59,7 +61,7 @@ function getSingleCategoryData(catId: string) {
   );
 }
 
-// Prüft, ob wir im aktuellen Monat sind
+// Prüft, ob wir aktuell im selben Monat sind
 const isCurrentMonth = computed(() => {
   const now = new Date();
   return (
@@ -68,7 +70,7 @@ const isCurrentMonth = computed(() => {
   );
 });
 
-// Gesamtsummen für Kopfzeile
+// Summen für Kopfzeilen
 const sumExpensesSummary = computed(() =>
   budgetService.getMonthlySummary(
     normalizedMonthStart.value,
@@ -84,13 +86,14 @@ const sumIncomesSummary = computed(() =>
   )
 );
 
-// Context‑Dropdown & Modal State
+// Context‑Dropdown
 const showDropdown = ref(false);
 const dropdownX = ref(0);
 const dropdownY = ref(0);
 const containerRef = ref<HTMLElement | null>(null);
 const dropdownRef = ref<HTMLElement | null>(null);
 
+// Modal‑State
 const showTransferModal = ref(false);
 const modalData = ref<{
   mode: "fill" | "transfer";
@@ -99,12 +102,10 @@ const modalData = ref<{
 } | null>(null);
 
 /**
- * Öffnet das Context‑Dropdown an Mausposition
+ * Rechtsklick → Dropdown öffnen
  */
 function openDropdown(event: MouseEvent, cat: Category) {
   event.preventDefault();
-  debugLog("[BudgetMonthCard] openDropdown", { category: cat });
-
   if (containerRef.value) {
     const rect = containerRef.value.getBoundingClientRect();
     dropdownX.value = event.clientX - rect.left;
@@ -117,18 +118,18 @@ function openDropdown(event: MouseEvent, cat: Category) {
   modalData.value = { mode: "transfer", clickedCategory: cat, amount: 0 };
   showDropdown.value = true;
   nextTick(() => dropdownRef.value?.focus());
+  debugLog("[BudgetMonthCard] openDropdown", { category: cat });
 }
 
 /**
- * Schließt das Dropdown
+ * Dropdown schließen
  */
 function closeDropdown() {
   showDropdown.value = false;
 }
 
 /**
- * Blur‑Handler: schließt nur, wenn der neue Fokus NICHT
- * ins Dropdown hineinführt.
+ * Blur-Handler: schließt nur, wenn Fokus NICHT ins Dropdown springt
  */
 function onDropdownBlur(e: FocusEvent) {
   const next = e.relatedTarget as HTMLElement | null;
@@ -138,7 +139,7 @@ function onDropdownBlur(e: FocusEvent) {
 }
 
 /**
- * Option: Transfer zu…
+ * Menüpunkt „Transferiere zu …“
  */
 function optionTransfer() {
   if (!modalData.value?.clickedCategory) return;
@@ -150,7 +151,7 @@ function optionTransfer() {
 }
 
 /**
- * Option: Fülle auf…
+ * Menüpunkt „Fülle auf von …“
  */
 function optionFill() {
   if (!modalData.value?.clickedCategory) return;
@@ -164,7 +165,7 @@ function optionFill() {
 }
 
 /**
- * Wird vom Modal emittet, um Transfer auszuführen
+ * Ausführung des Transfers (wird vom Modal emittet)
  */
 function executeTransfer(payload: {
   transactionId?: string;
@@ -177,7 +178,7 @@ function executeTransfer(payload: {
 }) {
   showTransferModal.value = false;
   debugLog("[BudgetMonthCard] executeTransfer", payload);
-  // TODO: Persistenz via Service oder Store
+  // TODO: Persistiere hier über BudgetService oder Store
 }
 </script>
 
@@ -254,7 +255,7 @@ function executeTransfer(payload: {
               class="grid grid-cols-3 p-2 border-b border-base-200 cursor-context-menu hover:bg-base-200"
               @contextmenu="openDropdown($event, cat)"
             >
-              <div class="text-right text-base">
+              <div class="text-right">
                 <CurrencyDisplay
                   :amount="getAggregatedData(cat).budgeted"
                   :as-integer="true"
@@ -293,7 +294,7 @@ function executeTransfer(payload: {
                 class="grid grid-cols-3 pl-6 text-sm p-2 border-b border-base-200 cursor-context-menu hover:bg-base-200/50"
                 @contextmenu="openDropdown($event, child)"
               >
-                <div class="text-right text-base">
+                <div class="text-right">
                   <CurrencyDisplay
                     :amount="getSingleCategoryData(child.id).budgeted"
                     :as-integer="true"
@@ -333,29 +334,21 @@ function executeTransfer(payload: {
               <CurrencyDisplay
                 :amount="sumIncomesSummary.budgeted"
                 :as-integer="true"
-                :class="
-                  sumIncomesSummary.budgeted >= 0 ? 'text-base' : 'text-error'
-                "
+                class="text-success"
               />
             </div>
             <div class="text-right">
               <CurrencyDisplay
                 :amount="sumIncomesSummary.spentMiddle"
                 :as-integer="true"
-                :class="
-                  sumIncomesSummary.spentMiddle >= 0
-                    ? 'text-base'
-                    : 'text-error'
-                "
+                class="text-base"
               />
             </div>
             <div class="text-right">
               <CurrencyDisplay
                 :amount="sumIncomesSummary.saldoFull"
                 :as-integer="true"
-                :class="
-                  sumIncomesSummary.saldoFull >= 0 ? 'text-base' : 'text-error'
-                "
+                class="text-base"
               />
             </div>
           </div>
@@ -370,37 +363,25 @@ function executeTransfer(payload: {
             :key="cat.id"
           >
             <div class="grid grid-cols-3 p-2 border-b border-base-200">
-              <div class="text-right text-base">
+              <div class="text-right">
                 <CurrencyDisplay
                   :amount="getAggregatedData(cat).budgeted"
                   :as-integer="true"
-                  :class="
-                    getAggregatedData(cat).budgeted >= 0
-                      ? 'text-base'
-                      : 'text-error'
-                  "
+                  class="text-success"
                 />
               </div>
               <div class="text-right">
                 <CurrencyDisplay
                   :amount="getAggregatedData(cat).spent"
                   :as-integer="true"
-                  :class="
-                    getAggregatedData(cat).spent >= 0
-                      ? 'text-base'
-                      : 'text-error'
-                  "
+                  class="text-base"
                 />
               </div>
               <div class="text-right">
                 <CurrencyDisplay
                   :amount="getAggregatedData(cat).saldo"
                   :as-integer="true"
-                  :class="
-                    getAggregatedData(cat).saldo >= 0
-                      ? 'text-base'
-                      : 'text-error'
-                  "
+                  class="text-base"
                 />
               </div>
             </div>
@@ -413,65 +394,30 @@ function executeTransfer(payload: {
                 :key="child.id"
                 class="grid grid-cols-3 pl-6 text-sm p-2 border-b border-base-200"
               >
-                <div class="text-right text-base">
+                <div class="text-right">
                   <CurrencyDisplay
                     :amount="getSingleCategoryData(child.id).budgeted"
                     :as-integer="true"
-                    :class="
-                      getSingleCategoryData(child.id).budgeted >= 0
-                        ? 'text-base'
-                        : 'text-error'
-                    "
+                    class="text-success"
                   />
                 </div>
                 <div class="text-right">
                   <CurrencyDisplay
                     :amount="getSingleCategoryData(child.id).spent"
                     :as-integer="true"
-                    :class="
-                      getSingleCategoryData(child.id).spent >= 0
-                        ? 'text-base'
-                        : 'text-error'
-                    "
+                    class="text-base"
                   />
                 </div>
                 <div class="text-right">
                   <CurrencyDisplay
                     :amount="getSingleCategoryData(child.id).saldo"
                     :as-integer="true"
-                    :class="
-                      getSingleCategoryData(child.id).saldo >= 0
-                        ? 'text-base'
-                        : 'text-error'
-                    "
+                    class="text-base"
                   />
                 </div>
               </div>
             </template>
           </template>
-        </div>
-
-        <!-- Verfügbare Mittel -->
-        <div
-          v-if="availableFundsCategory"
-          class="p-2 border-b border-base-300 mt-4 mb-2 bg-base-200 rounded"
-        >
-          <div class="grid grid-cols-3">
-            <div class="col-span-2 font-bold">
-              {{ availableFundsCategory.name }}
-            </div>
-            <div class="text-right font-bold">
-              <CurrencyDisplay
-                :amount="getAggregatedData(availableFundsCategory).saldo"
-                :as-integer="true"
-                :class="
-                  getAggregatedData(availableFundsCategory).saldo >= 0
-                    ? 'text-base'
-                    : 'text-error'
-                "
-              />
-            </div>
-          </div>
         </div>
 
         <!-- Kontext‑Dropdown -->
@@ -486,33 +432,16 @@ function executeTransfer(payload: {
         >
           <ul>
             <li>
+              <button class="btn btn-ghost btn-sm w-full" @click="optionFill">
+                Fülle auf von …
+              </button>
+            </li>
+            <li>
               <button
                 class="btn btn-ghost btn-sm w-full"
                 @click="optionTransfer"
               >
-                Transferiere zu…
-              </button>
-            </li>
-            <li
-              v-if="
-                modalData?.clickedCategory &&
-                getAggregatedData(modalData.clickedCategory).saldo < 0
-              "
-            >
-              <button class="btn btn-ghost btn-sm w-full" @click="optionFill">
-                Fülle von…
-                <span class="badge badge-sm badge-primary ml-1">
-                  <CurrencyDisplay
-                    :amount="
-                      modalData
-                        ? Math.abs(
-                            getAggregatedData(modalData.clickedCategory!).saldo
-                          )
-                        : 0
-                    "
-                    :as-integer="true"
-                  />
-                </span>
+                Transferiere zu …
               </button>
             </li>
           </ul>
