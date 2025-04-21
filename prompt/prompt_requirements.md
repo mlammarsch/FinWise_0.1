@@ -1,29 +1,33 @@
-Ziel: Implementierung eines "Forecast Only"-Modus in der Planungsübersicht, um präzise Prognosebuchungen zu ermöglichen, ohne dabei tatsächliche finanzielle Transaktionen auszulösen.  Dieser Modus soll die Planung von zukünftigen finanziellen Szenarien erleichtern, ohne die aktuellen Finanzdaten zu beeinträchtigen.
+Ziel: Umfassende Fehlerbehebung und Optimierung der Planbuchungsfunktionen, um eine zuverlässige und genaue Verarbeitung von Planbuchungen, insbesondere im Hinblick auf vergangene, überfällige und regelmäßige Buchungen, zu gewährleisten.
 
 Kontext:
 
-Aktuell existiert in der PlaningTransactionForm ein "Auto Ausführen"-Button, der Planbuchungen mit aktiviertem "Automatisch Ausführen"-Schalter verarbeitet.
+Beim Anlegen einer Planbuchung wird das erste Datum als das erste geplante Ausführungsdatum festgelegt.
+Für Regelbuchungen wird eine Prognose generiert, wobei die Folgevorkommnisse automatisch berechnet werden (bereits implementiert).
+Die Funktionen executeAutomaticTransactions() und executePlanning(planningId: string, date: string) sind für die korrekte Ausführung der Planbuchungen entscheidend.
 
 Aufgaben:
 
-UI-Änderung:
+executeAllDuePlanningTransactions():
 
-Ersetze den bestehenden "Automatisch Ausführen"-Schalter durch eine klare und intuitive "Forecast Only"-Option (Checkbox oder Toggle-Switch).
-Benenne den "Auto Ausführen"-Button in "Nur Prognosebuchung" um, um die Funktion klar zu kommunizieren.
+Korrigiere die Funktion so, dass sie alle vergangenen, noch auszuführenden Planbuchungen identifiziert und verarbeitet. Derzeit werden ausschließlich Planbuchungen berücksichtigt, deren Ausführungsdatum exakt dem aktuellen Systemdatum entspricht.
+Berücksichtige bei der Suche nach überfälligen Buchungen die Zeitzone des Systems und die Zeitzone der Planbuchung, um Inkonsistenzen zu vermeiden.
+Stelle sicher, dass die Funktion effizient ist und keine unnötigen Datenbankabfragen verursacht, insbesondere bei großen Datenmengen.
 
-Logik des "Forecast Only"-Modus:
+Regelbuchungen (Folgebuchungen):
 
-"Forecast Only" aktiviert (true):
+Passe die Funktion so an, dass bei Regelbuchungen, die mehrere Ausführungsdaten in der Vergangenheit überfällig sind (z.B. eine monatliche Planung mit zwei Monaten Überschreitung), die fehlenden Folgebuchungen automatisiert anhand der bestehenden Regel kalkuliert und ausgeführt werden.
+Implementiere eine Logik, die verhindert, dass bei der Erstellung von Folgebuchungen unendliche Schleifen entstehen.
+Dokumentiere die Logik zur Berechnung der Folgebuchungen detailliert, um die Wartbarkeit zu gewährleisten.
 
-Beim Klicken des "Auto-Ausführen"-Buttons in der PlanningView sollen ausschließlich die Daten der Planbuchungen auf das nächste geplante Ereignisdatum basierend der Planbuchungseinstellung (Intervall, Einzelbuchung, etc.) aktualisiert werden. Die Funktion executeAutomaticTransactions() und executePlanning(planningId: string, date: string) soll im "Forecast Only"-Modus so angepasst werden, dass keine realen Transaktionen im Transaction Service angelegt werden. Der bisherige "Auto Ausführen"-Schalter in der Form und dessen zugehörige Logik werden vollständig ersetzt, bzw. abgeändert.
-Bei solch markierten Planbuchungen erfolgt nur die Datumsumstellung auf die nächste Fälligkeit. Danach müssen alle Prognosesalden aktualisiert werden. Filterung der aufzusuchenden Planbuchungen ist Datum der Planbuchung inkl. seiner Prognosen, deren Datum <= heute sind (Bei Regelbuchung auch die Prognosen einbeziehen!). Hier ist gerade ein Fehler, der nur Planbuchungen sucht, die dem aktuellen Systemdatum gleich kommen. Prognosebuchungen in der Zukunft liegend, bleiben unbeachtet.
+executeAutomaticTransactions() und executePlanning(planningId: string, date: string):
 
-"Forecast Only" deaktiviert (false):
-
-Das gleiche Verhalten wie unter true. Ausnahme hier: Es müsse realte Transaktionen angelegt werden. Nicht nur Kategorietransaktionen, sondern auch Kontotransaktionen. Type INCOME und EXPENSE abhängig ob reine Ausgabe mit Kategorie oder ohne. Oder aber bei aktivierter Konto Transfer Planbuchung ein ACCOUNTTRANSFER von Quellkonto zu Zielkonto ohne Kategorie
+Überprüfe und behebe alle weiteren Fehler in diesen Funktionen, die im Zusammenhang mit der Ausführung von Planbuchungen stehen.
+Implementiere eine robuste Fehlerbehandlung in diesen Funktionen, um unerwartete Ausnahmen abzufangen und aussagekräftige Fehlermeldungen zu protokollieren.
 
 Erwartetes Ergebnis:
 
-- Ein vollständig implementierter und funktionierender "Forecast Only"-Modus in der Planungsübersicht.
-- Sicherstellung, dass keine realen Transaktionen bei aktivierter "Forecast Only"-Option erzeugt werden. Die entsprechenden Funktionen gibt es bereits in den Transactiondateien und müssen nur richtig aufgerufen werden abhängig des Buchungstyps.
-- Klare und verständliche UI-Elemente zur Bedienung des "Forecast Only"-Modus.
+Eine vollständig korrigierte und optimierte executeAllDuePlanningTransactions()-Funktion, die alle überfälligen Planbuchungen zuverlässig verarbeitet.
+Eine fehlerfreie und automatisierte Erstellung von Folgebuchungen für überfällige Regelbuchungen.
+Robuste und zuverlässige executeAutomaticTransactions() und executePlanning()-Funktionen, die alle Planbuchungen korrekt ausführen.
+Aussagekräftige Protokollierung von Fehlermeldungen, um die Fehlersuche zu erleichtern.

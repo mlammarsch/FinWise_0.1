@@ -41,13 +41,21 @@ export const usePlanningStore = defineStore('planning', () => {
   // Verbesserte Version der getUpcomingTransactions-Funktion für längere Zeiträume
   const getUpcomingTransactions = computed(() => {
     return (days: number = 30) => {
-      // Prüfe, ob ein wöchentliches Update erforderlich ist
       checkAndUpdateForecast()
 
-      const today = dayjs()
-      // Bei Bedarf erlauben wir einen längeren Prognosezeitraum von bis zu forecastMonths.value
+      // Ermittle als Referenzdatum das älteste Datum in der Vergangenheit von offenen Planbuchungen
+      let referenceDate = dayjs()
+      const activePastPlans = planningTransactions.value.filter(tx =>
+        tx.isActive && dayjs(tx.startDate).isBefore(dayjs())
+      )
+      if (activePastPlans.length > 0) {
+        referenceDate = activePastPlans.reduce((min, tx) =>
+          dayjs(tx.startDate).isBefore(min) ? dayjs(tx.startDate) : min, dayjs(activePastPlans[0].startDate)
+        )
+      }
+
       const requestedDays = days > 0 ? days : forecastMonths.value * 30
-      const endDate = today.add(requestedDays, 'day')
+      const endDate = referenceDate.add(requestedDays, 'day')
       const upcoming: Array<{ date: string, transaction: PlanningTransaction }> = []
 
       planningTransactions.value
@@ -55,10 +63,9 @@ export const usePlanningStore = defineStore('planning', () => {
         .forEach(planTx => {
           const occurrences = calculateNextOccurrences(
             planTx,
-            toDateOnlyString(today.toDate()),
+            toDateOnlyString(referenceDate.toDate()),
             toDateOnlyString(endDate.toDate())
           )
-
           occurrences.forEach(date => {
             upcoming.push({ date, transaction: planTx })
           })
@@ -276,81 +283,92 @@ export const usePlanningStore = defineStore('planning', () => {
 
   // Funktion zum Ausführen einer geplanten Transaktion
   function executePlanningTransaction(planningId: string, executionDate: string) {
-    const planning = getPlanningTransactionById.value(planningId)
-    if (!planning) {
-      debugLog('[planningStore] executePlanningTransaction - Planning not found', { planningId })
-      return false
-    }
+    try {
+      const planning = getPlanningTransactionById.value(planningId)
+      if (!planning) {
+        debugLog('[planningStore] executePlanningTransaction - Planning not found', { planningId })
+        return false
+      }
 
-    // Forecast Only Modus: Keine realen Transaktionen; nur Datum anpassen und Prognosen aktualisieren
-    if (planning.forecastOnly) {
-      // Beispielhafte Logik: Verschiebe das Startdatum auf den übergebenen Ausführungstermin
-      planning.startDate = executionDate;
-      savePlanningTransactions();
-      monthlyBalanceStore.calculateMonthlyBalances();
-      debugLog('[planningStore] executePlanningTransaction - Forecast Only activated', {
+      // Forecast Only Modus: Keine realen Transaktionen; nur Datum anpassen und Prognosen aktualisieren
+      if (planning.forecastOnly) {
+        planning.startDate = executionDate;
+        savePlanningTransactions();
+        monthlyBalanceStore.calculateMonthlyBalances();
+        debugLog('[planningStore] executePlanningTransaction - Forecast Only activated', {
+          planningId: planning.id,
+          newStartDate: executionDate
+        });
+        return true;
+      }
+
+      // Neue Transaktion aus der Planung erstellen
+      const transaction = {
+        date: executionDate,
+        valueDate: planning.valueDate || executionDate,
+        amount: planning.amount,
+        type: planning.transactionType || (planning.amount < 0 ? TransactionType.EXPENSE : TransactionType.INCOME),
+        description: planning.description || '',
+        note: planning.note || '',
+        accountId: planning.accountId,
+        transferToAccountId: planning.transferToAccountId || '',
+        categoryId: planning.categoryId || '',
+        tagIds: planning.tagIds || [],
+        recipientId: planning.recipientId || '',
+        planningId: planning.id
+      }
+
+      const newTx = TransactionService.addTransaction(transaction)
+
+      debugLog('[planningStore] executePlanningTransaction', {
         planningId: planning.id,
-        newStartDate: executionDate
-      });
+        name: planning.name,
+        executionDate,
+        transactionId: newTx.id
+      })
+
+      const ruleStore = useRuleStore()
+      ruleStore.applyRulesToTransaction(newTx)
+      monthlyBalanceStore.calculateMonthlyBalances()
+
       return true;
+    } catch (error) {
+      debugLog('[planningStore] executePlanningTransaction - Error executing transaction', { planningId, executionDate, error });
+      return false;
     }
-
-    // Neue Transaktion aus der Planung erstellen
-    const transaction = {
-      date: executionDate,
-      valueDate: planning.valueDate || executionDate,
-      amount: planning.amount,
-      type: planning.transactionType || (planning.amount < 0 ? TransactionType.EXPENSE : TransactionType.INCOME),
-      description: planning.description || '',
-      note: planning.note || '',
-      accountId: planning.accountId,
-      transferToAccountId: planning.transferToAccountId || '',
-      categoryId: planning.categoryId || '',
-      tagIds: planning.tagIds || [],
-      recipientId: planning.recipientId || '',
-      planningId: planning.id
-    }
-
-    const newTx = TransactionService.addTransaction(transaction)
-
-    debugLog('[planningStore] executePlanningTransaction', {
-      planningId: planning.id,
-      name: planning.name,
-      executionDate,
-      transactionId: newTx.id
-    })
-
-    const ruleStore = useRuleStore()
-    ruleStore.applyRulesToTransaction(newTx)
-    monthlyBalanceStore.calculateMonthlyBalances()
-
-    return true
   }
 
   // Funktion zum Ausführen aller fälligen Auto-Ausführen-Planungen
   function executeAllDuePlanningTransactions() {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const todayStr = today.toISOString().split("T")[0]
+    const today = dayjs().startOf('day');
+    let executedCount = 0;
 
-    debugLog('[planningStore] executeAllDuePlanningTransactions - Checking for due transactions', {
-      todayDate: todayStr
-    })
+    planningTransactions.value.forEach(planTx => {
+      if (!planTx.isActive) return;
 
-    const upcomingToday = getUpcomingTransactions.value(0).filter(tx => {
-      return tx.date === todayStr && tx.transaction.isActive
-    })
+      // Berechne alle überfälligen Ausführungstermine von planTx.startDate bis heute
+      const overdueOccurrences = calculateNextOccurrences(planTx, planTx.startDate, today.format("YYYY-MM-DD"));
+      overdueOccurrences.forEach(dateStr => {
+        if (dayjs(dateStr).isBefore(today) || dayjs(dateStr).isSame(today)) {
+          const success = executePlanningTransaction(planTx.id, dateStr);
+          if (success) {
+            executedCount++;
+          }
+        }
+      });
 
-    let executedCount = 0
-
-    upcomingToday.forEach(tx => {
-      const success = executePlanningTransaction(tx.transaction.id, tx.date)
-      if (success) {
-        executedCount++
+      // Aktualisiere das Startdatum der Planung auf das nächste Termin, um doppelte Ausführungen zu vermeiden
+      const nextOccurrences = calculateNextOccurrences(
+        planTx,
+        today.add(1, 'day').format("YYYY-MM-DD"),
+        today.add(365, 'day').format("YYYY-MM-DD")
+      );
+      if (nextOccurrences.length > 0) {
+        updatePlanningTransaction(planTx.id, { startDate: nextOccurrences[0] });
       }
-    })
+    });
 
-    return executedCount
+    return executedCount;
   }
 
   function savePlanningTransactions() {
