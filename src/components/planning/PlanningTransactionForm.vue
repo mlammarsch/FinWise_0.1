@@ -495,22 +495,22 @@ function saveRuleAndCloseModal(ruleData: any) {
           <span class="label-text">Betrag</span>
           <span class="text-error">*</span>
         </label>
-        <div class="flex flex-col space-y-2">
-          <div class="input-group">
+        <div class="flex flex-col space-y-3">
+          <div class="input-group flex items-center gap-2">
             <button
               type="button"
-              class="btn"
+              class="btn btn-sm rounded-full"
               :class="isExpense ? 'btn-error' : 'btn-success'"
               @click="toggleAmountType"
             >
               {{ isExpense ? "-" : "+" }}
             </button>
-            <CurrencyInput v-model="amount" borderless />
+            <CurrencyInput v-model="amount" />
             <span>€</span>
           </div>
 
           <!-- Betragstyp-Auswahl -->
-          <div class="flex space-x-2">
+          <div class="flex items-center space-x-3">
             <label class="flex items-center gap-2 cursor-pointer">
               <input
                 type="radio"
@@ -638,43 +638,47 @@ function saveRuleAndCloseModal(ruleData: any) {
     <!-- Terminfelder -->
     <div class="card bg-base-200 p-4 rounded-lg">
       <div class="form-control">
-        <label class="label">
-          <span class="label-text">Datum</span>
-        </label>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div class="form-control">
-            <input
-              type="date"
-              v-model="startDate"
-              class="input input-bordered"
-              required
-            />
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+          <div>
+            <label class="label">
+              <span class="label-text">Datum</span>
+            </label>
+            <div class="form-control">
+              <input
+                type="date"
+                v-model="startDate"
+                class="input input-bordered"
+                required
+              />
+            </div>
           </div>
-          <div class="form-control">
+          <div>
+            <!-- Wertstellungsdatum -->
+            <label class="label">
+              <span class="label-text">Wertstellung</span>
+            </label>
+            <div class="form-control">
+              <input
+                type="date"
+                v-model="valueDate"
+                class="input input-bordered"
+                required
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="space-y-4 mt-2">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+          <div class="form-control py-4">
             <label class="cursor-pointer label">
               <span class="label-text">Wiederholt sich</span>
               <input type="checkbox" class="toggle" v-model="repeatsEnabled" />
             </label>
           </div>
-        </div>
-      </div>
 
-      <!-- Wertstellungsdatum -->
-      <div class="form-control mt-4">
-        <label class="label">
-          <span class="label-text">Wertstellung</span>
-        </label>
-        <input
-          type="date"
-          v-model="valueDate"
-          class="input input-bordered"
-          required
-        />
-      </div>
-
-      <div v-if="repeatsEnabled" class="space-y-4 mt-2">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div class="form-control">
+          <div v-if="repeatsEnabled" class="form-control">
             <label class="label">
               <span class="label-text">Wiederholung</span>
             </label>

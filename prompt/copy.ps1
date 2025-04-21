@@ -40,30 +40,31 @@ $searchFiles = @(
     # ### Planning
     # "src\components\planning\*.vue",
     # "src\components\rules\RuleForm.vue",
-    # "src\stores\planningStore.ts",
-    # "src\stores\ruleStore.ts",
-    # "src\views\PlanningView.vue",
+    #  "src\stores\planningStore.ts",
+    # "src\services\PlanningService.ts",
+    #  "src\stores\ruleStore.ts",
+    #  "src\views\PlanningView.vue",
 
     # ### Transaction
     # "./src/components/transaction/TransactionCard.vue",
-     "src\components\transaction\CategoryTransactionList.vue",
+    # "src\components\transaction\CategoryTransactionList.vue",
     # "src\components\transaction\TransactionForm.vue",
-     "src\components\transaction\TransactionList.vue",
-    # "src\services\TransactionService.ts",
-    # "src\stores\transactionStore.ts",
-     "src\views\TransactionsView.vue",
+    # "src\components\transaction\TransactionList.vue",
+    #"src\services\TransactionService.ts",
+    #"src\stores\transactionStore.ts",
+    # "src\views\TransactionsView.vue",
 
     # ### Recipients
     # "src\stores\recipientStore.ts",
 
     # ### Category - Budget
-    # "src\components\budget\BudgetMonthCard.vue",
+    "src\components\budget\BudgetMonthCard.vue",
     # "src\components\budget\BudgetCategoryColumn.vue",
     # "src\components\budget\BudgetMonthHeaderCard.vue",
     # "src\components\budget\CategoryForm.vue",
     # "src\components\budget\CategoryTransferModal.vue",
-    # "src\services\BudgetService.ts",
-    # "src\services\CategoryService.ts",
+    "src\services\BudgetService.ts",
+    "src\services\CategoryService.ts"
     # "src\stores\categoryStore.ts",
     # "src\views\BudgetsView.vue",
     # "src\views\BudgetsView2.vue",
@@ -112,7 +113,7 @@ $searchFiles = @(
     # "*.vue",
     # "src\main.ts",
     # "src\stores\settingsStore.ts",
-    "*.ts"
+    #"*.ts"
     # "src\views\*.vue"
 )
 
@@ -121,7 +122,8 @@ $output = @()
 $instructionsPath = Join-Path $baseDirectoryFull "prompt_GPT_Instructions.md"
 if (Test-Path $instructionsPath) {
     $output += Get-Content -Path $instructionsPath -Encoding UTF8 -Raw
-} else {
+}
+else {
     $output += "Die Datei 'prompt_GPT_Instructions.md' konnte nicht gefunden werden.`n"
 }
 
@@ -130,7 +132,8 @@ $output += "## Requirements and Context:`n"
 $requirementsPath = Join-Path $baseDirectoryFull "./prompt/prompt_requirements.md"
 if (Test-Path $requirementsPath) {
     $output += Get-Content -Path $requirementsPath -Encoding UTF8 -Raw
-} else {
+}
+else {
     $output += "Die Datei 'prompt_requirements.md' konnte nicht gefunden werden.`n"
 }
 
@@ -186,17 +189,20 @@ foreach ($pattern in $searchFiles) {
             if (Test-Path -Path $fullPath -PathType Leaf) {
                 $explicitFiles += @(Get-Item -Path $fullPath)
                 Write-Host "Explizit gesuchte Datei gefunden: '$pattern'"
-            } else {
+            }
+            else {
                 Write-Host "Explizit gesuchte Datei nicht gefunden: '$pattern'"
             }
-        } else {
+        }
+        else {
             $parentPath = [System.IO.Path]::GetDirectoryName($fullPath)
             $filePattern = [System.IO.Path]::GetFileName($fullPath)
             if (Test-Path -Path $parentPath -PathType Container) {
                 $matchingFiles = Get-ChildItem -Path $parentPath -Filter $filePattern
                 $explicitFiles += @($matchingFiles)
                 Write-Host "Explizit gesuchtes Suchmuster gefunden: '$pattern'"
-            } else {
+            }
+            else {
                 Write-Host "Explizit gesuchtes Suchmuster nicht gefunden: '$pattern'"
             }
         }
@@ -256,7 +262,8 @@ $filteredFiles = $filteredFiles | Where-Object {
                 $skip = $true
                 break
             }
-        } else {
+        }
+        else {
             if ($_.Name -like $pattern) {
                 $skip = $true
                 break
@@ -279,7 +286,8 @@ foreach ($file in $filteredFiles) {
     $output += "### Code Content:`n"
     try {
         $output += (Get-Content $file.FullName -Encoding UTF8 -Raw -ErrorAction Stop) + "`n"
-    } catch {
+    }
+    catch {
         Write-Warning "Fehler beim Lesen der Datei '$($file.FullName)': $_"
         $output += "Fehler beim Lesen der Datei: $_`n"
     }

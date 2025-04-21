@@ -23,6 +23,7 @@ import { useRuleStore } from './ruleStore'
 import { toDateOnlyString } from '@/utils/formatters'
 import { debugLog } from '@/utils/logger'
 import { useMonthlyBalanceStore } from '@/stores/monthlyBalanceStore'
+import { TransactionService } from '@/services/TransactionService'
 
 export const usePlanningStore = defineStore('planning', () => {
   const planningTransactions = ref<PlanningTransaction[]>([])
@@ -289,7 +290,7 @@ export const usePlanningStore = defineStore('planning', () => {
       return false
     }
 
-    // Neue Transaktion erstellen
+    // Neue Transaktion aus der Planung erstellen
     const transaction = {
       date: executionDate,
       valueDate: planning.valueDate || executionDate,
@@ -302,12 +303,11 @@ export const usePlanningStore = defineStore('planning', () => {
       categoryId: planning.categoryId || '',
       tagIds: planning.tagIds || [],
       recipientId: planning.recipientId || '',
-      planningId: planning.id // Zuordnung zur Planung
+      planningId: planning.id
     }
 
-    // Transaktion hinzufügen
-    const ruleStore = useRuleStore()
-    const newTx = transactionStore.addTransaction(transaction, false)
+    // Verwendung des TransactionService statt direktem Aufruf von transactionStore.addTransaction
+    const newTx = TransactionService.addTransaction(transaction)
 
     debugLog('[planningStore] executePlanningTransaction', {
       planningId: planning.id,
@@ -316,10 +316,8 @@ export const usePlanningStore = defineStore('planning', () => {
       transactionId: newTx.id
     })
 
-    // Regeln anwenden
-    ruleStore.applyRules()
-
-    // Monatliche Saldos aktualisieren
+    const ruleStore = useRuleStore()
+    ruleStore.applyRulesToTransaction(newTx)
     monthlyBalanceStore.calculateMonthlyBalances()
 
     return true
@@ -328,30 +326,23 @@ export const usePlanningStore = defineStore('planning', () => {
   // Funktion zum Ausführen aller fälligen Auto-Ausführen-Planungen
   function executeAllDuePlanningTransactions() {
     const today = new Date()
-    const todayStr = toDateOnlyString(today)
+    today.setHours(0, 0, 0, 0)
+    const todayStr = today.toISOString().split("T")[0]
 
     debugLog('[planningStore] executeAllDuePlanningTransactions - Checking for due transactions', {
       todayDate: todayStr
     })
 
-    const upcomingToday = getUpcomingTransactions.value(0)
-      .filter(tx => {
-        // Nur Transaktionen für heute berücksichtigen
-        return tx.date === todayStr && tx.transaction.autoExecute && tx.transaction.isActive
-      })
+    const upcomingToday = getUpcomingTransactions.value(0).filter(tx => {
+      return tx.date === todayStr && tx.transaction.isActive //&& tx.transaction.autoExecute
+    })
 
     let executedCount = 0
 
-    // Führe jede fällige Planung aus
     upcomingToday.forEach(tx => {
       const success = executePlanningTransaction(tx.transaction.id, tx.date)
       if (success) {
         executedCount++
-        debugLog('[planningStore] executeAllDuePlanningTransactions - Executed transaction', {
-          id: tx.transaction.id,
-          name: tx.transaction.name,
-          date: tx.date
-        })
       }
     })
 
@@ -418,6 +409,8 @@ export const usePlanningStore = defineStore('planning', () => {
     loadPlanningTransactions,
     reset,
     forecastMonths,
-    checkAndUpdateForecast
+    checkAndUpdateForecast,
+    // Funktion wird hier exportiert, damit andere Services (z. B. BudgetService) sie nutzen können
+    calculateNextOccurrences
   }
 })

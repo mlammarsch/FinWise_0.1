@@ -38,11 +38,12 @@ $searchFiles = @(
     # "src\views\AccountsView.vue",
 
     # ### Planning
-    # "src\components\planning\*.vue",
+     "src\components\planning\*.vue",
     # "src\components\rules\RuleForm.vue",
-    # "src\stores\planningStore.ts",
+     "src\stores\planningStore.ts",
+    "src\services\PlanningService.ts",
     # "src\stores\ruleStore.ts",
-    # "src\views\PlanningView.vue",
+     "src\views\PlanningView.vue",
 
     # ### Transaction
     # "./src/components/transaction/TransactionCard.vue",
@@ -57,14 +58,14 @@ $searchFiles = @(
     # "src\stores\recipientStore.ts",
 
     # ### Category - Budget
-    "src\components\budget\BudgetMonthCard.vue",
+     "src\components\budget\BudgetMonthCard.vue",
     # "src\components\budget\BudgetCategoryColumn.vue",
     # "src\components\budget\BudgetMonthHeaderCard.vue",
     # "src\components\budget\CategoryForm.vue",
-     "src\components\budget\CategoryTransferModal.vue",
-    # "src\services\BudgetService.ts",
-    # "src\services\CategoryService.ts",
-    # "src\stores\categoryStore.ts",
+    # "src\components\budget\CategoryTransferModal.vue",
+     "src\services\BudgetService.ts",
+     "src\services\CategoryService.ts",
+     "src\stores\categoryStore.ts",
     # "src\views\BudgetsView.vue",
     # "src\views\BudgetsView2.vue",
 
@@ -76,7 +77,7 @@ $searchFiles = @(
     #  "src\views\SettingsView.vue",
     # "src\views\admin\AdminAccountsView.vue",
     # "src\views\admin\AdminCategoriesView.vue",
-    # "src\views\admin\AdminPlanningView.vue",
+     "src\views\admin\AdminPlanningView.vue",
     # "src\views\admin\AdminRecipientsView.vue",
     # "src\views\admin\AdminRulesView.vue",
 
@@ -96,19 +97,19 @@ $searchFiles = @(
 
     # ### Services & Stores (Allgemein)
     # "src\services\*.ts",
-    # "src\services\PlanningService.ts",
+     "src\services\PlanningService.ts",
     # "src\stores\*.ts",
 
     # ### Sonstiges
     # "src\mock\seed.ts",
-    # "src\stores\monthlyBalanceStore.ts",
+     "src\stores\monthlyBalanceStore.ts",
     # "src\types\*.ts",
     # "src\utils\*.ts",
     # "src\utils\accountTransfers.ts",
     # "src\utils\categoryTransfer.ts",
     # "src\utils\formatters.ts",
     # "src\utils\logger.ts",
-    # "src\utils\runningBalances.ts",
+     "src\utils\runningBalances.ts",
     # "*.vue",
     # "src\main.ts",
     # "src\stores\settingsStore.ts",

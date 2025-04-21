@@ -1,2 +1,10 @@
-Deine Aufgabe ist es, die Category Transaction List vom Layout her, also vom Format, Schriftgröße genauso zu gestalten, die einzelnen Zeilen, wie das in der Transaction List selbst der Fall ist. In der Category Transaction List ist die Schriftart zu klein. Als zweites haben wir gesagt, dass Transferbuchungen gelb im Betrag sind. Die müssen die Schrift in gelb haben, also in Warning. Die dritte Anforderung ist, dass bei Category Transferbuchungen nur die positive Buchung angezeigt wird, nicht die negative.
-Weitere Anforderung. Es ist  ein suchfeld in der categoryTransactionlist. Die Funktion ist super. Nur sollte das in der TransactionView liegende Suchfeld beim Anzeigen der categoryTransactionlist die Funktion übernehmen. Das Suchfeld in der Searchgroup muss also je nach Ansicht die Suche anders ausführen. Kein zweites Suchfeld in der Liste selbst. Erstelle die Zusatzfunktion für das in der View befindliche Suchfeld und lösche das aus der Liste heraus.
+Die Funktion für das zu öffnende Dropdown Modal in der BudgetMonthCard läuft laut Debugger durch. Jedoch vermute ich, dass diese Funktion nicht richtig berechnet:
+ if (containerRef.value) {
+    const rect = containerRef.value.getBoundingClientRect();
+    dropdownX.value = event.clientX - rect.left;
+    dropdownY.value = event.clientY - rect.top;
+  } else {
+    dropdownX.value = event.clientX;
+    dropdownY.value = event.clientY;
+  }
+  Das Dropdown wird laut debugger erfolgreich geöffnet. Erscheint nur nirgendwo auf dem Bildschirm.
