@@ -1,10 +1,1 @@
-Die Funktion für das zu öffnende Dropdown Modal in der BudgetMonthCard läuft laut Debugger durch. Jedoch vermute ich, dass diese Funktion nicht richtig berechnet:
- if (containerRef.value) {
-    const rect = containerRef.value.getBoundingClientRect();
-    dropdownX.value = event.clientX - rect.left;
-    dropdownY.value = event.clientY - rect.top;
-  } else {
-    dropdownX.value = event.clientX;
-    dropdownY.value = event.clientY;
-  }
-  Das Dropdown wird laut debugger erfolgreich geöffnet. Erscheint nur nirgendwo auf dem Bildschirm.
+Deine Aufgabe besteht darin, zu prüfen, wie das Zusammenspiel geplanter Transaktionen mit den eigentlichen Transaktionen, die gebucht sind, verhält. Problem 1, das ich habe, in der Form geplante Transaktionen bearbeiten, stehen kommende Termine. Ich habe den Termin jetzt auf 21. Mai verlegt, 21. Mai 2025, und trotzdem sehe ich noch bei kommenden Terminen, bei der Planbuchung, die ich am 02.04.2025 gestartet habe, sehe ich weiterhin kommende Termine, 02.04., 02.05., 02.06., also sechs Termine, oder fünf Termine habe ich in diesem Fall. Mein Problem besteht darin, dass die Planbuchungen, die in der Vergangenheit liegen, verschwinden sollen. Wenn eine Planbuchung auf »automatisch ausführen« steht, soll eine Planbuchung zum jeweiligen Termin auch automatisch zu einer Transaktion geführt werden. Das Problem, das ich habe, ist, dass die Planbuchung verschwunden ist, allerdings sehe ich keine Transaktion. Ich weiß also nicht, was passiert ist mit der Buchung. Wir haben in der Planungsansicht einen Algorithmus eingerichtet, der die Prognosen aktualisiert, respektive einen »manuellen Auto ausführen«-Button. Der zeigt mir ständig an, dass er keine Planbuchungen auszuführen hätte, obwohl ich manchmal auch Planbuchungen drin stehen habe, die auszuführen wären. Insofern möchte ich dich mal bitten, dass du jetzt den ganzen Code, den ich dir gebe, bezüglich dem Budget der Planbuchungen und der Transaktionen, was das Hindernis ist, warum die Transaktionen nicht angezeigt werden, nachdem eine Planbuchung ausgeführt wurde.
