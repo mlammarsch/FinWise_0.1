@@ -27,13 +27,14 @@ const searchQuery = ref("");
 const currentPage = ref(1);
 const itemsPerPage = ref<number | string>(25);
 
-// Gefilterte Planungen
+// Filterung der Planungen
 const filteredPlannings = computed(() => {
+  const allPlannings = planningStore.planningTransactions;
   if (!searchQuery.value.trim()) {
-    return planningStore.planningTransactions;
+    return allPlannings;
   }
   const term = searchQuery.value.toLowerCase();
-  return planningStore.planningTransactions.filter((plan) => {
+  return allPlannings.filter((plan) => {
     return (
       plan.name?.toLowerCase().includes(term) ||
       recipientStore
@@ -75,7 +76,7 @@ const editPlanning = (planning: PlanningTransaction) => {
   debugLog("[AdminPlanningView] Edit planning", planning);
 };
 
-// Planung speichern: Service-Aufruf statt direkter Store-Anpassungen
+// Planung speichern
 const savePlanning = (data: any) => {
   if (selectedPlanning.value) {
     PlanningService.updatePlanningTransaction(selectedPlanning.value.id, data);
@@ -88,7 +89,7 @@ const savePlanning = (data: any) => {
   showEditPlanningModal.value = false;
 };
 
-// Planung löschen: Aufruf über den Service
+// Planung löschen
 const deletePlanning = (planning: PlanningTransaction) => {
   if (confirm("Möchten Sie diese geplante Transaktion wirklich löschen?")) {
     PlanningService.deletePlanningTransaction(planning.id);
@@ -96,7 +97,7 @@ const deletePlanning = (planning: PlanningTransaction) => {
   }
 };
 
-// Planung deaktivieren/aktivieren: Service-Aufruf
+// Planung aktivieren/deaktivieren
 const toggleActivation = (planning: PlanningTransaction) => {
   PlanningService.updatePlanningTransaction(planning.id, {
     isActive: !planning.isActive,
@@ -107,7 +108,7 @@ const toggleActivation = (planning: PlanningTransaction) => {
   });
 };
 
-// Hilfsfunktion: Übersetzt Wiederholungsmuster
+// Übersetzt das Wiederholungsmuster in lesbaren Text
 function formatRecurrencePattern(pattern: RecurrencePattern): string {
   const patterns: Record<RecurrencePattern, string> = {
     [RecurrencePattern.ONCE]: "Einmalig",
@@ -121,7 +122,7 @@ function formatRecurrencePattern(pattern: RecurrencePattern): string {
   return patterns[pattern] || pattern;
 }
 
-// Automatische Ausführung aller fälligen Planungen über den Service
+// Automatische Ausführung aller fälligen Planungen
 function executeAllDuePlannings() {
   const count = PlanningService.executeAllDuePlanningTransactions();
   alert(`${count} automatische Planungsbuchungen ausgeführt.`);
@@ -230,9 +231,9 @@ function executeAllDuePlannings() {
                     >
                       {{ planning.isActive ? "Aktiv" : "Inaktiv" }}
                     </span>
-                    <span v-if="planning.autoExecute" class="badge badge-info">
-                      Auto
-                    </span>
+                    <span v-if="planning.autoExecute" class="badge badge-info"
+                      >Auto</span
+                    >
                   </div>
                 </td>
                 <td class="text-right">

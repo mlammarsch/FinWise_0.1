@@ -30,166 +30,21 @@ export const usePlanningStore = defineStore('planning', () => {
   const transactionStore = useTransactionStore()
   const monthlyBalanceStore = useMonthlyBalanceStore()
 
-  // Verfolgt den Zeitpunkt der letzten Forecast-Aktualisierung
-  const lastUpdateTimestamp = ref<number>(0)
-  const forecastMonths = ref<number>(24) // Anzahl der Monate für Prognosen
-
-  // Liefert eine Funktion zum Abrufen einer Planungstransaktion anhand ihrer ID
+  // Reine CRUD-Funktionen und einfache Getter
   const getPlanningTransactionById = computed(() => {
     return (id: string) => planningTransactions.value.find(tx => tx.id === id)
   })
 
-  // Liefert anstehende Planungstransaktionen für den angegebenen Zeitraum
+  // Liefert aktive Planungstransaktionen, sortiert nach Startdatum.
   const getUpcomingTransactions = computed(() => {
     return (days: number = 30) => {
-      checkAndUpdateForecast()
-
-      // Referenzdatum: Ältestes Datum offener, aktiver Planungen in der Vergangenheit
-      let referenceDate = dayjs()
-      const activePastPlans = planningTransactions.value.filter(tx =>
-        tx.isActive && dayjs(tx.startDate).isBefore(dayjs())
-      )
-      if (activePastPlans.length > 0) {
-        referenceDate = activePastPlans.reduce((min, tx) =>
-          dayjs(tx.startDate).isBefore(min) ? dayjs(tx.startDate) : min, dayjs(activePastPlans[0].startDate)
-        )
-      }
-
-      const requestedDays = days > 0 ? days : forecastMonths.value * 30
-      const endDate = referenceDate.add(requestedDays, 'day')
-      const upcoming: Array<{ date: string, transaction: PlanningTransaction }> = []
-
-      planningTransactions.value
-        .filter(planTx => planTx.isActive)
-        .forEach(planTx => {
-          const occurrences = calculateNextOccurrences(
-            planTx,
-            toDateOnlyString(referenceDate.toDate()),
-            toDateOnlyString(endDate.toDate())
-          )
-          occurrences.forEach(date => {
-            upcoming.push({ date, transaction: planTx })
-          })
-        })
-
-      return upcoming.sort((a, b) => a.date.localeCompare(b.date))
+      return planningTransactions.value
+        .filter(tx => tx.isActive)
+        .sort((a, b) => a.startDate.localeCompare(b.startDate))
     }
   })
 
-  // Prüft, ob ein Datum ein Wochenende ist
-  function isWeekend(date: dayjs.Dayjs): boolean {
-    const day = date.day()
-    return day === 0 || day === 6 // Sonntag oder Samstag
-  }
-
-  // Verschiebt das Datum, falls es auf ein Wochenende fällt
-  function applyWeekendHandling(date: dayjs.Dayjs, handling: WeekendHandlingType): dayjs.Dayjs {
-    if (!isWeekend(date) || handling === WeekendHandlingType.NONE) {
-      return date
-    }
-    const isSaturday = date.day() === 6
-    switch (handling) {
-      case WeekendHandlingType.BEFORE:
-        return isSaturday ? date.subtract(1, 'day') : date.subtract(2, 'day')
-      case WeekendHandlingType.AFTER:
-        return isSaturday ? date.add(2, 'day') : date.add(1, 'day')
-      default:
-        return date
-    }
-  }
-
-  function daysInMonth(month: number, year: number): number {
-    return new Date(year, month, 0).getDate()
-  }
-
-  // Prüft, ob die Forecast-Aktualisierung durchgeführt werden muss
-  function checkAndUpdateForecast() {
-    const now = Date.now()
-    const oneWeek = 7 * 24 * 60 * 60 * 1000
-    if (now - lastUpdateTimestamp.value > oneWeek) {
-      debugLog('[planningStore] Weekly forecast update triggered', {
-        lastUpdate: new Date(lastUpdateTimestamp.value).toISOString(),
-        now: new Date(now).toISOString()
-      })
-      monthlyBalanceStore.calculateMonthlyBalances()
-      lastUpdateTimestamp.value = now
-      localStorage.setItem('finwise_last_forecast_update', now.toString())
-    }
-  }
-
-  // Berechnet zukünftige Ausführungstermine einer Planungstransaktion
-  function calculateNextOccurrences(
-    planTx: PlanningTransaction,
-    startDate: string,
-    endDate: string
-  ): string[] {
-    if (!planTx.isActive) return []
-
-    const occurrences: string[] = []
-    const start = dayjs(startDate)
-    const end = dayjs(endDate)
-    const txStart = dayjs(toDateOnlyString(planTx.startDate))
-
-    if (txStart.isAfter(end)) return []
-    if (planTx.endDate && dayjs(toDateOnlyString(planTx.endDate)).isBefore(start)) return []
-
-    let currentDate = txStart
-    let count = 0
-    const maxIterations = 1000
-
-    while (currentDate.isSameOrBefore(end) && count < maxIterations) {
-      let adjustedDate = applyWeekendHandling(currentDate, planTx.weekendHandling)
-      if (adjustedDate.isSameOrAfter(start) && adjustedDate.isSameOrBefore(end)) {
-        occurrences.push(toDateOnlyString(adjustedDate.toDate()))
-      }
-
-      if (planTx.recurrenceEndType === RecurrenceEndType.COUNT &&
-          planTx.recurrenceCount !== null &&
-          ++count >= planTx.recurrenceCount) {
-        break
-      }
-
-      switch (planTx.recurrencePattern) {
-        case RecurrencePattern.DAILY:
-          currentDate = currentDate.add(1, 'day')
-          break
-        case RecurrencePattern.WEEKLY:
-          currentDate = currentDate.add(1, 'week')
-          break
-        case RecurrencePattern.BIWEEKLY:
-          currentDate = currentDate.add(2, 'week')
-          break
-        case RecurrencePattern.MONTHLY:
-          if (planTx.executionDay && planTx.executionDay > 0 && planTx.executionDay <= 31) {
-            currentDate = dayjs(new Date(
-              currentDate.year(),
-              currentDate.month() + 1,
-              Math.min(planTx.executionDay, daysInMonth(currentDate.month() + 1, currentDate.year()))
-            ))
-          } else {
-            currentDate = currentDate.add(1, 'month')
-          }
-          break
-        case RecurrencePattern.QUARTERLY:
-          currentDate = currentDate.add(3, 'months')
-          break
-        case RecurrencePattern.YEARLY:
-          currentDate = currentDate.add(1, 'year')
-          break
-        case RecurrencePattern.ONCE:
-          return occurrences
-      }
-
-      if (planTx.recurrenceEndType === RecurrenceEndType.DATE && planTx.endDate &&
-          currentDate.isAfter(dayjs(toDateOnlyString(planTx.endDate)))) {
-        break
-      }
-    }
-
-    return occurrences
-  }
-
-  // Fügt eine neue Planungstransaktion hinzu
+  // Fügt eine neue Planungstransaktion hinzu (CRUD).
   function addPlanningTransaction(planning: Partial<PlanningTransaction>) {
     const txId = uuidv4()
     const newPlanning: PlanningTransaction = {
@@ -229,7 +84,7 @@ export const usePlanningStore = defineStore('planning', () => {
     return newPlanning
   }
 
-  // Aktualisiert eine bestehende Planungstransaktion
+  // Aktualisiert eine bestehende Planungstransaktion (CRUD).
   function updatePlanningTransaction(id: string, planning: Partial<PlanningTransaction>) {
     const index = planningTransactions.value.findIndex(p => p.id === id)
     if (index !== -1) {
@@ -249,7 +104,7 @@ export const usePlanningStore = defineStore('planning', () => {
     return false
   }
 
-  // Löscht eine Planungstransaktion
+  // Löscht eine Planungstransaktion (CRUD).
   function deletePlanningTransaction(id: string) {
     const planToDelete = planningTransactions.value.find(p => p.id === id)
     if (planToDelete) {
@@ -261,82 +116,6 @@ export const usePlanningStore = defineStore('planning', () => {
     planningTransactions.value = planningTransactions.value.filter(p => p.id !== id)
     savePlanningTransactions()
     monthlyBalanceStore.calculateMonthlyBalances()
-  }
-
-  // Führt die Transaktion einer Planung aus
-  function executePlanningTransaction(planningId: string, executionDate: string) {
-    try {
-      const planning = getPlanningTransactionById.value(planningId)
-      if (!planning) {
-        debugLog('[planningStore] executePlanningTransaction - Planning not found', { planningId })
-        return false
-      }
-      if (planning.forecastOnly) {
-        planning.startDate = executionDate;
-        savePlanningTransactions();
-        monthlyBalanceStore.calculateMonthlyBalances();
-        debugLog('[planningStore] executePlanningTransaction - Forecast Only activated', {
-          planningId: planning.id,
-          newStartDate: executionDate
-        });
-        return true;
-      }
-      const transaction = {
-        date: executionDate,
-        valueDate: planning.valueDate || executionDate,
-        amount: planning.amount,
-        type: planning.transactionType || (planning.amount < 0 ? TransactionType.EXPENSE : TransactionType.INCOME),
-        description: planning.description || '',
-        note: planning.note || '',
-        accountId: planning.accountId,
-        transferToAccountId: planning.transferToAccountId || '',
-        categoryId: planning.categoryId || '',
-        tagIds: planning.tagIds || [],
-        recipientId: planning.recipientId || '',
-        planningId: planning.id
-      }
-      const newTx = TransactionService.addTransaction(transaction)
-      debugLog('[planningStore] executePlanningTransaction', {
-        planningId: planning.id,
-        name: planning.name,
-        executionDate,
-        transactionId: newTx.id
-      })
-      const ruleStore = useRuleStore()
-      ruleStore.applyRulesToTransaction(newTx)
-      monthlyBalanceStore.calculateMonthlyBalances()
-      return true;
-    } catch (error) {
-      debugLog('[planningStore] executePlanningTransaction - Error executing transaction', { planningId, executionDate, error });
-      return false;
-    }
-  }
-
-  // Führt alle fälligen Planungstransaktionen aus
-  function executeAllDuePlanningTransactions() {
-    const today = dayjs().startOf('day');
-    let executedCount = 0;
-    planningTransactions.value.forEach(planTx => {
-      if (!planTx.isActive) return;
-      const overdueOccurrences = calculateNextOccurrences(planTx, planTx.startDate, today.format("YYYY-MM-DD"));
-      overdueOccurrences.forEach(dateStr => {
-        if (dayjs(dateStr).isBefore(today) || dayjs(dateStr).isSame(today)) {
-          const success = executePlanningTransaction(planTx.id, dateStr);
-          if (success) {
-            executedCount++;
-          }
-        }
-      });
-      const nextOccurrences = calculateNextOccurrences(
-        planTx,
-        today.add(1, 'day').format("YYYY-MM-DD"),
-        today.add(365, 'day').format("YYYY-MM-DD")
-      );
-      if (nextOccurrences.length > 0) {
-        updatePlanningTransaction(planTx.id, { startDate: nextOccurrences[0] });
-      }
-    });
-    return executedCount;
   }
 
   function savePlanningTransactions() {
@@ -360,11 +139,6 @@ export const usePlanningStore = defineStore('planning', () => {
           valueDate: tx.valueDate || tx.date
         }))
         debugLog('[planningStore] loadPlanningTransactions - Loaded', planningTransactions.value.length, 'transactions')
-        const savedTimestamp = localStorage.getItem('finwise_last_forecast_update')
-        if (savedTimestamp) {
-          lastUpdateTimestamp.value = parseInt(savedTimestamp)
-        }
-        checkAndUpdateForecast()
       } catch (error) {
         debugLog('[planningStore] loadPlanningTransactions - Error parsing data', error)
         planningTransactions.value = []
@@ -374,7 +148,6 @@ export const usePlanningStore = defineStore('planning', () => {
 
   function reset() {
     planningTransactions.value = []
-    lastUpdateTimestamp.value = 0
     localStorage.removeItem('finwise_last_forecast_update')
     loadPlanningTransactions()
     debugLog('[planningStore] reset')
@@ -389,12 +162,7 @@ export const usePlanningStore = defineStore('planning', () => {
     addPlanningTransaction,
     updatePlanningTransaction,
     deletePlanningTransaction,
-    executePlanningTransaction,
-    executeAllDuePlanningTransactions,
     loadPlanningTransactions,
-    reset,
-    forecastMonths,
-    checkAndUpdateForecast,
-    calculateNextOccurrences
+    reset
   }
 })

@@ -1,6 +1,6 @@
 <!-- src/views/PlanningView.vue -->
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { usePlanningStore } from "@/stores/planningStore";
 import { useAccountStore } from "@/stores/accountStore";
 import { useCategoryStore } from "@/stores/categoryStore";
@@ -18,23 +18,24 @@ import { formatDate } from "@/utils/formatters";
 import { debugLog } from "@/utils/logger";
 import { PlanningService } from "@/services/PlanningService";
 
-// Stores
 const planningStore = usePlanningStore();
 const accountStore = useAccountStore();
 const categoryStore = useCategoryStore();
 const recipientStore = useRecipientStore();
 const monthlyBalanceStore = useMonthlyBalanceStore();
 
-// UI-Status
+// UI-Status und Filter
 const showNewPlanningModal = ref(false);
 const showEditPlanningModal = ref(false);
 const selectedPlanning = ref<PlanningTransaction | null>(null);
 const searchQuery = ref("");
+const selectedAccountId = ref("");
+const activeTab = ref<"upcoming" | "accounts" | "categories">("upcoming");
+
+// Pagination und Zeitbereich
 const currentPage = ref(1);
 const itemsPerPage = ref(25);
 const itemsPerPageOptions = [10, 20, 25, 50, 100, "all"];
-
-// Filter und Zeitbereich
 const dateRange = ref<{ start: string; end: string }>({
   start: new Date(new Date().getFullYear(), new Date().getMonth(), 1)
     .toISOString()
@@ -44,37 +45,32 @@ const dateRange = ref<{ start: string; end: string }>({
     .split("T")[0],
 });
 
-// Kontofilter
-const selectedAccountId = ref("");
-
-// Aktive Registerkarte
-const activeTab = ref<"upcoming" | "accounts" | "categories">("upcoming");
-
-// Für die Anzeige des letzten Updates
+// Anzeige des letzten Updates
 const lastUpdateDate = computed(() => {
   const timestamp = localStorage.getItem("finwise_last_forecast_update");
   return timestamp ? new Date(parseInt(timestamp)) : null;
 });
 
-// Hilfsfunktion: Formatiert Datum
+// Aktualisiert den angezeigten Zeitraum basierend auf der Monatsauswahl
 function handleDateRangeUpdate(payload: { start: string; end: string }) {
   dateRange.value = payload;
   debugLog("[PlanningView] Date range updated", payload);
 }
 
-// Anstehende Transaktionen für den ausgewählten Zeitraum
+// Ermittelt anstehende Transaktionen für den ausgewählten Zeitraum anhand des einfachen CRUD-Getters
 const upcomingTransactionsInRange = computed(() => {
   const startDate = new Date(dateRange.value.start);
   const endDate = new Date(dateRange.value.end);
   const diffTime = endDate.getTime() - startDate.getTime();
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  // Hier werden alle aktiven Planungen zurückgegeben – spezifische Geschäftslogik zur Terminberechnung erfolgt nun im Service
   return planningStore.getUpcomingTransactions(diffDays + 1).filter((entry) => {
     const entryDate = new Date(entry.date);
     return entryDate >= startDate && entryDate <= endDate;
   });
 });
 
-// Gefilterte Transaktionen basierend auf Suche und Kontofilter
+// Filtert die Transaktionen anhand Suche und Kontofilter
 const filteredTransactions = computed(() => {
   let filtered = [...upcomingTransactionsInRange.value];
   if (selectedAccountId.value) {
@@ -103,7 +99,7 @@ const filteredTransactions = computed(() => {
   return filtered;
 });
 
-// Paginierte Transaktionen
+// Paginierung der Transaktionen
 const paginatedTransactions = computed(() => {
   if (itemsPerPage.value === "all") return filteredTransactions.value;
   const start = (currentPage.value - 1) * Number(itemsPerPage.value);
@@ -126,7 +122,7 @@ const editPlanning = (planning: PlanningTransaction) => {
   debugLog("[PlanningView] Edit planning", planning);
 };
 
-// Planung speichern: Service-Aufruf statt direkter Store-Anpassungen
+// Planung speichern über den Service
 const savePlanning = (data: any) => {
   if (selectedPlanning.value) {
     PlanningService.updatePlanningTransaction(selectedPlanning.value.id, data);
@@ -140,7 +136,7 @@ const savePlanning = (data: any) => {
   monthlyBalanceStore.calculateMonthlyBalances();
 };
 
-// Planung löschen: Service-Aufruf
+// Planung löschen über den Service
 const deletePlanning = (planning: PlanningTransaction) => {
   if (confirm("Möchten Sie diese geplante Transaktion wirklich löschen?")) {
     PlanningService.deletePlanningTransaction(planning.id);
@@ -149,13 +145,13 @@ const deletePlanning = (planning: PlanningTransaction) => {
   }
 };
 
-// Planung ausführen: Aufruf über PlanningService
+// Planung ausführen über den Service
 const executePlanning = (planningId: string, date: string) => {
   PlanningService.executePlanningTransaction(planningId, date);
   debugLog("[PlanningView] Executed planning", { planningId, date });
 };
 
-// Hilfsfunktion: Gibt den Kontonamen zurück
+// Gibt den Namen des Kontos zurück
 function getAccountName(accountId: string): string {
   return accountStore.getAccountById(accountId)?.name || "Unbekanntes Konto";
 }
@@ -167,13 +163,13 @@ function clearFilters() {
   currentPage.value = 1;
 }
 
-// Automatische Ausführung fälliger Planungen
+// Automatische Ausführung fälliger Planungen über den Service
 function executeAutomaticTransactions() {
   const count = PlanningService.executeAllDuePlanningTransactions();
   alert(`${count} automatische Planungsbuchungen ausgeführt.`);
 }
 
-// Funktion zum manuellen Aktualisieren der Prognosen
+// Manuelles Aktualisieren der Prognosen über den Service
 const updateForecasts = () => {
   PlanningService.updateForecasts();
   alert("Prognosen und monatliche Saldi wurden aktualisiert.");
@@ -268,7 +264,7 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- Tabs für Navigation -->
+    <!-- Tabs zur Navigation zwischen Ansichten -->
     <div class="tabs tabs-boxed bg-base-200">
       <a
         class="tab"
@@ -296,7 +292,7 @@ onMounted(() => {
       </a>
     </div>
 
-    <!-- Inhaltsbereich basierend auf aktiver Tab -->
+    <!-- Inhaltsbereich abhängig von aktiver Tab -->
     <div
       v-if="activeTab === 'upcoming'"
       class="card bg-base-100 shadow-md border border-base-300 p-4"
@@ -420,7 +416,7 @@ onMounted(() => {
       <CategoryForecastChart :start-date="dateRange.start" />
     </div>
 
-    <!-- Modals -->
+    <!-- Modal für neue Planungstransaktion -->
     <div v-if="showNewPlanningModal" class="modal modal-open">
       <div class="modal-box max-w-3xl">
         <h3 class="font-bold text-lg mb-4">Neue geplante Transaktion</h3>
@@ -435,6 +431,7 @@ onMounted(() => {
       ></div>
     </div>
 
+    <!-- Modal zur Bearbeitung einer bestehenden Planung -->
     <div
       v-if="showEditPlanningModal && selectedPlanning"
       class="modal modal-open"
