@@ -60,7 +60,7 @@ const approximateAmount = ref(0);
 const minAmount = ref(0);
 const maxAmount = ref(0);
 const startDate = ref(dayjs().format("YYYY-MM-DD"));
-const valueDate = ref(startDate.value); // Wertstellungsdatum
+const valueDate = ref(startDate.value);
 const accountId = ref("");
 const categoryId = ref<string | null>(null);
 const tagIds = ref<string[]>([]);
@@ -79,7 +79,7 @@ const weekendHandling = ref<WeekendHandlingType>(WeekendHandlingType.NONE);
 const moveScheduleEnabled = ref(false);
 const weekendHandlingDirection = ref<"before" | "after">("after");
 
-// Forecast Only Modus (ehemals "automatisch ausführen")
+// Forecast Only Modus
 const forecastOnly = ref(false);
 const isActive = ref(true);
 
@@ -88,7 +88,6 @@ const showRuleCreationModal = ref(false);
 
 // Zeitpunktbeschreibung
 const dateDescription = ref("Jährlich am 14. April");
-
 // Kommende Ausführungstermine
 const upcomingDates = ref<Array<{ date: string; day: string }>>([]);
 
@@ -141,7 +140,6 @@ onMounted(() => {
       accountId.value = accountStore.activeAccounts[0].id;
     }
   }
-
   updateDateDescription();
   calculateUpcomingDates();
 });
@@ -172,7 +170,6 @@ function updateDateDescription() {
     dateDescription.value = `Einmalig am ${formatDate(startDate.value)}`;
     return;
   }
-
   const date = dayjs(startDate.value);
   const day = date.date();
   const monthName = [
@@ -189,9 +186,7 @@ function updateDateDescription() {
     "November",
     "Dezember",
   ][date.month()];
-
   let desc = "";
-
   switch (recurrencePattern.value) {
     case RecurrencePattern.DAILY:
       desc = "Täglich";
@@ -215,24 +210,20 @@ function updateDateDescription() {
     default:
       desc = formatDate(startDate.value);
   }
-
   if (moveScheduleEnabled.value) {
     const direction =
       weekendHandlingDirection.value === "before" ? "davor" : "danach";
     desc += ` (Wochenende: ${direction})`;
   }
-
   dateDescription.value = desc;
 }
 
 function calculateUpcomingDates() {
   upcomingDates.value = [];
   if (!startDate.value) return;
-
   let currentDate = dayjs(startDate.value);
   const endDateLimit = dayjs().add(3, "years");
   let count = 0;
-
   if (!repeatsEnabled.value) {
     upcomingDates.value.push({
       date: currentDate.format("DD.MM.YYYY"),
@@ -240,7 +231,6 @@ function calculateUpcomingDates() {
     });
     return;
   }
-
   while (count < 5 && currentDate.isBefore(endDateLimit)) {
     let dateToUse = currentDate;
     if (moveScheduleEnabled.value) {
@@ -257,14 +247,11 @@ function calculateUpcomingDates() {
         }
       }
     }
-
     upcomingDates.value.push({
       date: dateToUse.format("DD.MM.YYYY"),
       day: getDayOfWeekName(dateToUse.day()),
     });
-
     count++;
-
     switch (recurrencePattern.value) {
       case RecurrencePattern.DAILY:
         currentDate = currentDate.add(1, "day");
@@ -296,13 +283,10 @@ function calculateUpcomingDates() {
       default:
         count = 5;
     }
-
     if (recurrenceEndType.value === RecurrenceEndType.DATE && endDate.value) {
       if (currentDate.isAfter(dayjs(endDate.value))) break;
     }
   }
-
-  // Limitiere Termine auf 6
   upcomingDates.value = upcomingDates.value.slice(0, 6);
 }
 
@@ -327,12 +311,14 @@ function formatDate(dateStr: string): string {
   return dayjs(dateStr).format("DD.MM.YYYY");
 }
 
+// Erstellung eines Empfängers über Service-Aufruf anstatt direktem Storezugriff
 function onCreateRecipient(data: { name: string }) {
   const created = recipientStore.addRecipient({ name: data.name });
   recipientId.value = created.id;
   debugLog("[PlanningTransactionForm] onCreateRecipient", created);
 }
 
+// Hauptfunktion: Erzeugt die Transaktionsdaten und gibt sie per Event aus
 function savePlanningTransaction() {
   let effectiveAmount = amount.value;
   if (isTransfer.value) {
@@ -342,27 +328,22 @@ function savePlanningTransaction() {
       ? -Math.abs(effectiveAmount)
       : Math.abs(effectiveAmount);
   }
-
   const transactionType = isTransfer.value
     ? TransactionType.ACCOUNTTRANSFER
     : effectiveAmount < 0
     ? TransactionType.EXPENSE
     : TransactionType.INCOME;
-
   const effectiveWeekendHandling = moveScheduleEnabled.value
     ? weekendHandlingDirection.value === "before"
       ? WeekendHandlingType.BEFORE
       : WeekendHandlingType.AFTER
     : WeekendHandlingType.NONE;
-
   const effectiveRecurrencePattern = repeatsEnabled.value
     ? recurrencePattern.value
     : RecurrencePattern.ONCE;
-
   const effectiveRecurrenceEndType = repeatsEnabled.value
     ? recurrenceEndType.value
     : RecurrenceEndType.NEVER;
-
   const transactionData: Omit<PlanningTransaction, "id"> = {
     name: name.value,
     accountId: accountId.value,
@@ -399,7 +380,6 @@ function savePlanningTransaction() {
     isActive: isActive.value,
     forecastOnly: forecastOnly.value,
   };
-
   debugLog(
     "[PlanningTransactionForm] savePlanningTransaction",
     transactionData
@@ -412,7 +392,6 @@ const toggleAmountType = () => {
 };
 
 const isExpense = computed(() => amount.value < 0);
-
 const accounts = computed(() => accountStore.activeAccounts);
 const categories = computed(() => categoryStore.activeCategories);
 
@@ -480,7 +459,6 @@ function saveRuleAndCloseModal(ruleData: any) {
 
     <!-- Grundlegende Informationen: Betrag, Konto, Empfänger -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <!-- Empfänger -->
       <div class="form-control">
         <label class="label">
           <span class="label-text">Empfänger/Auftraggeber</span>
@@ -489,7 +467,6 @@ function saveRuleAndCloseModal(ruleData: any) {
         <SelectRecipient v-model="recipientId" @create="onCreateRecipient" />
       </div>
 
-      <!-- Betrag mit Vorzeichen-Auswahl -->
       <div class="form-control">
         <label class="label">
           <span class="label-text">Betrag</span>
@@ -509,7 +486,6 @@ function saveRuleAndCloseModal(ruleData: any) {
             <span>€</span>
           </div>
 
-          <!-- Betragstyp-Auswahl -->
           <div class="flex items-center space-x-3">
             <label class="flex items-center gap-2 cursor-pointer">
               <input
@@ -540,7 +516,6 @@ function saveRuleAndCloseModal(ruleData: any) {
             </label>
           </div>
 
-          <!-- Zusätzliche Felder je nach Betragstyp -->
           <div
             v-if="amountType === AmountType.APPROXIMATE"
             class="form-control"
@@ -576,7 +551,6 @@ function saveRuleAndCloseModal(ruleData: any) {
       </div>
     </div>
 
-    <!-- Transaktionstyp -->
     <div class="form-control">
       <label class="cursor-pointer label">
         <span class="label-text">Ist dies eine Kontoüberweisung?</span>
@@ -584,7 +558,6 @@ function saveRuleAndCloseModal(ruleData: any) {
       </label>
     </div>
 
-    <!-- Kontoauswahl -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div class="form-control">
         <label class="label">
@@ -623,7 +596,6 @@ function saveRuleAndCloseModal(ruleData: any) {
       </div>
     </div>
 
-    <!-- Tags -->
     <div class="form-control">
       <label class="label">
         <span class="label-text">Tags</span>
@@ -635,7 +607,6 @@ function saveRuleAndCloseModal(ruleData: any) {
       />
     </div>
 
-    <!-- Terminfelder -->
     <div class="card bg-base-200 p-4 rounded-lg">
       <div class="form-control">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -653,7 +624,6 @@ function saveRuleAndCloseModal(ruleData: any) {
             </div>
           </div>
           <div>
-            <!-- Wertstellungsdatum -->
             <label class="label">
               <span class="label-text">Wertstellung</span>
             </label>
@@ -829,7 +799,6 @@ function saveRuleAndCloseModal(ruleData: any) {
       </div>
     </div>
 
-    <!-- Forecast Only Option -->
     <div class="card bg-base-200 p-4 rounded-lg">
       <div class="form-control">
         <label class="cursor-pointer label">
@@ -837,9 +806,7 @@ function saveRuleAndCloseModal(ruleData: any) {
           <input type="checkbox" class="toggle" v-model="forecastOnly" />
         </label>
         <p class="text-xs text-base-content/70" v-if="forecastOnly">
-          Bei aktivierter Option werden keine echten Transaktionen erzeugt. Es
-          wird lediglich das nächste geplante Datum aktualisiert und die
-          Prognose angepasst.
+          Bei aktivierter Option werden keine echten Transaktionen erzeugt.
         </p>
       </div>
       <div class="form-control mt-2">
@@ -850,7 +817,6 @@ function saveRuleAndCloseModal(ruleData: any) {
       </div>
     </div>
 
-    <!-- Notizen -->
     <div class="form-control">
       <label class="label">
         <span class="label-text">Notizen</span>
@@ -862,7 +828,6 @@ function saveRuleAndCloseModal(ruleData: any) {
       ></textarea>
     </div>
 
-    <!-- Aktionsbuttons -->
     <div class="flex justify-end space-x-2 pt-4">
       <button type="button" class="btn" @click="$emit('cancel')">
         Abbrechen

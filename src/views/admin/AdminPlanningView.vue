@@ -11,6 +11,7 @@ import SearchGroup from "@/components/ui/SearchGroup.vue";
 import PlanningTransactionForm from "@/components/planning/PlanningTransactionForm.vue";
 import { debugLog } from "@/utils/logger";
 import PagingComponent from "@/components/ui/PagingComponent.vue";
+import { PlanningService } from "@/services/PlanningService";
 
 const planningStore = usePlanningStore();
 const accountStore = useAccountStore();
@@ -31,7 +32,6 @@ const filteredPlannings = computed(() => {
   if (!searchQuery.value.trim()) {
     return planningStore.planningTransactions;
   }
-
   const term = searchQuery.value.toLowerCase();
   return planningStore.planningTransactions.filter((plan) => {
     return (
@@ -75,30 +75,30 @@ const editPlanning = (planning: PlanningTransaction) => {
   debugLog("[AdminPlanningView] Edit planning", planning);
 };
 
-// Planung speichern
+// Planung speichern: Service-Aufruf statt direkter Store-Anpassungen
 const savePlanning = (data: any) => {
   if (selectedPlanning.value) {
-    planningStore.updatePlanningTransaction(selectedPlanning.value.id, data);
+    PlanningService.updatePlanningTransaction(selectedPlanning.value.id, data);
     debugLog("[AdminPlanningView] Updated planning", data);
   } else {
-    planningStore.addPlanningTransaction(data);
+    PlanningService.addPlanningTransaction(data);
     debugLog("[AdminPlanningView] Added planning", data);
   }
   showNewPlanningModal.value = false;
   showEditPlanningModal.value = false;
 };
 
-// Planung löschen
+// Planung löschen: Aufruf über den Service
 const deletePlanning = (planning: PlanningTransaction) => {
   if (confirm("Möchten Sie diese geplante Transaktion wirklich löschen?")) {
-    planningStore.deletePlanningTransaction(planning.id);
+    PlanningService.deletePlanningTransaction(planning.id);
     debugLog("[AdminPlanningView] Deleted planning", planning.id);
   }
 };
 
-// Planung deaktivieren/aktivieren
+// Planung deaktivieren/aktivieren: Service-Aufruf
 const toggleActivation = (planning: PlanningTransaction) => {
-  planningStore.updatePlanningTransaction(planning.id, {
+  PlanningService.updatePlanningTransaction(planning.id, {
     isActive: !planning.isActive,
   });
   debugLog("[AdminPlanningView] Toggled activation", {
@@ -107,7 +107,7 @@ const toggleActivation = (planning: PlanningTransaction) => {
   });
 };
 
-// Hilfsfunktionen
+// Hilfsfunktion: Übersetzt Wiederholungsmuster
 function formatRecurrencePattern(pattern: RecurrencePattern): string {
   const patterns: Record<RecurrencePattern, string> = {
     [RecurrencePattern.ONCE]: "Einmalig",
@@ -118,13 +118,12 @@ function formatRecurrencePattern(pattern: RecurrencePattern): string {
     [RecurrencePattern.QUARTERLY]: "Vierteljährlich",
     [RecurrencePattern.YEARLY]: "Jährlich",
   };
-
   return patterns[pattern] || pattern;
 }
 
-// Automatische Ausführung aller fälligen Planungen
+// Automatische Ausführung aller fälligen Planungen über den Service
 function executeAllDuePlannings() {
-  const count = planningStore.executeAllDuePlanningTransactions();
+  const count = PlanningService.executeAllDuePlanningTransactions();
   alert(`${count} automatische Planungsbuchungen ausgeführt.`);
   debugLog("[AdminPlanningView] Executed all due plannings", { count });
 }
@@ -270,7 +269,6 @@ function executeAllDuePlannings() {
                   </div>
                 </td>
               </tr>
-              <!-- Leere Tabelle Hinweis -->
               <tr v-if="paginatedPlannings.length === 0">
                 <td colspan="9" class="text-center py-4">
                   Keine geplanten Transaktionen vorhanden. Erstellen Sie eine
@@ -280,8 +278,6 @@ function executeAllDuePlannings() {
             </tbody>
           </table>
         </div>
-
-        <!-- Pagination -->
         <PagingComponent
           :currentPage="currentPage"
           :totalPages="totalPages"

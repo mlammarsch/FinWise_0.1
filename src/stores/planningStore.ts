@@ -30,20 +30,21 @@ export const usePlanningStore = defineStore('planning', () => {
   const transactionStore = useTransactionStore()
   const monthlyBalanceStore = useMonthlyBalanceStore()
 
-  // Neues State-Element für die Überwachung der letzten Aktualisierung
+  // Verfolgt den Zeitpunkt der letzten Forecast-Aktualisierung
   const lastUpdateTimestamp = ref<number>(0)
-  const forecastMonths = ref<number>(24) // Konfigurierbare Anzahl von Monaten für Prognosen
+  const forecastMonths = ref<number>(24) // Anzahl der Monate für Prognosen
 
+  // Liefert eine Funktion zum Abrufen einer Planungstransaktion anhand ihrer ID
   const getPlanningTransactionById = computed(() => {
     return (id: string) => planningTransactions.value.find(tx => tx.id === id)
   })
 
-  // Verbesserte Version der getUpcomingTransactions-Funktion für längere Zeiträume
+  // Liefert anstehende Planungstransaktionen für den angegebenen Zeitraum
   const getUpcomingTransactions = computed(() => {
     return (days: number = 30) => {
       checkAndUpdateForecast()
 
-      // Ermittle als Referenzdatum das älteste Datum in der Vergangenheit von offenen Planbuchungen
+      // Referenzdatum: Ältestes Datum offener, aktiver Planungen in der Vergangenheit
       let referenceDate = dayjs()
       const activePastPlans = planningTransactions.value.filter(tx =>
         tx.isActive && dayjs(tx.startDate).isBefore(dayjs())
@@ -75,20 +76,18 @@ export const usePlanningStore = defineStore('planning', () => {
     }
   })
 
-  // Funktion zur Prüfung, ob ein Datum ein Wochenende ist
+  // Prüft, ob ein Datum ein Wochenende ist
   function isWeekend(date: dayjs.Dayjs): boolean {
     const day = date.day()
-    return day === 0 || day === 6 // 0 ist Sonntag, 6 ist Samstag
+    return day === 0 || day === 6 // Sonntag oder Samstag
   }
 
-  // Funktion zur Handhabung von Wochenenden
+  // Verschiebt das Datum, falls es auf ein Wochenende fällt
   function applyWeekendHandling(date: dayjs.Dayjs, handling: WeekendHandlingType): dayjs.Dayjs {
     if (!isWeekend(date) || handling === WeekendHandlingType.NONE) {
       return date
     }
-
     const isSaturday = date.day() === 6
-
     switch (handling) {
       case WeekendHandlingType.BEFORE:
         return isSaturday ? date.subtract(1, 'day') : date.subtract(2, 'day')
@@ -103,28 +102,22 @@ export const usePlanningStore = defineStore('planning', () => {
     return new Date(year, month, 0).getDate()
   }
 
+  // Prüft, ob die Forecast-Aktualisierung durchgeführt werden muss
   function checkAndUpdateForecast() {
     const now = Date.now()
     const oneWeek = 7 * 24 * 60 * 60 * 1000
-
-    // Prüfe, ob die letzte Aktualisierung länger als eine Woche her ist
     if (now - lastUpdateTimestamp.value > oneWeek) {
       debugLog('[planningStore] Weekly forecast update triggered', {
         lastUpdate: new Date(lastUpdateTimestamp.value).toISOString(),
         now: new Date(now).toISOString()
       })
-
-      // Aktualisiere die Monatsbilanzen (diese enthalten Prognosen)
       monthlyBalanceStore.calculateMonthlyBalances()
-
-      // Aktualisiere den Zeitstempel
       lastUpdateTimestamp.value = now
-
-      // Speichere den Zeitstempel für die nächste Sitzung
       localStorage.setItem('finwise_last_forecast_update', now.toString())
     }
   }
 
+  // Berechnet zukünftige Ausführungstermine einer Planungstransaktion
   function calculateNextOccurrences(
     planTx: PlanningTransaction,
     startDate: string,
@@ -146,7 +139,6 @@ export const usePlanningStore = defineStore('planning', () => {
 
     while (currentDate.isSameOrBefore(end) && count < maxIterations) {
       let adjustedDate = applyWeekendHandling(currentDate, planTx.weekendHandling)
-
       if (adjustedDate.isSameOrAfter(start) && adjustedDate.isSameOrBefore(end)) {
         occurrences.push(toDateOnlyString(adjustedDate.toDate()))
       }
@@ -179,7 +171,7 @@ export const usePlanningStore = defineStore('planning', () => {
           }
           break
         case RecurrencePattern.QUARTERLY:
-          currentDate = currentDate.add(3, 'month')
+          currentDate = currentDate.add(3, 'months')
           break
         case RecurrencePattern.YEARLY:
           currentDate = currentDate.add(1, 'year')
@@ -197,10 +189,9 @@ export const usePlanningStore = defineStore('planning', () => {
     return occurrences
   }
 
-  // Funktion zum Hinzufügen einer Planung
+  // Fügt eine neue Planungstransaktion hinzu
   function addPlanningTransaction(planning: Partial<PlanningTransaction>) {
     const txId = uuidv4()
-
     const newPlanning: PlanningTransaction = {
       id: txId,
       name: planning.name || '',
@@ -227,22 +218,18 @@ export const usePlanningStore = defineStore('planning', () => {
       forecastOnly: planning.forecastOnly !== undefined ? planning.forecastOnly : false,
       transactionType: planning.transactionType
     }
-
     planningTransactions.value.push(newPlanning)
     savePlanningTransactions()
-
     debugLog('[planningStore] addPlanningTransaction', {
       id: newPlanning.id,
       name: newPlanning.name,
       amount: newPlanning.amount
     })
-
     monthlyBalanceStore.calculateMonthlyBalances()
-
     return newPlanning
   }
 
-  // Funktion zum Aktualisieren einer Planung
+  // Aktualisiert eine bestehende Planungstransaktion
   function updatePlanningTransaction(id: string, planning: Partial<PlanningTransaction>) {
     const index = planningTransactions.value.findIndex(p => p.id === id)
     if (index !== -1) {
@@ -251,21 +238,18 @@ export const usePlanningStore = defineStore('planning', () => {
         ...planning
       }
       savePlanningTransactions()
-
       debugLog('[planningStore] updatePlanningTransaction', {
         id,
         name: planningTransactions.value[index].name,
         updates: Object.keys(planning).join(', ')
       })
-
       monthlyBalanceStore.calculateMonthlyBalances()
-
       return true
     }
     return false
   }
 
-  // Funktion zum Löschen einer Planung
+  // Löscht eine Planungstransaktion
   function deletePlanningTransaction(id: string) {
     const planToDelete = planningTransactions.value.find(p => p.id === id)
     if (planToDelete) {
@@ -274,14 +258,12 @@ export const usePlanningStore = defineStore('planning', () => {
         name: planToDelete.name
       })
     }
-
     planningTransactions.value = planningTransactions.value.filter(p => p.id !== id)
     savePlanningTransactions()
-
     monthlyBalanceStore.calculateMonthlyBalances()
   }
 
-  // Funktion zum Ausführen einer geplanten Transaktion
+  // Führt die Transaktion einer Planung aus
   function executePlanningTransaction(planningId: string, executionDate: string) {
     try {
       const planning = getPlanningTransactionById.value(planningId)
@@ -289,8 +271,6 @@ export const usePlanningStore = defineStore('planning', () => {
         debugLog('[planningStore] executePlanningTransaction - Planning not found', { planningId })
         return false
       }
-
-      // Forecast Only Modus: Keine realen Transaktionen; nur Datum anpassen und Prognosen aktualisieren
       if (planning.forecastOnly) {
         planning.startDate = executionDate;
         savePlanningTransactions();
@@ -301,8 +281,6 @@ export const usePlanningStore = defineStore('planning', () => {
         });
         return true;
       }
-
-      // Neue Transaktion aus der Planung erstellen
       const transaction = {
         date: executionDate,
         valueDate: planning.valueDate || executionDate,
@@ -317,20 +295,16 @@ export const usePlanningStore = defineStore('planning', () => {
         recipientId: planning.recipientId || '',
         planningId: planning.id
       }
-
       const newTx = TransactionService.addTransaction(transaction)
-
       debugLog('[planningStore] executePlanningTransaction', {
         planningId: planning.id,
         name: planning.name,
         executionDate,
         transactionId: newTx.id
       })
-
       const ruleStore = useRuleStore()
       ruleStore.applyRulesToTransaction(newTx)
       monthlyBalanceStore.calculateMonthlyBalances()
-
       return true;
     } catch (error) {
       debugLog('[planningStore] executePlanningTransaction - Error executing transaction', { planningId, executionDate, error });
@@ -338,15 +312,12 @@ export const usePlanningStore = defineStore('planning', () => {
     }
   }
 
-  // Funktion zum Ausführen aller fälligen Auto-Ausführen-Planungen
+  // Führt alle fälligen Planungstransaktionen aus
   function executeAllDuePlanningTransactions() {
     const today = dayjs().startOf('day');
     let executedCount = 0;
-
     planningTransactions.value.forEach(planTx => {
       if (!planTx.isActive) return;
-
-      // Berechne alle überfälligen Ausführungstermine von planTx.startDate bis heute
       const overdueOccurrences = calculateNextOccurrences(planTx, planTx.startDate, today.format("YYYY-MM-DD"));
       overdueOccurrences.forEach(dateStr => {
         if (dayjs(dateStr).isBefore(today) || dayjs(dateStr).isSame(today)) {
@@ -356,8 +327,6 @@ export const usePlanningStore = defineStore('planning', () => {
           }
         }
       });
-
-      // Aktualisiere das Startdatum der Planung auf das nächste Termin, um doppelte Ausführungen zu vermeiden
       const nextOccurrences = calculateNextOccurrences(
         planTx,
         today.add(1, 'day').format("YYYY-MM-DD"),
@@ -367,7 +336,6 @@ export const usePlanningStore = defineStore('planning', () => {
         updatePlanningTransaction(planTx.id, { startDate: nextOccurrences[0] });
       }
     });
-
     return executedCount;
   }
 
@@ -391,14 +359,11 @@ export const usePlanningStore = defineStore('planning', () => {
           name: tx.name || tx.payee || '',
           valueDate: tx.valueDate || tx.date
         }))
-
         debugLog('[planningStore] loadPlanningTransactions - Loaded', planningTransactions.value.length, 'transactions')
-
         const savedTimestamp = localStorage.getItem('finwise_last_forecast_update')
         if (savedTimestamp) {
           lastUpdateTimestamp.value = parseInt(savedTimestamp)
         }
-
         checkAndUpdateForecast()
       } catch (error) {
         debugLog('[planningStore] loadPlanningTransactions - Error parsing data', error)

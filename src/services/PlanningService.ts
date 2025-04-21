@@ -6,7 +6,8 @@ import { debugLog } from '@/utils/logger';
 
 export const PlanningService = {
   /**
-   * Fügt eine Planungstransaktion hinzu
+   * Fügt eine Planungstransaktion hinzu.
+   * Die Business-Logik wird im Service konsolidiert.
    */
   addPlanningTransaction(planning: Partial<PlanningTransaction>) {
     const planningStore = usePlanningStore();
@@ -22,7 +23,7 @@ export const PlanningService = {
   },
 
   /**
-   * Aktualisiert eine Planungstransaktion
+   * Aktualisiert eine Planungstransaktion.
    */
   updatePlanningTransaction(id: string, planning: Partial<PlanningTransaction>) {
     const planningStore = usePlanningStore();
@@ -31,14 +32,13 @@ export const PlanningService = {
     const result = planningStore.updatePlanningTransaction(id, planning);
     debugLog("[PlanningService] updatePlanningTransaction", { id, updates: planning });
 
-    // Monatliche Saldos neu berechnen
     monthlyBalanceStore.calculateMonthlyBalances();
 
     return result;
   },
 
   /**
-   * Löscht eine Planungstransaktion
+   * Löscht eine Planungstransaktion.
    */
   deletePlanningTransaction(id: string) {
     const planningStore = usePlanningStore();
@@ -47,14 +47,13 @@ export const PlanningService = {
     planningStore.deletePlanningTransaction(id);
     debugLog("[PlanningService] deletePlanningTransaction", id);
 
-    // Monatliche Saldos neu berechnen
     monthlyBalanceStore.calculateMonthlyBalances();
 
     return true;
   },
 
   /**
-   * Führt eine geplante Transaktion aus
+   * Führt eine geplante Transaktion aus.
    */
   executePlanningTransaction(planningId: string, executionDate: string) {
     const planningStore = usePlanningStore();
@@ -65,7 +64,7 @@ export const PlanningService = {
   },
 
   /**
-   * Führt alle fälligen automatischen Planungen aus
+   * Führt alle fälligen automatischen Planungen aus.
    */
   executeAllDuePlanningTransactions() {
     const planningStore = usePlanningStore();
@@ -76,7 +75,7 @@ export const PlanningService = {
   },
 
   /**
-   * Aktualisiert die Prognosen
+   * Aktualisiert die Prognosen und Monatsbilanzen.
    */
   updateForecasts() {
     const planningStore = usePlanningStore();

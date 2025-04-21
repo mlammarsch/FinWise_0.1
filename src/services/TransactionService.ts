@@ -1,3 +1,4 @@
+// src/services/TransactionService.ts
 import { useTransactionStore } from '@/stores/transactionStore';
 import { useAccountStore } from '@/stores/accountStore'; // Needed for account transfers
 import { useCategoryStore } from '@/stores/categoryStore'; // Needed for category transfers/validation?
@@ -59,7 +60,7 @@ export const TransactionService = {
         debugLog("[TransactionService] addTransaction - Added:", addedTx);
         monthlyBalanceStore.calculateMonthlyBalances();
 
-        // === Neue Logik: Falls es sich um eine INCOME-Buchung handelt, CATEGORYTRANSFER erzeugen ===
+        // Neue Logik: Falls es sich um eine INCOME-Buchung handelt, CATEGORYTRANSFER erzeugen
         if (addedTx.type === TransactionType.INCOME && addedTx.amount > 0 && addedTx.categoryId) {
             const categoryStore = useCategoryStore();
             const availableFunds = categoryStore.getAvailableFundsCategory();
@@ -200,7 +201,6 @@ export const TransactionService = {
             debugLog("[TransactionService] updateTransaction - Updated:", id);
             monthlyBalanceStore.calculateMonthlyBalances();
 
-            // === Neue Logik: Betrag wird bei INCOME-Anpassung abgeglichen ===
             if (originalTx && originalTx.type === TransactionType.INCOME && updates.amount !== undefined) {
                 const diff = updates.amount - originalTx.amount;
                 if (diff !== 0 && originalTx.categoryId) {
@@ -239,7 +239,6 @@ export const TransactionService = {
             return false;
         }
 
-        // === Neue Logik: Bei Löschung einer INCOME-Buchung wird ein entsprechender CATEGORYTRANSFER erzeugt ===
         if (txToDelete.type === TransactionType.INCOME && txToDelete.amount > 0 && txToDelete.categoryId) {
             const categoryStore = useCategoryStore();
             const availableFunds = categoryStore.getAvailableFundsCategory();
@@ -283,7 +282,6 @@ export const TransactionService = {
          let deletedCount = 0;
          let allSuccess = true;
          const uniqueIds = [...new Set(ids)];
-
          uniqueIds.forEach(id => {
              const success = this.deleteTransaction(id);
              if (success) {
@@ -292,7 +290,6 @@ export const TransactionService = {
                  allSuccess = false;
              }
          });
-
          debugLog("[TransactionService] deleteMultipleTransactions - Attempted:", uniqueIds.length, "Deleted:", deletedCount);
          return { success: allSuccess && deletedCount > 0, deletedCount };
     }
