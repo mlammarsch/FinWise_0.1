@@ -79,8 +79,8 @@ const weekendHandling = ref<WeekendHandlingType>(WeekendHandlingType.NONE);
 const moveScheduleEnabled = ref(false);
 const weekendHandlingDirection = ref<"before" | "after">("after");
 
-// Automatisierungsfelder
-const autoExecute = ref(false);
+// Forecast Only Modus (ehemals "automatisch ausführen")
+const forecastOnly = ref(false);
 const isActive = ref(true);
 
 // Regel-Erstellung Modal
@@ -108,7 +108,7 @@ onMounted(() => {
     categoryId.value = props.transaction.categoryId;
     tagIds.value = props.transaction.tagIds || [];
     recipientId.value = props.transaction.recipientId || "";
-    autoExecute.value = props.transaction.autoExecute || false;
+    forecastOnly.value = props.transaction.forecastOnly || false;
     isActive.value =
       props.transaction.isActive !== undefined
         ? props.transaction.isActive
@@ -381,7 +381,7 @@ function savePlanningTransaction() {
       amountType.value === AmountType.RANGE ? maxAmount.value : undefined,
     note: note.value,
     startDate: startDate.value,
-    valueDate: valueDate.value, // Hinzugefügtes Wertstellungsdatum
+    valueDate: valueDate.value,
     endDate:
       effectiveRecurrenceEndType === RecurrenceEndType.DATE
         ? endDate.value
@@ -397,7 +397,7 @@ function savePlanningTransaction() {
     transactionType,
     transferToAccountId: isTransfer.value ? toAccountId.value : undefined,
     isActive: isActive.value,
-    autoExecute: autoExecute.value,
+    forecastOnly: forecastOnly.value,
   };
 
   debugLog(
@@ -749,7 +749,7 @@ function saveRuleAndCloseModal(ruleData: any) {
         </div>
 
         <div class="form-control">
-          <label class="label">
+          <label class="cursor-pointer label">
             <span class="label-text">Endet</span>
           </label>
           <div class="flex space-x-2">
@@ -829,18 +829,19 @@ function saveRuleAndCloseModal(ruleData: any) {
       </div>
     </div>
 
-    <!-- Automatisierung -->
+    <!-- Forecast Only Option -->
     <div class="card bg-base-200 p-4 rounded-lg">
       <div class="form-control">
         <label class="cursor-pointer label">
-          <span class="label-text">Automatisch ausführen</span>
-          <input type="checkbox" class="toggle" v-model="autoExecute" />
+          <span class="label-text">Nur Prognosebuchung</span>
+          <input type="checkbox" class="toggle" v-model="forecastOnly" />
         </label>
-        <p class="text-xs text-base-content/70" v-if="autoExecute">
-          Die App erstellt automatisch Transaktionen für geplante Termine.
+        <p class="text-xs text-base-content/70" v-if="forecastOnly">
+          Bei aktivierter Option werden keine echten Transaktionen erzeugt. Es
+          wird lediglich das nächste geplante Datum aktualisiert und die
+          Prognose angepasst.
         </p>
       </div>
-
       <div class="form-control mt-2">
         <label class="cursor-pointer label">
           <span class="label-text">Aktiv</span>

@@ -38,7 +38,7 @@ $searchFiles = @(
     # "src\views\AccountsView.vue",
 
     # ### Planning
-    "src\components\planning\*.vue",
+    "src\components\planning\PlanningTransactionForm.vue",
     # "src\components\rules\RuleForm.vue",
     "src\stores\planningStore.ts",
     "src\services\PlanningService.ts",
@@ -47,25 +47,25 @@ $searchFiles = @(
 
     # ### Transaction
     # "./src/components/transaction/TransactionCard.vue",
-    "src\components\transaction\CategoryTransactionList.vue",
+    #"src\components\transaction\CategoryTransactionList.vue",
     # "src\components\transaction\TransactionForm.vue",
-    "src\components\transaction\TransactionList.vue",
+    #"src\components\transaction\TransactionList.vue",
     "src\services\TransactionService.ts",
     "src\stores\transactionStore.ts",
-    "src\views\TransactionsView.vue",
+    #"src\views\TransactionsView.vue",
 
     # ### Recipients
     # "src\stores\recipientStore.ts",
 
     # ### Category - Budget
-    "src\components\budget\BudgetMonthCard.vue",
+    #"src\components\budget\BudgetMonthCard.vue",
     # "src\components\budget\BudgetCategoryColumn.vue",
     # "src\components\budget\BudgetMonthHeaderCard.vue",
     # "src\components\budget\CategoryForm.vue",
     # "src\components\budget\CategoryTransferModal.vue",
-    "src\services\BudgetService.ts",
-    "src\services\CategoryService.ts",
-    "src\stores\categoryStore.ts",
+    #"src\services\BudgetService.ts",
+    #"src\services\CategoryService.ts",
+    #"src\stores\categoryStore.ts",
     # "src\views\BudgetsView.vue",
     # "src\views\BudgetsView2.vue",
 
@@ -103,7 +103,7 @@ $searchFiles = @(
     # ### Sonstiges
     # "src\mock\seed.ts",
     "src\stores\monthlyBalanceStore.ts",
-    # "src\types\*.ts",
+    "src\types\index.ts",
     # "src\utils\*.ts",
     # "src\utils\accountTransfers.ts",
     # "src\utils\categoryTransfer.ts",

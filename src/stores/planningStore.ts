@@ -84,9 +84,9 @@ export const usePlanningStore = defineStore('planning', () => {
 
     switch (handling) {
       case WeekendHandlingType.BEFORE:
-        return isSaturday ? date.subtract(1, 'day') : date.subtract(2, 'day') // Freitag
+        return isSaturday ? date.subtract(1, 'day') : date.subtract(2, 'day')
       case WeekendHandlingType.AFTER:
-        return isSaturday ? date.add(2, 'day') : date.add(1, 'day') // Montag
+        return isSaturday ? date.add(2, 'day') : date.add(1, 'day')
       default:
         return date
     }
@@ -197,21 +197,19 @@ export const usePlanningStore = defineStore('planning', () => {
     const newPlanning: PlanningTransaction = {
       id: txId,
       name: planning.name || '',
-      description: planning.description || '',
+      accountId: planning.accountId || '',
+      categoryId: planning.categoryId || '',
+      tagIds: planning.tagIds || [],
+      recipientId: planning.recipientId || '',
       amount: planning.amount || 0,
       amountType: planning.amountType || AmountType.EXACT,
       approximateAmount: planning.approximateAmount,
       minAmount: planning.minAmount,
       maxAmount: planning.maxAmount,
-      type: planning.type || TransactionType.EXPENSE,
+      note: planning.note || '',
       startDate: planning.startDate || new Date().toISOString(),
       valueDate: planning.valueDate || planning.startDate || new Date().toISOString(),
       endDate: planning.endDate,
-      accountId: planning.accountId || '',
-      transferToAccountId: planning.transferToAccountId || '',
-      categoryId: planning.categoryId || '',
-      tagIds: planning.tagIds || [],
-      recipientId: planning.recipientId || '',
       recurrencePattern: planning.recurrencePattern || RecurrencePattern.ONCE,
       recurrenceEndType: planning.recurrenceEndType || RecurrenceEndType.NEVER,
       recurrenceCount: planning.recurrenceCount,
@@ -219,7 +217,7 @@ export const usePlanningStore = defineStore('planning', () => {
       weekendHandling: planning.weekendHandling || WeekendHandlingType.NONE,
       note: planning.note || '',
       isActive: planning.isActive !== undefined ? planning.isActive : true,
-      autoExecute: planning.autoExecute !== undefined ? planning.autoExecute : false,
+      forecastOnly: planning.forecastOnly !== undefined ? planning.forecastOnly : false,
       transactionType: planning.transactionType
     }
 
@@ -232,7 +230,6 @@ export const usePlanningStore = defineStore('planning', () => {
       amount: newPlanning.amount
     })
 
-    // Monatliche Saldos nach Änderung neu berechnen
     monthlyBalanceStore.calculateMonthlyBalances()
 
     return newPlanning
@@ -242,7 +239,6 @@ export const usePlanningStore = defineStore('planning', () => {
   function updatePlanningTransaction(id: string, planning: Partial<PlanningTransaction>) {
     const index = planningTransactions.value.findIndex(p => p.id === id)
     if (index !== -1) {
-      // Aktualisiere das Objekt
       planningTransactions.value[index] = {
         ...planningTransactions.value[index],
         ...planning
@@ -255,7 +251,6 @@ export const usePlanningStore = defineStore('planning', () => {
         updates: Object.keys(planning).join(', ')
       })
 
-      // Monatliche Saldos nach Änderung neu berechnen
       monthlyBalanceStore.calculateMonthlyBalances()
 
       return true
@@ -276,7 +271,6 @@ export const usePlanningStore = defineStore('planning', () => {
     planningTransactions.value = planningTransactions.value.filter(p => p.id !== id)
     savePlanningTransactions()
 
-    // Monatliche Saldos nach Änderung neu berechnen
     monthlyBalanceStore.calculateMonthlyBalances()
   }
 
@@ -284,10 +278,21 @@ export const usePlanningStore = defineStore('planning', () => {
   function executePlanningTransaction(planningId: string, executionDate: string) {
     const planning = getPlanningTransactionById.value(planningId)
     if (!planning) {
-      debugLog('[planningStore] executePlanningTransaction - Planning not found', {
-        planningId
-      })
+      debugLog('[planningStore] executePlanningTransaction - Planning not found', { planningId })
       return false
+    }
+
+    // Forecast Only Modus: Keine realen Transaktionen; nur Datum anpassen und Prognosen aktualisieren
+    if (planning.forecastOnly) {
+      // Beispielhafte Logik: Verschiebe das Startdatum auf den übergebenen Ausführungstermin
+      planning.startDate = executionDate;
+      savePlanningTransactions();
+      monthlyBalanceStore.calculateMonthlyBalances();
+      debugLog('[planningStore] executePlanningTransaction - Forecast Only activated', {
+        planningId: planning.id,
+        newStartDate: executionDate
+      });
+      return true;
     }
 
     // Neue Transaktion aus der Planung erstellen
@@ -306,7 +311,6 @@ export const usePlanningStore = defineStore('planning', () => {
       planningId: planning.id
     }
 
-    // Verwendung des TransactionService statt direktem Aufruf von transactionStore.addTransaction
     const newTx = TransactionService.addTransaction(transaction)
 
     debugLog('[planningStore] executePlanningTransaction', {
@@ -334,7 +338,7 @@ export const usePlanningStore = defineStore('planning', () => {
     })
 
     const upcomingToday = getUpcomingTransactions.value(0).filter(tx => {
-      return tx.date === todayStr && tx.transaction.isActive //&& tx.transaction.autoExecute
+      return tx.date === todayStr && tx.transaction.isActive
     })
 
     let executedCount = 0
@@ -365,20 +369,18 @@ export const usePlanningStore = defineStore('planning', () => {
           weekendHandling: tx.weekendHandling || WeekendHandlingType.NONE,
           recurrenceEndType: tx.recurrenceEndType || RecurrenceEndType.NEVER,
           isActive: tx.isActive !== undefined ? tx.isActive : true,
-          autoExecute: tx.autoExecute !== undefined ? tx.autoExecute : false,
+          forecastOnly: tx.forecastOnly !== undefined ? tx.forecastOnly : false,
           name: tx.name || tx.payee || '',
-          valueDate: tx.valueDate || tx.date // Stellt sicher, dass valueDate immer vorhanden ist
+          valueDate: tx.valueDate || tx.date
         }))
 
         debugLog('[planningStore] loadPlanningTransactions - Loaded', planningTransactions.value.length, 'transactions')
 
-        // Lade den vorherigen Zeitstempel für die Prognoseaktualisierung
         const savedTimestamp = localStorage.getItem('finwise_last_forecast_update')
         if (savedTimestamp) {
           lastUpdateTimestamp.value = parseInt(savedTimestamp)
         }
 
-        // Prüfe beim Laden, ob eine Aktualisierung erforderlich ist
         checkAndUpdateForecast()
       } catch (error) {
         debugLog('[planningStore] loadPlanningTransactions - Error parsing data', error)
@@ -410,7 +412,6 @@ export const usePlanningStore = defineStore('planning', () => {
     reset,
     forecastMonths,
     checkAndUpdateForecast,
-    // Funktion wird hier exportiert, damit andere Services (z. B. BudgetService) sie nutzen können
     calculateNextOccurrences
   }
 })
