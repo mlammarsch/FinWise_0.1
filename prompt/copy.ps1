@@ -3,7 +3,8 @@
 # --------------------------------------------------------------------------
 
 # Basisverzeichnis definieren
-$baseDirectory = "D:\_localData\dev\FinWise\FinWise_0.1"
+//$baseDirectory = "D:\_localData\dev\FinWise\FinWise_0.1"
+$baseDirectory = "C:\00_mldata\programming\FinWise\FinWise_0.1"
 $baseDirectoryFull = [System.IO.Path]::GetFullPath($baseDirectory)
 
 # --------------------------------------------------------------------------

@@ -1,4 +1,4 @@
-// Datei: src/stores/planningStore.ts
+// Datei: src/stores/planningStore.ts (vollständig)
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { v4 as uuidv4 } from 'uuid'
@@ -30,12 +30,10 @@ export const usePlanningStore = defineStore('planning', () => {
   const transactionStore = useTransactionStore()
   const monthlyBalanceStore = useMonthlyBalanceStore()
 
-  // Reine CRUD-Funktionen und einfache Getter
   const getPlanningTransactionById = computed(() => {
     return (id: string) => planningTransactions.value.find(tx => tx.id === id)
   })
 
-  // Liefert aktive Planungstransaktionen, sortiert nach Startdatum.
   const getUpcomingTransactions = computed(() => {
     return (days: number = 30) => {
       return planningTransactions.value
@@ -44,7 +42,6 @@ export const usePlanningStore = defineStore('planning', () => {
     }
   })
 
-  // Fügt eine neue Planungstransaktion hinzu (CRUD).
   function addPlanningTransaction(planning: Partial<PlanningTransaction>) {
     const txId = uuidv4()
     const newPlanning: PlanningTransaction = {
@@ -68,7 +65,6 @@ export const usePlanningStore = defineStore('planning', () => {
       recurrenceCount: planning.recurrenceCount,
       executionDay: planning.executionDay,
       weekendHandling: planning.weekendHandling || WeekendHandlingType.NONE,
-      note: planning.note || '',
       isActive: planning.isActive !== undefined ? planning.isActive : true,
       forecastOnly: planning.forecastOnly !== undefined ? planning.forecastOnly : false,
       transactionType: planning.transactionType
@@ -84,7 +80,6 @@ export const usePlanningStore = defineStore('planning', () => {
     return newPlanning
   }
 
-  // Aktualisiert eine bestehende Planungstransaktion (CRUD).
   function updatePlanningTransaction(id: string, planning: Partial<PlanningTransaction>) {
     const index = planningTransactions.value.findIndex(p => p.id === id)
     if (index !== -1) {
@@ -104,7 +99,6 @@ export const usePlanningStore = defineStore('planning', () => {
     return false
   }
 
-  // Löscht eine Planungstransaktion (CRUD).
   function deletePlanningTransaction(id: string) {
     const planToDelete = planningTransactions.value.find(p => p.id === id)
     if (planToDelete) {
