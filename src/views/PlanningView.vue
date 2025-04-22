@@ -1,14 +1,22 @@
 <!-- src/views/PlanningView.vue -->
 <script setup lang="ts">
+/**
+ * Pfad zur Komponente: src/views/PlanningView.vue
+ * Hauptansicht für Finanzplanung und Prognose.
+ */
 import { ref, computed, onMounted } from "vue";
+import dayjs from "dayjs";
+
 import { usePlanningStore } from "@/stores/planningStore";
 import { useAccountStore } from "@/stores/accountStore";
 import { useCategoryStore } from "@/stores/categoryStore";
 import { useRecipientStore } from "@/stores/recipientStore";
 import { useMonthlyBalanceStore } from "@/stores/monthlyBalanceStore";
+
 import PlanningTransactionForm from "@/components/planning/PlanningTransactionForm.vue";
 import AccountForecastChart from "@/components/planning/AccountForecastChart.vue";
 import CategoryForecastChart from "@/components/planning/CategoryForecastChart.vue";
+
 import { PlanningTransaction } from "@/types";
 import CurrencyDisplay from "@/components/ui/CurrencyDisplay.vue";
 import SearchGroup from "@/components/ui/SearchGroup.vue";
@@ -24,7 +32,7 @@ const categoryStore = useCategoryStore();
 const recipientStore = useRecipientStore();
 const monthlyBalanceStore = useMonthlyBalanceStore();
 
-// UI-Status und Filter
+// UI‑Status
 const showNewPlanningModal = ref(false);
 const showEditPlanningModal = ref(false);
 const selectedPlanning = ref<PlanningTransaction | null>(null);
@@ -32,74 +40,87 @@ const searchQuery = ref("");
 const selectedAccountId = ref("");
 const activeTab = ref<"upcoming" | "accounts" | "categories">("upcoming");
 
-// Pagination und Zeitbereich
+// Pagination / Zeitraum
 const currentPage = ref(1);
-const itemsPerPage = ref(25);
+const itemsPerPage = ref<number | "all">(25);
 const itemsPerPageOptions = [10, 20, 25, 50, 100, "all"];
+
 const dateRange = ref<{ start: string; end: string }>({
-  start: new Date(new Date().getFullYear(), new Date().getMonth(), 1)
-    .toISOString()
-    .split("T")[0],
-  end: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0)
-    .toISOString()
-    .split("T")[0],
+  start: dayjs().startOf("month").format("YYYY-MM-DD"),
+  end: dayjs().endOf("month").format("YYYY-MM-DD"),
 });
 
-// Anzeige des letzten Updates
+// Letztes Prognose‑Update
 const lastUpdateDate = computed(() => {
-  const timestamp = localStorage.getItem("finwise_last_forecast_update");
-  return timestamp ? new Date(parseInt(timestamp)) : null;
+  const ts = localStorage.getItem("finwise_last_forecast_update");
+  return ts ? new Date(parseInt(ts)) : null;
 });
 
-// Aktualisiert den angezeigten Zeitraum basierend auf der Monatsauswahl
+// Zeitraum‑Update durch MonthSelector
 function handleDateRangeUpdate(payload: { start: string; end: string }) {
   dateRange.value = payload;
   debugLog("[PlanningView] Date range updated", payload);
 }
 
-// Ermittelt anstehende Transaktionen für den ausgewählten Zeitraum anhand des einfachen CRUD-Getters
+/**
+ * Berechnet alle anstehenden Ausführungstermine im ausgewählten Zeitraum.
+ * Ergebnis: sortiertes Array aus { date, transaction }.
+ */
 const upcomingTransactionsInRange = computed(() => {
-  const startDate = new Date(dateRange.value.start);
-  const endDate = new Date(dateRange.value.end);
-  const diffTime = endDate.getTime() - startDate.getTime();
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  // Hier werden alle aktiven Planungen zurückgegeben – spezifische Geschäftslogik zur Terminberechnung erfolgt nun im Service
-  return planningStore.getUpcomingTransactions(diffDays + 1).filter((entry) => {
-    const entryDate = new Date(entry.date);
-    return entryDate >= startDate && entryDate <= endDate;
+  const start = dateRange.value.start;
+  const end = dateRange.value.end;
+  const list: Array<{ date: string; transaction: PlanningTransaction }> = [];
+
+  planningStore.planningTransactions.forEach((plan) => {
+    if (!plan.isActive) return;
+    const occurrences = PlanningService.calculateNextOccurrences(
+      plan,
+      start,
+      end
+    );
+    occurrences.forEach((dateStr) => {
+      list.push({ date: dateStr, transaction: plan });
+    });
   });
+
+  return list.sort((a, b) => a.date.localeCompare(b.date));
 });
 
-// Filtert die Transaktionen anhand Suche und Kontofilter
+// Suche & Konto‑Filter
 const filteredTransactions = computed(() => {
-  let filtered = [...upcomingTransactionsInRange.value];
+  let data = [...upcomingTransactionsInRange.value];
+
   if (selectedAccountId.value) {
-    filtered = filtered.filter(
-      (entry) => entry.transaction.accountId === selectedAccountId.value
+    data = data.filter(
+      (e) => e.transaction.accountId === selectedAccountId.value
     );
   }
+
   if (searchQuery.value.trim()) {
     const term = searchQuery.value.toLowerCase();
-    filtered = filtered.filter((entry) => {
-      const transaction = entry.transaction;
+    data = data.filter((e) => {
+      const t = e.transaction;
       return (
-        transaction.name?.toLowerCase().includes(term) ||
-        recipientStore
-          .getRecipientById(transaction.recipientId || "")
+        t.name.toLowerCase().includes(term) ||
+        (recipientStore
+          .getRecipientById(t.recipientId || "")
           ?.name.toLowerCase()
-          .includes(term) ||
-        accountStore
-          .getAccountById(transaction.accountId)
+          .includes(term) ??
+          false) ||
+        (accountStore
+          .getAccountById(t.accountId)
           ?.name.toLowerCase()
-          .includes(term) ||
-        String(transaction.amount).includes(term)
+          .includes(term) ??
+          false) ||
+        String(t.amount).includes(term)
       );
     });
   }
-  return filtered;
+
+  return data;
 });
 
-// Paginierung der Transaktionen
+// Pagination
 const paginatedTransactions = computed(() => {
   if (itemsPerPage.value === "all") return filteredTransactions.value;
   const start = (currentPage.value - 1) * Number(itemsPerPage.value);
@@ -109,21 +130,19 @@ const paginatedTransactions = computed(() => {
   );
 });
 
-// Neue Planung erstellen
-const createPlanning = () => {
+// CRUD‑Aktionen
+function createPlanning() {
   selectedPlanning.value = null;
   showNewPlanningModal.value = true;
-};
+}
 
-// Planung bearbeiten
-const editPlanning = (planning: PlanningTransaction) => {
+function editPlanning(planning: PlanningTransaction) {
   selectedPlanning.value = planning;
   showEditPlanningModal.value = true;
   debugLog("[PlanningView] Edit planning", planning);
-};
+}
 
-// Planung speichern über den Service
-const savePlanning = (data: any) => {
+function savePlanning(data: any) {
   if (selectedPlanning.value) {
     PlanningService.updatePlanningTransaction(selectedPlanning.value.id, data);
     debugLog("[PlanningView] Updated planning", data);
@@ -134,80 +153,75 @@ const savePlanning = (data: any) => {
   showNewPlanningModal.value = false;
   showEditPlanningModal.value = false;
   monthlyBalanceStore.calculateMonthlyBalances();
-};
+}
 
-// Planung löschen über den Service
-const deletePlanning = (planning: PlanningTransaction) => {
+function deletePlanning(planning: PlanningTransaction) {
   if (confirm("Möchten Sie diese geplante Transaktion wirklich löschen?")) {
     PlanningService.deletePlanningTransaction(planning.id);
     debugLog("[PlanningView] Deleted planning", planning.id);
     monthlyBalanceStore.calculateMonthlyBalances();
   }
-};
+}
 
-// Planung ausführen über den Service
-const executePlanning = (planningId: string, date: string) => {
+function executePlanning(planningId: string, date: string) {
   PlanningService.executePlanningTransaction(planningId, date);
   debugLog("[PlanningView] Executed planning", { planningId, date });
-};
+}
 
-// Gibt den Namen des Kontos zurück
+// Hilfs‑Funktionen
 function getAccountName(accountId: string): string {
   return accountStore.getAccountById(accountId)?.name || "Unbekanntes Konto";
 }
 
-// Filter zurücksetzen
 function clearFilters() {
   selectedAccountId.value = "";
   searchQuery.value = "";
   currentPage.value = 1;
 }
 
-// Automatische Ausführung fälliger Planungen über den Service
+// Service‑Aufrufe
 function executeAutomaticTransactions() {
   const count = PlanningService.executeAllDuePlanningTransactions();
   alert(`${count} automatische Planungsbuchungen ausgeführt.`);
 }
 
-// Manuelles Aktualisieren der Prognosen über den Service
-const updateForecasts = () => {
+function updateForecasts() {
   PlanningService.updateForecasts();
   alert("Prognosen und monatliche Saldi wurden aktualisiert.");
-};
+}
 
+// Auto‑Execute Check bei Mount
 onMounted(() => {
   monthlyBalanceStore.calculateMonthlyBalances();
-  const nextExecution = planningStore.getUpcomingTransactions(0);
-  if (nextExecution.length > 0) {
-    const autoExecutableCount = nextExecution.filter(
-      (entry) => entry.transaction.autoExecute
-    ).length;
-    if (autoExecutableCount > 0) {
-      const executeNow = confirm(
-        `Es stehen ${autoExecutableCount} automatische Planungsbuchungen für heute an. Jetzt ausführen?`
-      );
-      if (executeNow) {
-        executeAutomaticTransactions();
-      }
-    }
+
+  const today = dayjs().format("YYYY-MM-DD");
+  let autoCount = 0;
+
+  planningStore.planningTransactions.forEach((plan) => {
+    if (!plan.isActive || !plan.autoExecute) return;
+    const occ = PlanningService.calculateNextOccurrences(plan, today, today);
+    if (occ.length) autoCount++;
+  });
+
+  if (autoCount > 0) {
+    const run = confirm(
+      `Es stehen ${autoCount} automatische Planungsbuchungen für heute an. Jetzt ausführen?`
+    );
+    if (run) executeAutomaticTransactions();
   }
 });
 </script>
 
 <template>
   <div class="space-y-6">
-    <!-- Kopfzeile mit Titel und Aktionen -->
+    <!-- Header -->
     <div class="flex justify-between items-center">
       <h2 class="text-xl font-bold">Finanzplanung und Prognose</h2>
       <div class="flex items-center gap-3">
         <div class="text-sm opacity-70" v-if="lastUpdateDate">
           Prognosen aktualisiert am: {{ formatDate(lastUpdateDate) }}
         </div>
-        <button
-          class="btn btn-outline"
-          @click="updateForecasts"
-          title="Prognosen aktualisieren"
-        >
+        <button class="btn btn-outline" @click="updateForecasts">
           <Icon icon="mdi:refresh" class="mr-2" />
           Prognosen aktualisieren
         </button>
@@ -218,16 +232,14 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- Filter und Zeitauswahl -->
+    <!-- Filter & MonthSelector -->
     <div class="card bg-base-100 shadow-md border border-base-300 p-4">
       <div class="flex flex-wrap justify-between items-end gap-4">
         <div class="flex items-end gap-4">
-          <div>
-            <MonthSelector @update-daterange="handleDateRangeUpdate" />
-          </div>
+          <MonthSelector @update-daterange="handleDateRangeUpdate" />
           <div class="form-control">
             <label class="label">
-              <span class="label-text text-center opacity-50">Konto</span>
+              <span class="label-text opacity-50">Konto</span>
             </label>
             <select
               v-model="selectedAccountId"
@@ -256,15 +268,15 @@ onMounted(() => {
           </button>
         </div>
         <SearchGroup
-          btnRight="Neue Planung"
-          btnRightIcon="mdi:plus"
+          btn-right="Neue Planung"
+          btn-right-icon="mdi:plus"
           @btn-right-click="createPlanning"
-          @search="(query) => (searchQuery = query)"
+          @search="(q) => (searchQuery = q)"
         />
       </div>
     </div>
 
-    <!-- Tabs zur Navigation zwischen Ansichten -->
+    <!-- Tabs -->
     <div class="tabs tabs-boxed bg-base-200">
       <a
         class="tab"
@@ -292,7 +304,7 @@ onMounted(() => {
       </a>
     </div>
 
-    <!-- Inhaltsbereich abhängig von aktiver Tab -->
+    <!-- Upcoming Transactions -->
     <div
       v-if="activeTab === 'upcoming'"
       class="card bg-base-100 shadow-md border border-base-300 p-4"
@@ -313,31 +325,30 @@ onMounted(() => {
           </thead>
           <tbody>
             <tr
-              v-for="entry in paginatedTransactions"
-              :key="`${entry.transaction.id}-${entry.date}`"
+              v-for="e in paginatedTransactions"
+              :key="`${e.transaction.id}-${e.date}`"
             >
-              <td>{{ formatDate(entry.date) }}</td>
-              <td>{{ entry.transaction.name }}</td>
+              <td>{{ formatDate(e.date) }}</td>
+              <td>{{ e.transaction.name }}</td>
               <td>
                 {{
                   recipientStore.getRecipientById(
-                    entry.transaction.recipientId || ""
+                    e.transaction.recipientId || ""
                   )?.name || "-"
                 }}
               </td>
-              <td>{{ getAccountName(entry.transaction.accountId) }}</td>
+              <td>{{ getAccountName(e.transaction.accountId) }}</td>
               <td>
                 {{
-                  entry.transaction.categoryId
-                    ? categoryStore.getCategoryById(
-                        entry.transaction.categoryId
-                      )?.name || "-"
+                  e.transaction.categoryId
+                    ? categoryStore.getCategoryById(e.transaction.categoryId)
+                        ?.name || "-"
                     : "-"
                 }}
               </td>
               <td class="text-right">
                 <CurrencyDisplay
-                  :amount="entry.transaction.amount"
+                  :amount="e.transaction.amount"
                   :show-zero="true"
                 />
               </td>
@@ -345,13 +356,13 @@ onMounted(() => {
                 <span
                   class="badge"
                   :class="
-                    entry.transaction.isActive ? 'badge-success' : 'badge-error'
+                    e.transaction.isActive ? 'badge-success' : 'badge-error'
                   "
                 >
-                  {{ entry.transaction.isActive ? "Aktiv" : "Inaktiv" }}
+                  {{ e.transaction.isActive ? "Aktiv" : "Inaktiv" }}
                 </span>
                 <span
-                  v-if="entry.transaction.autoExecute"
+                  v-if="e.transaction.autoExecute"
                   class="badge badge-info ml-1"
                   >Auto</span
                 >
@@ -360,19 +371,19 @@ onMounted(() => {
                 <div class="flex justify-end space-x-1">
                   <button
                     class="btn btn-ghost btn-xs border-none"
-                    @click="executePlanning(entry.transaction.id, entry.date)"
+                    @click="executePlanning(e.transaction.id, e.date)"
                   >
                     <Icon icon="mdi:play" class="text-base text-success" />
                   </button>
                   <button
                     class="btn btn-ghost btn-xs border-none"
-                    @click="editPlanning(entry.transaction)"
+                    @click="editPlanning(e.transaction)"
                   >
                     <Icon icon="mdi:pencil" class="text-base" />
                   </button>
                   <button
                     class="btn btn-ghost btn-xs border-none text-error/75"
-                    @click="deletePlanning(entry.transaction)"
+                    @click="deletePlanning(e.transaction)"
                   >
                     <Icon icon="mdi:trash-can" class="text-base" />
                   </button>
@@ -399,6 +410,7 @@ onMounted(() => {
       />
     </div>
 
+    <!-- Account forecast -->
     <div
       v-if="activeTab === 'accounts'"
       class="card bg-base-100 shadow-md border border-base-300 p-4"
@@ -409,6 +421,7 @@ onMounted(() => {
       />
     </div>
 
+    <!-- Category forecast -->
     <div
       v-if="activeTab === 'categories'"
       class="card bg-base-100 shadow-md border border-base-300 p-4"
@@ -416,7 +429,7 @@ onMounted(() => {
       <CategoryForecastChart :start-date="dateRange.start" />
     </div>
 
-    <!-- Modal für neue Planungstransaktion -->
+    <!-- Modals -->
     <div v-if="showNewPlanningModal" class="modal modal-open">
       <div class="modal-box max-w-3xl">
         <h3 class="font-bold text-lg mb-4">Neue geplante Transaktion</h3>
@@ -431,7 +444,6 @@ onMounted(() => {
       ></div>
     </div>
 
-    <!-- Modal zur Bearbeitung einer bestehenden Planung -->
     <div
       v-if="showEditPlanningModal && selectedPlanning"
       class="modal modal-open"
