@@ -1,7 +1,7 @@
 // src/services/AccountService.ts
 import { useAccountStore } from '@/stores/accountStore';
 import { useTransactionStore } from '@/stores/transactionStore';
-import { useMonthlyBalanceStore } from '@/stores/monthlyBalanceStore'; // neu
+import { useMonthlyBalanceStore } from '@/stores/monthlyBalanceStore';
 import { Account, AccountGroup } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 import { debugLog } from '@/utils/logger';
@@ -49,9 +49,19 @@ export const AccountService = {
 
   /**
    * Liefert den Saldo eines Kontos zum Stichtag (default = heute).
-   * Quelle: MonthlyBalanceStore.projectedAccountBalances
+   * Berücksichtigt nur Transaktionen bis zum angegebenen Datum.
    */
   getCurrentBalance(accountId: string, asOf: Date = new Date()): number {
+    const mbStore = useMonthlyBalanceStore();
+    const bal = mbStore.getAccountBalanceForDate(accountId, asOf);
+    return bal ?? 0;
+  },
+
+  /**
+   * Liefert den projizierten Saldo eines Kontos zum Stichtag (default = heute).
+   * Berücksichtigt auch zukünftige geplante Transaktionen.
+   */
+  getProjectedBalance(accountId: string, asOf: Date = new Date()): number {
     const mbStore = useMonthlyBalanceStore();
     const bal = mbStore.getProjectedAccountBalanceForDate(accountId, asOf);
     return bal ?? 0;
@@ -86,7 +96,7 @@ export const AccountService = {
     return result;
   },
 
-  // --------------------------------------------------------- Convenience —
+  // --------------------------------------------------------- Convenience —
 
   getAccountInfo(accountId: string): AccountInfo | null {
     const acc = this.getAccountById(accountId);

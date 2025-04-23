@@ -15,6 +15,7 @@ import { useAccountStore } from "@/stores/accountStore";
 import CurrencyDisplay from "./CurrencyDisplay.vue";
 import { debugLog } from "@/utils/logger";
 import { Icon } from "@iconify/vue";
+import { AccountService } from "@/services/AccountService";
 
 const props = defineProps<{
   modelValue?: string;
@@ -351,7 +352,7 @@ defineExpose({ focusInput: () => inputRef.value?.focus() });
             <CurrencyDisplay
               class="text-xs opacity-80"
               v-if="option.account"
-              :amount="option.account.balance"
+              :amount="AccountService.getCurrentBalance(option.account.id)"
               :as-integer="true"
             />
           </div>

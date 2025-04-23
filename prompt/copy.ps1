@@ -34,11 +34,11 @@ $searchFiles = @(
     "prompt\sytemprompt.md",
 
     # ### components\account
-    #"src\components\account\AccountCard.vue",
+    "src\components\account\AccountCard.vue",
     #"src\components\account\AccountForm.vue",
-    #"src\components\account\AccountGroupCard.vue",
+    "src\components\account\AccountGroupCard.vue",
     #"src\components\account\AccountGroupForm.vue",
-    #"src\components\account\AccountReconcileModal.vue",
+    "src\components\account\AccountReconcileModal.vue",
 
     # ### components\budget
     #"src\components\budget\BudgetCard.vue",
@@ -46,7 +46,7 @@ $searchFiles = @(
     #"src\components\budget\BudgetMonthCard.vue",
     #"src\components\budget\BudgetMonthHeaderCard.vue",
     #"src\components\budget\CategoryForm.vue",
-    "src\components\budget\CategoryTransferModal.vue",
+    #"src\components\budget\CategoryTransferModal.vue",
 
     # ### components\planning
     #"src\components\planning\AccountForecastChart.vue",
@@ -61,7 +61,7 @@ $searchFiles = @(
     #"src\components\transaction\TransactionCard.vue",
     #"src\components\transaction\TransactionDetailModal.vue",
     #"src\components\transaction\TransactionForm.vue",
-    #"src\components\transaction\TransactionList.vue",
+    "src\components\transaction\TransactionList.vue",
 
     # ### components\ui
     #"src\components\ui\BadgeSoft.vue",
@@ -79,7 +79,7 @@ $searchFiles = @(
     #"src\components\ui\SearchableSelect.vue",
     #"src\components\ui\SearchableSelectLite.vue",
     #"src\components\ui\SearchGroup.vue",
-    #"src\components\ui\SelectAccount.vue",
+    "src\components\ui\SelectAccount.vue",
     # "src\components\ui\SelectCategory.vue",
     #"src\components\ui\SelectRecipient.vue",
     #"src\components\ui\TagSearchableDropdown.vue",
@@ -99,22 +99,22 @@ $searchFiles = @(
     #"src\router\index.ts",
 
     # ### services
-    #"src\services\AccountService.ts",
+    "src\services\AccountService.ts",
     #"src\services\BudgetService.ts",
     #"src\services\CategoryService.ts",
     #"src\services\DataService.ts",
     #"src\services\index.ts",
-    #"src\services\PlanningService.ts",
-    #"src\services\ReconciliationService.ts",
-    #"src\services\TransactionService.ts",
+    "src\services\PlanningService.ts",
+    "src\services\ReconciliationService.ts",
+    "src\services\TransactionService.ts",
 
     # ### stores
-    #"src\stores\accountStore.ts",
+    "src\stores\accountStore.ts",
     #"src\stores\categoryStore.ts",
-    #"src\stores\monthlyBalanceStore.ts",
-    #"src\stores\planningStore.ts",
+    "src\stores\monthlyBalanceStore.ts",
+    "src\stores\planningStore.ts",
     #"src\stores\recipientStore.ts",
-    #"src\stores\reconciliationStore.ts",
+    "src\stores\reconciliationStore.ts",
     #"src\stores\ruleStore.ts",
     #"src\stores\searchStore.ts",
     #"src\stores\settingsStore.ts",
@@ -130,7 +130,7 @@ $searchFiles = @(
     # ### utils
     #"src\utils\formatters.ts",
     #"src\utils\logger.ts",
-    #"src\utils\runningBalances.ts",
+    "src\utils\runningBalances.ts",
 
     # ### views
     #"src\views\AccountsView.vue",
