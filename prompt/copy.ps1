@@ -51,10 +51,10 @@ $searchFiles = @(
     # ### components\planning
     #"src\components\planning\AccountForecastChart.vue",
     #"src\components\planning\CategoryForecastChart.vue",
-    #"src\components\planning\PlanningTransactionForm.vue",
+    "src\components\planning\PlanningTransactionForm.vue",
 
     # ### components\rules
-    "src\components\rules\RuleForm.vue",
+    #"src\components\rules\RuleForm.vue",
 
     # ### components\transaction
     #"src\components\transaction\CategoryTransactionList.vue",
@@ -79,10 +79,10 @@ $searchFiles = @(
     #"src\components\ui\SearchableSelect.vue",
     #"src\components\ui\SearchableSelectLite.vue",
     #"src\components\ui\SearchGroup.vue",
-    "src\components\ui\SelectAccount.vue",
-    "src\components\ui\SelectCategory.vue",
-    "src\components\ui\SelectRecipient.vue",
-    "src\components\ui\TagSearchableDropdown.vue",
+    #"src\components\ui\SelectAccount.vue",
+    #"src\components\ui\SelectCategory.vue",
+    #"src\components\ui\SelectRecipient.vue",
+    #"src\components\ui\TagSearchableDropdown.vue",
     #"src\components\ui\ThemeToggle.vue",
 
     # ### layouts
@@ -106,7 +106,7 @@ $searchFiles = @(
     #"src\services\index.ts",
     #"src\services\PlanningService.ts",
     #"src\services\ReconciliationService.ts",
-    "src\services\TransactionService.ts",
+    #"src\services\TransactionService.ts",
 
     # ### stores
     #"src\stores\accountStore.ts",
@@ -115,17 +115,17 @@ $searchFiles = @(
     #"src\stores\planningStore.ts",
     #"src\stores\recipientStore.ts",
     #"src\stores\reconciliationStore.ts",
-    "src\stores\ruleStore.ts",
+    #"src\stores\ruleStore.ts",
     #"src\stores\searchStore.ts",
     #"src\stores\settingsStore.ts",
     #"src\stores\statisticsStore.ts",
     #"src\stores\tagStore.ts",
     #"src\stores\themeStore.ts",
     #"src\stores\transactionFilterStore.ts",
-    "src\stores\transactionStore.ts",
+    #"src\stores\transactionStore.ts",
 
     # ### types
-    "src\types\index.ts"
+    #"src\types\index.ts"
 
     # ### utils
     #"src\utils\formatters.ts",
@@ -148,7 +148,8 @@ $searchFiles = @(
     #"src\views\admin\AdminPlanningView.vue",
     #"src\views\admin\AdminRecipientsView.vue",
     #"src\views\admin\AdminRulesView.vue",
-    #"src\views\admin\AdminTagsView.vue"
+    #"src\views\admin\AdminTagsView.vue",
+    "*.ts"
 )
 
 $output = @()
