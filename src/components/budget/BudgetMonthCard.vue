@@ -425,7 +425,7 @@ function executeTransfer(payload: {
           v-if="showDropdown"
           ref="dropdownRef"
           tabindex="0"
-          class="absolute z-40 bg-base-100 border border-base-300 rounded shadow p-2"
+          class="absolute z-40 w-48 bg-base-100 border border-base-300 rounded shadow p-2"
           :style="`left: ${dropdownX}px; top: ${dropdownY}px;`"
           @keydown.escape="closeDropdown"
           @blur="onDropdownBlur"
@@ -433,7 +433,8 @@ function executeTransfer(payload: {
           <ul>
             <li>
               <button class="btn btn-ghost btn-sm w-full" @click="optionFill">
-                Fülle auf von …
+                <Icon icon="mdi:arrow-collapse-right" />
+                <span>Fülle auf von …</span>
               </button>
             </li>
             <li>
@@ -441,7 +442,8 @@ function executeTransfer(payload: {
                 class="btn btn-ghost btn-sm w-full"
                 @click="optionTransfer"
               >
-                Transferiere zu …
+                <Icon icon="mdi:arrow-expand-right" />
+                <span>Transferiere zu …</span>
               </button>
             </li>
           </ul>

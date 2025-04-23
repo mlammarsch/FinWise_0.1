@@ -1,4 +1,3 @@
-<!-- src/components/planning/PlanningTransactionForm.vue -->
 <script setup lang="ts">
 /**
  * Pfad zur Komponente: src/components/planning/PlanningTransactionForm.vue
@@ -37,6 +36,16 @@ import CurrencyInput from "../ui/CurrencyInput.vue";
 import TagSearchableDropdown from "../ui/TagSearchableDropdown.vue";
 import { debugLog } from "@/utils/logger";
 import { Icon } from "@iconify/vue";
+import { formatDate } from "@/utils/formatters";
+import {
+  getDayOfWeekName,
+  createRecurrenceDescription,
+  calculateUpcomingDates,
+} from "@/utils/dateUtils";
+import {
+  formatTransactionForSave,
+  getInitialRuleValues,
+} from "@/utils/planningTransactionUtils";
 
 const props = defineProps<{
   transaction?: PlanningTransaction;
@@ -183,11 +192,11 @@ const isFormValid = computed(() => {
 onMounted(() => {
   loadTransactionData();
   updateDateDescription();
-  calculateUpcomingDates();
+  calculateUpcomingDatesWrapper();
   formAttempted.value = false;
 });
 
-// Watchers (Datum, Typ, Betrag, Transfers)
+// Watchers (Datum, Typ, Betr, Transfers)
 watch(startDate, (newDate) => {
   if (!valueDateManuallyChanged.value) valueDate.value = newDate;
   if (formAttempted.value) isStartDateValid.value;
@@ -207,7 +216,7 @@ watch(
   ],
   () => {
     updateDateDescription();
-    calculateUpcomingDates();
+    calculateUpcomingDatesWrapper();
   },
   { deep: true }
 );
@@ -372,172 +381,31 @@ function loadTransactionData() {
  * Aktualisiert Textbeschreibung des Musters.
  */
 function updateDateDescription() {
-  if (!repeatsEnabled.value) {
-    dateDescription.value = `Einmalig am ${formatDate(startDate.value)}`;
-    return;
-  }
-  const date = dayjs(startDate.value);
-  const day = date.date();
-  const monthName = [
-    "Januar",
-    "Februar",
-    "März",
-    "April",
-    "Mai",
-    "Juni",
-    "Juli",
-    "August",
-    "September",
-    "Oktober",
-    "November",
-    "Dezember",
-  ][date.month()];
-  let desc = "";
-  switch (recurrencePattern.value) {
-    case RecurrencePattern.DAILY:
-      desc = "Täglich";
-      break;
-    case RecurrencePattern.WEEKLY:
-      desc = `Wöchentlich am ${getDayOfWeekName(date.day())}`;
-      break;
-    case RecurrencePattern.BIWEEKLY:
-      desc = `Alle zwei Wochen am ${getDayOfWeekName(date.day())}`;
-      break;
-    case RecurrencePattern.MONTHLY:
-      const d =
-        executionDay.value && executionDay.value > 0 && executionDay.value < 32
-          ? executionDay.value
-          : day;
-      desc = `Monatlich am ${d}.`;
-      break;
-    case RecurrencePattern.QUARTERLY:
-      desc = `Vierteljährlich am ${day}. ${monthName}`;
-      break;
-    case RecurrencePattern.YEARLY:
-      desc = `Jährlich am ${day}. ${monthName}`;
-      break;
-    default:
-      desc = formatDate(startDate.value);
-  }
-  if (moveScheduleEnabled.value) {
-    const dir =
-      weekendHandlingDirection.value === "before" ? "davor" : "danach";
-    desc += ` (Wochenende: ${dir})`;
-  }
-  dateDescription.value = desc;
+  dateDescription.value = createRecurrenceDescription({
+    startDate: startDate.value,
+    repeatsEnabled: repeatsEnabled.value,
+    recurrencePattern: recurrencePattern.value,
+    executionDay: executionDay.value,
+    moveScheduleEnabled: moveScheduleEnabled.value,
+    weekendHandlingDirection: weekendHandlingDirection.value,
+  });
 }
 
 /**
  * Berechnet nächste Ausführungstermine.
  */
-function calculateUpcomingDates() {
-  upcomingDates.value = [];
-  if (!startDate.value) return;
-  let current = dayjs(startDate.value);
-  const endLimit = dayjs().add(3, "years");
-  let cnt = 0;
-  const maxShow = 6;
-
-  if (!repeatsEnabled.value) {
-    upcomingDates.value.push({
-      date: current.format("DD.MM.YYYY"),
-      day: getDayOfWeekName(current.day()),
-    });
-    return;
-  }
-
-  while (cnt < 50 && current.isBefore(endLimit)) {
-    let dateToUse = current;
-
-    if (
-      recurrenceEndType.value === RecurrenceEndType.DATE &&
-      endDate.value &&
-      current.isAfter(dayjs(endDate.value))
-    ) {
-      break;
-    }
-    if (
-      recurrenceEndType.value === RecurrenceEndType.COUNT &&
-      recurrenceCount.value &&
-      cnt >= recurrenceCount.value
-    ) {
-      break;
-    }
-
-    if (moveScheduleEnabled.value) {
-      const w = dateToUse.day();
-      if (w === 0 || w === 6) {
-        if (weekendHandlingDirection.value === "before") {
-          dateToUse =
-            w === 0
-              ? dateToUse.subtract(2, "day")
-              : dateToUse.subtract(1, "day");
-        } else {
-          dateToUse =
-            w === 0 ? dateToUse.add(1, "day") : dateToUse.add(2, "day");
-        }
-      }
-    }
-
-    if (upcomingDates.value.length < maxShow) {
-      upcomingDates.value.push({
-        date: dateToUse.format("DD.MM.YYYY"),
-        day: getDayOfWeekName(dateToUse.day()),
-      });
-    }
-
-    cnt++;
-    switch (recurrencePattern.value) {
-      case RecurrencePattern.DAILY:
-        current = current.add(1, "day");
-        break;
-      case RecurrencePattern.WEEKLY:
-        current = current.add(1, "week");
-        break;
-      case RecurrencePattern.BIWEEKLY:
-        current = current.add(2, "weeks");
-        break;
-      case RecurrencePattern.MONTHLY:
-        const orig = executionDay.value ?? dayjs(startDate.value).date();
-        const next = current.add(1, "month");
-        const maxD = next.daysInMonth();
-        const setDay = Math.min(orig, maxD);
-        current = next.date(setDay);
-        break;
-      case RecurrencePattern.QUARTERLY:
-        current = current.add(3, "months");
-        break;
-      case RecurrencePattern.YEARLY:
-        current = current.add(1, "year");
-        break;
-      default:
-        cnt = 50;
-    }
-
-    if (
-      recurrenceEndType.value === RecurrenceEndType.DATE &&
-      endDate.value &&
-      current.isAfter(dayjs(endDate.value))
-    ) {
-      break;
-    }
-  }
-  upcomingDates.value = upcomingDates.value.slice(0, maxShow);
-}
-
-/**
- * Gibt Wochentagsnamen zurück.
- */
-function getDayOfWeekName(day: number): string {
-  const days = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
-  return days[day];
-}
-
-/**
- * Formatiert Datumsstring.
- */
-function formatDate(dateStr: string): string {
-  return dayjs(dateStr).format("DD.MM.YYYY");
+function calculateUpcomingDatesWrapper() {
+  upcomingDates.value = calculateUpcomingDates({
+    startDate: startDate.value,
+    repeatsEnabled: repeatsEnabled.value,
+    recurrencePattern: recurrencePattern.value,
+    recurrenceEndType: recurrenceEndType.value,
+    endDate: endDate.value,
+    recurrenceCount: recurrenceCount.value,
+    executionDay: executionDay.value,
+    moveScheduleEnabled: moveScheduleEnabled.value,
+    weekendHandlingDirection: weekendHandlingDirection.value,
+  });
 }
 
 /**
@@ -575,84 +443,35 @@ function validateForm(): boolean {
 function savePlanningTransaction() {
   if (!validateForm()) return;
 
-  let effectiveAmount = amount.value;
-  if (isAccountTransfer.value || isCategoryTransfer.value) {
-    effectiveAmount = Math.abs(effectiveAmount);
-  } else {
-    effectiveAmount = isExpense.value
-      ? -Math.abs(effectiveAmount)
-      : Math.abs(effectiveAmount);
-  }
-
-  const effectiveWeekendHandling = moveScheduleEnabled.value
-    ? weekendHandlingDirection.value === "before"
-      ? WeekendHandlingType.BEFORE
-      : WeekendHandlingType.AFTER
-    : WeekendHandlingType.NONE;
-
-  const effectiveRecurrencePattern = repeatsEnabled.value
-    ? recurrencePattern.value
-    : RecurrencePattern.ONCE;
-
-  const effectiveRecurrenceEndType = repeatsEnabled.value
-    ? recurrenceEndType.value
-    : RecurrenceEndType.NEVER;
-
-  const dbCategoryId = isCategoryTransfer.value
-    ? fromCategoryId.value
-    : categoryId.value;
-  const dbTransferToCategoryId = isCategoryTransfer.value
-    ? categoryId.value
-    : undefined;
-
-  const transactionData: Omit<PlanningTransaction, "id"> = {
-    name: name.value.trim(),
+  const transactionData = formatTransactionForSave({
+    name: name.value,
     accountId: accountId.value,
-    categoryId: dbCategoryId,
+    categoryId: categoryId.value,
     tagIds: tagIds.value,
-    recipientId:
-      isAccountTransfer.value || isCategoryTransfer.value
-        ? null
-        : recipientId.value,
-    amount: effectiveAmount,
+    recipientId: recipientId.value,
+    amount: amount.value,
     amountType: amountType.value,
-    approximateAmount:
-      amountType.value === AmountType.APPROXIMATE
-        ? approximateAmount.value
-        : undefined,
-    minAmount:
-      amountType.value === AmountType.RANGE ? minAmount.value : undefined,
-    maxAmount:
-      amountType.value === AmountType.RANGE ? maxAmount.value : undefined,
+    approximateAmount: approximateAmount.value,
+    minAmount: minAmount.value,
+    maxAmount: maxAmount.value,
     note: note.value,
     startDate: startDate.value,
     valueDate: valueDate.value,
-    endDate:
-      effectiveRecurrenceEndType === RecurrenceEndType.DATE
-        ? endDate.value
-        : null,
-    recurrencePattern: effectiveRecurrencePattern,
-    recurrenceEndType: effectiveRecurrenceEndType,
-    recurrenceCount:
-      effectiveRecurrenceEndType === RecurrenceEndType.COUNT
-        ? recurrenceCount.value
-        : null,
-    executionDay:
-      effectiveRecurrencePattern === RecurrencePattern.MONTHLY &&
-      executionDay.value
-        ? executionDay.value
-        : null,
-    weekendHandling: effectiveWeekendHandling,
+    endDate: endDate.value,
+    recurrencePattern: recurrencePattern.value,
+    recurrenceEndType: recurrenceEndType.value,
+    recurrenceCount: recurrenceCount.value,
+    executionDay: executionDay.value,
+    weekendHandling: weekendHandling.value,
+    moveScheduleEnabled: moveScheduleEnabled.value,
+    weekendHandlingDirection: weekendHandlingDirection.value,
     transactionType: transactionType.value,
-    transferToAccountId: isAccountTransfer.value
-      ? toAccountId.value
-      : undefined,
+    toAccountId: toAccountId.value,
+    fromCategoryId: fromCategoryId.value,
     isActive: isActive.value,
     forecastOnly: forecastOnly.value,
-    ...(isCategoryTransfer.value && {
-      transferToCategoryId: dbTransferToCategoryId,
-    }),
-  };
+    repeatsEnabled: repeatsEnabled.value,
+  });
 
   debugLog("[PlanningTransactionForm] Final data for save:", transactionData);
   emit("save", transactionData);
@@ -661,41 +480,18 @@ function savePlanningTransaction() {
 /**
  * Initialisiert neue Regel-Werte.
  */
-function getInitialRuleValues() {
+function getInitialRuleValuesForForm() {
   const recipientName =
     recipientStore.getRecipientById(recipientId.value || "")?.name || "";
-  return {
-    name: `Regel für ${name.value || recipientName}`,
-    description: `Automatisch erstellt für Planungstransaktion "${
-      name.value || recipientName
-    }"`,
-    stage: "DEFAULT",
-    isActive: true,
-    conditions: [
-      {
-        type: RuleConditionType.ACCOUNT_IS,
-        operator: "is",
-        value: accountId.value,
-      },
-      {
-        type: RuleConditionType.PAYEE_CONTAINS,
-        operator: "contains",
-        value: recipientName,
-      },
-      {
-        type: RuleConditionType.AMOUNT_EQUALS,
-        operator: "equals",
-        value: Math.abs(amount.value),
-      },
-    ],
-    actions: [
-      {
-        type: RuleActionType.SET_CATEGORY,
-        field: "category",
-        value: categoryId.value || fromCategoryId.value || "",
-      },
-    ],
-  };
+
+  return getInitialRuleValues({
+    name: name.value,
+    recipientName,
+    accountId: accountId.value,
+    amount: amount.value,
+    categoryId: categoryId.value,
+    fromCategoryId: fromCategoryId.value,
+  });
 }
 
 /**
@@ -708,6 +504,7 @@ function saveRuleAndCloseModal(ruleData: any) {
   alert(`Regel "${ruleData.name}" wurde erfolgreich erstellt.`);
 }
 </script>
+
 
 <template>
   <form
