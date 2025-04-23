@@ -7,7 +7,7 @@
  * Komponenten-Props:
  * - isOpen: boolean – Sichtbarkeit
  * - month?: { start: Date; end: Date } – Aktueller Monat für Saldo-Anzeige
- * - mode?: "fill" | "transfer" – Übertragungsmodus (Default: "transfer")
+ * - mode?: "fill" | "transfer" | "edit" – Übertragungsmodus
  * - prefillAmount?: number – Vorausgefüllter Betrag
  * - preselectedCategoryId?: string – ID der Kategorie, die je nach Modus in from oder to übernommen wird
  * - prefillDate?: string – Datum (YYYY-MM-DD), falls beim Bearbeiten vorhanden
@@ -35,7 +35,7 @@ const props = withDefaults(
   defineProps<{
     isOpen: boolean;
     month?: { start: Date; end: Date };
-    mode?: "fill" | "transfer";
+    mode?: "fill" | "transfer" | "edit";
     prefillAmount?: number;
     preselectedCategoryId?: string;
     prefillDate?: string;

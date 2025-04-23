@@ -46,18 +46,18 @@ $searchFiles = @(
     #"src\components\budget\BudgetMonthCard.vue",
     #"src\components\budget\BudgetMonthHeaderCard.vue",
     #"src\components\budget\CategoryForm.vue",
-    #"src\components\budget\CategoryTransferModal.vue",
+    "src\components\budget\CategoryTransferModal.vue",
 
     # ### components\planning
     #"src\components\planning\AccountForecastChart.vue",
     #"src\components\planning\CategoryForecastChart.vue",
-    "src\components\planning\PlanningTransactionForm.vue",
+    #"src\components\planning\PlanningTransactionForm.vue",
 
     # ### components\rules
     #"src\components\rules\RuleForm.vue",
 
     # ### components\transaction
-    #"src\components\transaction\CategoryTransactionList.vue",
+    "src\components\transaction\CategoryTransactionList.vue",
     #"src\components\transaction\TransactionCard.vue",
     #"src\components\transaction\TransactionDetailModal.vue",
     #"src\components\transaction\TransactionForm.vue",
@@ -69,7 +69,7 @@ $searchFiles = @(
     #"src\components\ui\ColorPicker.vue",
     #"src\components\ui\ConfirmationModal.vue",
     #"src\components\ui\CurrencyDisplay.vue",
-    "src\components\ui\CurrencyInput.vue",
+    #"src\components\ui\CurrencyInput.vue",
     #"src\components\ui\DatePicker.vue",
     #"src\components\ui\DateRangePicker.vue",
     #"src\components\ui\MainNavigation.vue",
@@ -80,7 +80,7 @@ $searchFiles = @(
     #"src\components\ui\SearchableSelectLite.vue",
     #"src\components\ui\SearchGroup.vue",
     #"src\components\ui\SelectAccount.vue",
-    #"src\components\ui\SelectCategory.vue",
+    # "src\components\ui\SelectCategory.vue",
     #"src\components\ui\SelectRecipient.vue",
     #"src\components\ui\TagSearchableDropdown.vue",
     #"src\components\ui\ThemeToggle.vue",

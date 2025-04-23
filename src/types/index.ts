@@ -70,10 +70,9 @@ export interface PlanningTransaction {
   transactionType?: TransactionType
   counterPlanningTransactionId?: string | null
   transferToAccountId?: string
+  transferToCategoryId?: string
   isActive: boolean
-  /** Neu: Nur Prognose, keine echten Transaktionen */
   forecastOnly: boolean
-  autoExecute?: boolean  // wird nicht mehr genutzt
 }
 
 export interface Transaction {

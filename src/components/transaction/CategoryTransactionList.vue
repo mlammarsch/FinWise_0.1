@@ -171,7 +171,7 @@ function editTransactionLocal(tx: Transaction) {
     showTransferModal.value = true;
   } else {
     debugLog(
-      "[CategoryTransactionList] Emitting edit for standard transaction",
+      "[CategoryTransactionList] Emitting edit für Standardtransaction",
       tx
     );
     emit("edit", tx);
@@ -231,11 +231,32 @@ function onTransferComplete() {
               </div>
             </th>
             <th
+              @click="$emit('sort-change', 'toCategoryId')"
+              class="cursor-pointer px-2"
+            >
+              <div class="flex items-center">
+                <div class="flex items-center">
+                  Herkuftskat./-konto
+                  <Icon
+                    v-if="sortKey === 'toCategoryId'"
+                    :icon="
+                      sortOrder === 'asc' ? 'mdi:arrow-up' : 'mdi:arrow-down'
+                    "
+                    class="ml-1 text-sm"
+                  />
+                </div>
+                <Icon
+                  icon="mdi:chevron-triple-right"
+                  class="ml-5 text-lg cursor-help"
+                />
+              </div>
+            </th>
+            <th
               @click="$emit('sort-change', 'categoryId')"
               class="cursor-pointer px-2"
             >
               <div class="flex items-center">
-                Von Kat.
+                Empfänger Kategorie
                 <Icon
                   v-if="sortKey === 'categoryId'"
                   :icon="
@@ -245,21 +266,7 @@ function onTransferComplete() {
                 />
               </div>
             </th>
-            <th
-              @click="$emit('sort-change', 'toCategoryId')"
-              class="cursor-pointer px-2"
-            >
-              <div class="flex items-center">
-                Zu Kat./Konto
-                <Icon
-                  v-if="sortKey === 'toCategoryId'"
-                  :icon="
-                    sortOrder === 'asc' ? 'mdi:arrow-up' : 'mdi:arrow-down'
-                  "
-                  class="ml-1 text-sm"
-                />
-              </div>
-            </th>
+
             <th
               class="text-right cursor-pointer px-2"
               @click="$emit('sort-change', 'amount')"
@@ -298,9 +305,6 @@ function onTransferComplete() {
             <td class="px-2">{{ formatDate(tx.date) }}</td>
             <td class="px-2">{{ formatDate(tx.valueDate) }}</td>
             <td class="px-2">
-              {{ CategoryService.getCategoryName(tx.categoryId) }}
-            </td>
-            <td class="px-2">
               <template v-if="tx.type === TransactionType.CATEGORYTRANSFER">
                 {{ CategoryService.getCategoryName(tx.toCategoryId) }}
               </template>
@@ -308,6 +312,10 @@ function onTransferComplete() {
                 {{ AccountService.getAccountName(tx.accountId) }}
               </template>
             </td>
+            <td class="px-2">
+              {{ CategoryService.getCategoryName(tx.categoryId) }}
+            </td>
+
             <td class="text-right px-2">
               <CurrencyDisplay
                 :amount="tx.amount"
@@ -360,6 +368,7 @@ function onTransferComplete() {
     </div>
     <CategoryTransferModal
       v-if="showTransferModal && modalData"
+      mode="edit"
       :is-open="showTransferModal"
       :prefillAmount="modalData.prefillAmount"
       :prefillDate="modalData.prefillDate"
