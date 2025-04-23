@@ -200,7 +200,7 @@ const getParentCategoryName = (parentId: string | null): string => {
                 </td>
                 <td>
                   <div
-                    class="badge rounded-full"
+                    class="badge rounded-full badge-soft"
                     :class="category.isActive ? 'badge-success' : 'badge-error'"
                   >
                     {{ category.isActive ? "Aktiv" : "Inaktiv" }}
@@ -254,7 +254,7 @@ const getParentCategoryName = (parentId: string | null): string => {
                 <td>{{ group.name }}</td>
                 <td>
                   <span
-                    class="badge badge-sm rounded-full"
+                    class="badge badge-sm badge-soft rounded-full"
                     :class="
                       group.isIncomeGroup ? 'badge-success' : 'badge-error'
                     "
