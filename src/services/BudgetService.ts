@@ -82,7 +82,7 @@ function computeExpenseCategoryData(
 
   // Budget‑Transfers (positiv)
   const budgetAmount = txs
-    .filter(tx => tx.type === TransactionType.CATEGORYTRANSFER && tx.amount > 0)
+    .filter(tx => tx.type === TransactionType.CATEGORYTRANSFER)
     .reduce((s, tx) => s + tx.amount, 0);
 
   // echte Ausgaben
