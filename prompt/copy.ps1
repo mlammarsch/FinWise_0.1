@@ -44,9 +44,9 @@ $searchFiles = @(
     #"src\components\budget\BudgetCard.vue",
     #"src\components\budget\BudgetCategoryColumn.vue",
     #"src\components\budget\BudgetMonthCard.vue",
-    #"src\components\budget\BudgetMonthHeaderCard.vue",
+    "src\components\budget\BudgetMonthHeaderCard.vue",
     #"src\components\budget\CategoryForm.vue",
-    #"src\components\budget\CategoryTransferModal.vue",
+    "src\components\budget\CategoryTransferModal.vue",
 
     # ### components\planning
     #"src\components\planning\AccountForecastChart.vue",
@@ -100,7 +100,7 @@ $searchFiles = @(
 
     # ### services
     #"src\services\AccountService.ts",
-    #"src\services\BudgetService.ts",
+    "src\services\BudgetService.ts",
     #"src\services\CategoryService.ts",
     #"src\services\DataService.ts",
     #"src\services\index.ts",

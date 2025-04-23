@@ -1,7 +1,16 @@
-<!-- src/components/planning/PlanningTransactionForm.vue -->
+// src/components/planning/PlanningTransactionForm.vue
 <script setup lang="ts">
 /**
  * Pfad zur Komponente: src/components/planning/PlanningTransactionForm.vue
+ * Formular zum Erstellen und Bearbeiten von geplanten Transaktionen.
+ *
+ * Komponenten-Props:
+ * - transaction?: PlanningTransaction - Optional: Zu bearbeitende Transaktion
+ * - isEdit?: boolean - Optional: Zeigt an, ob es sich um eine Bearbeitung handelt
+ *
+ * Emits:
+ * - save: Übermittelt die Daten der gespeicherten Transaktion
+ * - cancel: Wird bei Abbruch ausgelöst
  */
 import { ref, computed, onMounted, watch } from "vue";
 import {
@@ -42,6 +51,7 @@ const tagStore = useTagStore();
 const recipientStore = useRecipientStore();
 const ruleStore = useRuleStore();
 
+// Grundlegende Informationen
 const name = ref("");
 const note = ref("");
 const amount = ref(0);
@@ -54,11 +64,16 @@ const valueDate = ref(startDate.value);
 const valueDateManuallyChanged = ref(false);
 const accountId = ref("");
 const categoryId = ref<string | null>(null);
+const fromCategoryId = ref<string | null>(null);
 const tagIds = ref<string[]>([]);
 const recipientId = ref("");
-const isTransfer = ref(false);
+const transactionType = ref<TransactionType>(TransactionType.EXPENSE);
 const toAccountId = ref("");
 
+// Tab-Management
+const activeTab = ref("categorization"); // 'categorization' oder 'recurrence'
+
+// Wiederholungseinstellungen
 const repeatsEnabled = ref(false);
 const recurrencePattern = ref<RecurrencePattern>(RecurrencePattern.MONTHLY);
 const recurrenceEndType = ref<RecurrenceEndType>(RecurrenceEndType.NEVER);
@@ -69,13 +84,42 @@ const weekendHandling = ref<WeekendHandlingType>(WeekendHandlingType.NONE);
 const moveScheduleEnabled = ref(false);
 const weekendHandlingDirection = ref<"before" | "after">("after");
 
+// Prognosebuchung und Aktivitätsstatus
 const forecastOnly = ref(false);
 const isActive = ref(true);
 
+// Regel-Modal
 const showRuleCreationModal = ref(false);
 
+// Berechnete Felder für Datum und Wiederholung
 const dateDescription = ref("Jährlich am 14. April");
 const upcomingDates = ref<Array<{ date: string; day: string }>>([]);
+
+// Berechnete Eigenschaften für Transaktionstyp
+const isExpense = computed(
+  () => transactionType.value === TransactionType.EXPENSE
+);
+const isIncome = computed(
+  () => transactionType.value === TransactionType.INCOME
+);
+const isAccountTransfer = computed(
+  () => transactionType.value === TransactionType.ACCOUNTTRANSFER
+);
+const isCategoryTransfer = computed(
+  () => transactionType.value === TransactionType.CATEGORYTRANSFER
+);
+
+// Gefilterte Konto- und Kategorie-Listen
+const accounts = computed(() => accountStore.activeAccounts);
+const categories = computed(() => categoryStore.activeCategories);
+
+const filteredAccounts = computed(() =>
+  (accounts.value || []).filter((acc) => acc.id !== accountId.value)
+);
+
+const filteredCategories = computed(() =>
+  (categories.value || []).filter((cat) => cat.id !== fromCategoryId.value)
+);
 
 onMounted(() => {
   if (props.transaction) {
@@ -116,11 +160,25 @@ onMounted(() => {
     weekendHandlingDirection.value =
       weekendHandling.value === WeekendHandlingType.BEFORE ? "before" : "after";
 
-    if (props.transaction.transactionType === TransactionType.ACCOUNTTRANSFER) {
-      isTransfer.value = true;
-      toAccountId.value = props.transaction.transferToAccountId || "";
+    // Transaktionstyp und zugehörige Felder setzen
+    if (props.transaction.transactionType) {
+      transactionType.value = props.transaction.transactionType;
+      if (transactionType.value === TransactionType.ACCOUNTTRANSFER) {
+        toAccountId.value = props.transaction.transferToAccountId || "";
+      } else if (
+        transactionType.value === TransactionType.CATEGORYTRANSFER &&
+        props.transaction.categoryId
+      ) {
+        fromCategoryId.value = props.transaction.categoryId;
+        categoryId.value =
+          (props.transaction as any).transferToCategoryId || null;
+      }
     } else {
-      isTransfer.value = false;
+      // Fallback für alte Daten
+      transactionType.value =
+        props.transaction.amount < 0
+          ? TransactionType.EXPENSE
+          : TransactionType.INCOME;
     }
   } else {
     if (accountStore.activeAccounts.length > 0) {
@@ -128,11 +186,13 @@ onMounted(() => {
     }
     valueDate.value = startDate.value;
     valueDateManuallyChanged.value = false;
+    transactionType.value = TransactionType.EXPENSE;
   }
   updateDateDescription();
   calculateUpcomingDates();
 });
 
+// Watch-Hooks für Datumsfelder
 watch(startDate, (newDate) => {
   if (!valueDateManuallyChanged.value) {
     valueDate.value = newDate;
@@ -143,6 +203,7 @@ watch(valueDate, (val) => {
   valueDateManuallyChanged.value = val !== startDate.value;
 });
 
+// Watch-Hooks für Datumsanzeige und Terminberechnung
 watch(
   [
     startDate,
@@ -158,6 +219,54 @@ watch(
   }
 );
 
+// Watch für Transaktionstyp und Betrag
+watch(transactionType, (newType) => {
+  if (newType === TransactionType.EXPENSE && amount.value > 0) {
+    amount.value = -Math.abs(amount.value);
+  } else if (newType === TransactionType.INCOME && amount.value < 0) {
+    amount.value = Math.abs(amount.value);
+  }
+
+  // Bei Kategorietransfer oder Kontotransfer die Betragsprüfung überspringen
+  if (
+    newType === TransactionType.ACCOUNTTRANSFER ||
+    newType === TransactionType.CATEGORYTRANSFER
+  ) {
+    amount.value = Math.abs(amount.value);
+  }
+});
+
+// Watch für Betrag (nur für INCOME/EXPENSE relevant)
+watch(amount, (newAmount) => {
+  if (isAccountTransfer.value || isCategoryTransfer.value) return;
+
+  if (newAmount < 0 && transactionType.value !== TransactionType.EXPENSE) {
+    transactionType.value = TransactionType.EXPENSE;
+  } else if (
+    newAmount > 0 &&
+    transactionType.value !== TransactionType.INCOME
+  ) {
+    transactionType.value = TransactionType.INCOME;
+  }
+});
+
+// Watch für Quell-Kategorie bei Kategorietransfer
+watch(fromCategoryId, (newCategoryId) => {
+  if (isCategoryTransfer.value && newCategoryId === categoryId.value) {
+    categoryId.value = null;
+  }
+});
+
+// Watch für ausgewähltes Quell-Konto bei Kontotransfer
+watch(accountId, (newAccountId) => {
+  if (isAccountTransfer.value && newAccountId === toAccountId.value) {
+    toAccountId.value = "";
+  }
+});
+
+/**
+ * Aktualisiert die textuelle Beschreibung des Wiederholungsmusters
+ */
 function updateDateDescription() {
   if (!repeatsEnabled.value) {
     dateDescription.value = `Einmalig am ${formatDate(startDate.value)}`;
@@ -211,6 +320,9 @@ function updateDateDescription() {
   dateDescription.value = desc;
 }
 
+/**
+ * Berechnet die nächsten Ausführungstermine basierend auf dem Wiederholungsmuster
+ */
 function calculateUpcomingDates() {
   upcomingDates.value = [];
   if (!startDate.value) return;
@@ -283,6 +395,9 @@ function calculateUpcomingDates() {
   upcomingDates.value = upcomingDates.value.slice(0, 6);
 }
 
+/**
+ * Hilfsfunktion zum Formatieren des Tagesnamens
+ */
 function getDayOfWeekName(day: number): string {
   const days = [
     "Sonntag",
@@ -296,49 +411,67 @@ function getDayOfWeekName(day: number): string {
   return days[day];
 }
 
+/**
+ * Hilfsfunktion zur Berechnung der Tage in einem Monat
+ */
 function getDaysInMonth(year: number, month: number): number {
   return new Date(year, month, 0).getDate();
 }
 
+/**
+ * Hilfsfunktion zum Formatieren eines Datums
+ */
 function formatDate(dateStr: string): string {
   return dayjs(dateStr).format("DD.MM.YYYY");
 }
 
+/**
+ * Handler für das Erstellen eines neuen Empfängers
+ */
 function onCreateRecipient(data: { name: string }) {
   const created = recipientStore.addRecipient({ name: data.name });
   recipientId.value = created.id;
   debugLog("[PlanningTransactionForm] onCreateRecipient", created);
 }
 
+/**
+ * Speichert die Planungstransaktion
+ */
 function savePlanningTransaction() {
   let effectiveAmount = amount.value;
-  if (isTransfer.value) {
+
+  // Betrag entsprechend dem Transaktionstyp anpassen
+  if (isAccountTransfer.value || isCategoryTransfer.value) {
     effectiveAmount = Math.abs(effectiveAmount);
   } else {
     effectiveAmount = isExpense.value
       ? -Math.abs(effectiveAmount)
       : Math.abs(effectiveAmount);
   }
-  const transactionType = isTransfer.value
-    ? TransactionType.ACCOUNTTRANSFER
-    : effectiveAmount < 0
-    ? TransactionType.EXPENSE
-    : TransactionType.INCOME;
+
   const effectiveWeekendHandling = moveScheduleEnabled.value
     ? weekendHandlingDirection.value === "before"
       ? WeekendHandlingType.BEFORE
       : WeekendHandlingType.AFTER
     : WeekendHandlingType.NONE;
+
   const effectiveRecurrencePattern = repeatsEnabled.value
     ? recurrencePattern.value
     : RecurrencePattern.ONCE;
+
   const effectiveRecurrenceEndType = repeatsEnabled.value
     ? recurrenceEndType.value
     : RecurrenceEndType.NEVER;
+
+  // Kategoriedaten entsprechend dem Transaktionstyp anpassen
+  const effectiveCategoryId = isCategoryTransfer.value
+    ? fromCategoryId.value
+    : categoryId.value;
+
   const transactionData: Omit<PlanningTransaction, "id"> = {
     name: name.value,
     accountId: accountId.value,
-    categoryId: isTransfer.value ? null : categoryId.value,
+    categoryId: effectiveCategoryId,
     tagIds: tagIds.value,
     recipientId: recipientId.value,
     amount: effectiveAmount,
@@ -366,11 +499,19 @@ function savePlanningTransaction() {
         : null,
     executionDay: executionDay.value,
     weekendHandling: effectiveWeekendHandling,
-    transactionType,
-    transferToAccountId: isTransfer.value ? toAccountId.value : undefined,
+    transactionType: transactionType.value,
+    transferToAccountId: isAccountTransfer.value
+      ? toAccountId.value
+      : undefined,
     isActive: isActive.value,
     forecastOnly: forecastOnly.value,
   };
+
+  // Bei Kategorietransfer Zielkategorie als zusätzliches Feld hinzufügen
+  if (isCategoryTransfer.value) {
+    (transactionData as any).transferToCategoryId = categoryId.value;
+  }
+
   debugLog(
     "[PlanningTransactionForm] savePlanningTransaction",
     transactionData
@@ -378,14 +519,9 @@ function savePlanningTransaction() {
   emit("save", transactionData);
 }
 
-const toggleAmountType = () => {
-  amount.value = -amount.value;
-};
-
-const isExpense = computed(() => amount.value < 0);
-const accounts = computed(() => accountStore.activeAccounts);
-const categories = computed(() => categoryStore.activeCategories);
-
+/**
+ * Initialisiert Grundwerte für eine neue Regel
+ */
 function getInitialRuleValues() {
   const recipientName =
     recipientStore.getRecipientById(recipientId.value)?.name || "";
@@ -423,6 +559,9 @@ function getInitialRuleValues() {
   };
 }
 
+/**
+ * Speichert eine neue Regel und schließt das Regelmodal
+ */
 function saveRuleAndCloseModal(ruleData: any) {
   ruleStore.addRule(ruleData);
   debugLog("[PlanningTransactionForm] Created rule from planning", ruleData);
@@ -432,32 +571,70 @@ function saveRuleAndCloseModal(ruleData: any) {
 </script>
 
 <template>
-  <form @submit.prevent="savePlanningTransaction" class="space-y-4">
-    <!-- Namen der Planungstransaktion -->
-    <div class="form-control">
-      <label class="label">
-        <span class="label-text">Name der Planungstransaktion</span>
-        <span class="text-error">*</span>
-      </label>
-      <input
-        type="text"
-        v-model="name"
-        class="input input-bordered"
-        required
-        placeholder="z.B. Schornsteinfeger, Miete, Gehalt"
-      />
-    </div>
-
-    <!-- Grundlegende Informationen: Betrag, Konto, Empfänger -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div class="form-control">
-        <label class="label">
-          <span class="label-text">Empfänger/Auftraggeber</span>
-          <span class="text-error">*</span>
-        </label>
-        <SelectRecipient v-model="recipientId" @create="onCreateRecipient" />
+  <form
+    @submit.prevent="savePlanningTransaction"
+    class="space-y-4"
+  >
+    <!-- ALLGEMEIN - Immer sichtbar oben -->
+    <div class="space-y-4">
+      <!-- Transaktionstyp-Radiogruppe -->
+      <div class="flex flex-col space-y-3">
+        <div class="flex justify-center gap-4 pt-4">
+          <label class="flex items-center gap-2">
+            <input
+              type="radio"
+              class="radio radio-sm border-neutral checked:bg-error/60 checked:text-error checked:border-error"
+              v-model="transactionType"
+              :value="TransactionType.EXPENSE"
+            />
+            <span class="text-sm">Ausgabe</span>
+          </label>
+          <label class="flex items-center gap-2">
+            <input
+              type="radio"
+              class="radio radio-sm border-neutral checked:bg-success/60 checked:text-success checked:border-success"
+              v-model="transactionType"
+              :value="TransactionType.INCOME"
+            />
+            <span class="text-sm">Einnahme</span>
+          </label>
+          <label class="flex items-center gap-2">
+            <input
+              type="radio"
+              class="radio radio-sm border-neutral checked:bg-warning/60 checked:text-warning checked:border-warning"
+              v-model="transactionType"
+              :value="TransactionType.ACCOUNTTRANSFER"
+            />
+            <span class="text-sm">Kontotransfer</span>
+          </label>
+          <label class="flex items-center gap-2">
+            <input
+              type="radio"
+              class="radio radio-sm border-neutral checked:bg-warning/60 checked:text-warning checked:border-warning"
+              v-model="transactionType"
+              :value="TransactionType.CATEGORYTRANSFER"
+            />
+            <span class="text-sm">Kategorietransfer</span>
+          </label>
+        </div>
       </div>
 
+      <!-- Name der Planungstransaktion -->
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text">Name der Planungstransaktion</span>
+          <span class="text-error">*</span>
+        </label>
+        <input
+          type="text"
+          v-model="name"
+          class="input input-bordered"
+          required
+          placeholder="z.B. Schornsteinfeger, Miete, Gehalt"
+        />
+      </div>
+
+      <!-- Betrag -->
       <div class="form-control">
         <label class="label">
           <span class="label-text">Betrag</span>
@@ -465,14 +642,6 @@ function saveRuleAndCloseModal(ruleData: any) {
         </label>
         <div class="flex flex-col space-y-3">
           <div class="input-group flex items-center gap-2">
-            <button
-              type="button"
-              class="btn btn-sm rounded-full"
-              :class="isExpense ? 'btn-error' : 'btn-success'"
-              @click="toggleAmountType"
-            >
-              {{ isExpense ? "-" : "+" }}
-            </button>
             <CurrencyInput v-model="amount" />
             <span>€</span>
           </div>
@@ -516,7 +685,10 @@ function saveRuleAndCloseModal(ruleData: any) {
             </label>
             <div class="input-group">
               <span>±</span>
-              <CurrencyInput v-model="approximateAmount" borderless />
+              <CurrencyInput
+                v-model="approximateAmount"
+                borderless
+              />
               <span>€</span>
             </div>
           </div>
@@ -540,290 +712,408 @@ function saveRuleAndCloseModal(ruleData: any) {
           </div>
         </div>
       </div>
+
+      <!-- Datum und Wertstellung -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text">Datum</span>
+            <span class="text-error">*</span>
+          </label>
+          <input
+            type="date"
+            v-model="startDate"
+            class="input input-bordered"
+            required
+          />
+        </div>
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text">Wertstellung</span>
+            <span class="text-error">*</span>
+          </label>
+          <input
+            type="date"
+            v-model="valueDate"
+            class="input input-bordered"
+            required
+          />
+        </div>
+      </div>
     </div>
 
-    <div class="form-control">
-      <label class="cursor-pointer label">
-        <span class="label-text">Ist dies eine Kontoüberweisung?</span>
-        <input type="checkbox" class="toggle" v-model="isTransfer" />
-      </label>
+    <!-- TABS -->
+    <div class="tabs tabs-boxed">
+      <a
+        class="tab"
+        :class="{ 'tab-active': activeTab === 'categorization' }"
+        @click="activeTab = 'categorization'"
+      >
+        Kategorisierung
+      </a>
+      <a
+        class="tab"
+        :class="{ 'tab-active': activeTab === 'recurrence' }"
+        @click="activeTab = 'recurrence'"
+      >
+        Wiederholung
+      </a>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <!-- TAB 1: Kategorisierung -->
+    <div
+      v-if="activeTab === 'categorization'"
+      class="space-y-4"
+    >
+      <!-- Empfänger -->
       <div class="form-control">
         <label class="label">
-          <span class="label-text">Quellkonto</span>
-          <span class="text-error">*</span>
-        </label>
-        <SelectAccount v-model="accountId" />
-      </div>
-
-      <div v-if="isTransfer" class="form-control">
-        <label class="label">
-          <span class="label-text">Zielkonto</span>
-          <span class="text-error">*</span>
-        </label>
-        <select
-          v-model="toAccountId"
-          class="select select-bordered w-full"
-          required
-        >
-          <option value="" disabled>Bitte wählen</option>
-          <option
-            v-for="account in accounts.filter((a) => a.id !== accountId)"
-            :key="account.id"
-            :value="account.id"
+          <span class="label-text">Empfänger/Auftraggeber</span>
+          <span
+            v-if="!isCategoryTransfer && !isAccountTransfer"
+            class="text-error"
+            >*</span
           >
-            {{ account.name }}
-          </option>
-        </select>
-      </div>
-
-      <div v-if="!isTransfer" class="form-control">
-        <label class="label">
-          <span class="label-text">Kategorie</span>
         </label>
-        <SelectCategory v-model="categoryId" />
+        <SelectRecipient
+          v-model="recipientId"
+          @create="onCreateRecipient"
+        />
       </div>
-    </div>
 
-    <div class="form-control">
-      <label class="label">
-        <span class="label-text">Tags</span>
-      </label>
-      <TagSearchableDropdown
-        v-model="tagIds"
-        :options="tagStore.tags"
-        placeholder="Tags hinzufügen..."
-      />
-    </div>
-
-    <div class="card bg-base-200 p-4 rounded-lg">
-      <div class="form-control">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
-          <div>
-            <label class="label">
-              <span class="label-text">Datum</span>
-            </label>
-            <div class="form-control">
-              <input
-                type="date"
-                v-model="startDate"
-                class="input input-bordered"
-                required
-              />
-            </div>
-          </div>
-          <div>
-            <label class="label">
-              <span class="label-text">Wertstellung</span>
-            </label>
-            <div class="form-control">
-              <input
-                type="date"
-                v-model="valueDate"
-                class="input input-bordered"
-                required
-              />
-            </div>
-          </div>
+      <!-- Konten und Kategorien basierend auf Transaktionstyp -->
+      <div
+        v-if="isExpense || isIncome"
+        class="grid grid-cols-1 md:grid-cols-2 gap-4"
+      >
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text">Konto</span>
+            <span class="text-error">*</span>
+          </label>
+          <SelectAccount v-model="accountId" />
+        </div>
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text">Kategorie</span>
+            <span class="text-error">*</span>
+          </label>
+          <SelectCategory v-model="categoryId" />
         </div>
       </div>
 
-      <div class="space-y-4 mt-2">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
-          <div class="form-control py-4">
+      <!-- Kontotransfer -->
+      <div
+        v-if="isAccountTransfer"
+        class="grid grid-cols-1 md:grid-cols-2 gap-4"
+      >
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text">Quellkonto</span>
+            <span class="text-error">*</span>
+          </label>
+          <SelectAccount v-model="accountId" />
+        </div>
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text">Zielkonto</span>
+            <span class="text-error">*</span>
+          </label>
+          <select
+            v-model="toAccountId"
+            class="select select-bordered w-full"
+            required
+          >
+            <option
+              value=""
+              disabled
+            >
+              Bitte wählen
+            </option>
+            <option
+              v-for="account in filteredAccounts"
+              :key="account.id"
+              :value="account.id"
+            >
+              {{ account.name }}
+            </option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Kategorietransfer -->
+      <div
+        v-if="isCategoryTransfer"
+        class="grid grid-cols-1 md:grid-cols-2 gap-4"
+      >
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text">Quellkategorie</span>
+            <span class="text-error">*</span>
+          </label>
+          <SelectCategory v-model="fromCategoryId" />
+        </div>
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text">Zielkategorie</span>
+            <span class="text-error">*</span>
+          </label>
+          <SelectCategory
+            v-model="categoryId"
+            :options="filteredCategories"
+          />
+        </div>
+      </div>
+
+      <!-- Tags -->
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text">Tags</span>
+        </label>
+        <TagSearchableDropdown
+          v-model="tagIds"
+          :options="tagStore.tags"
+          placeholder="Tags hinzufügen..."
+        />
+      </div>
+    </div>
+
+    <!-- TAB 2: Wiederholung -->
+    <div
+      v-if="activeTab === 'recurrence'"
+      class="space-y-4"
+    >
+      <div class="card bg-base-200 p-4 rounded-lg">
+        <div class="space-y-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+            <div class="form-control py-4">
+              <label class="cursor-pointer label">
+                <span class="label-text">Wiederholt sich</span>
+                <input
+                  type="checkbox"
+                  class="toggle"
+                  v-model="repeatsEnabled"
+                />
+              </label>
+            </div>
+
+            <div
+              v-if="repeatsEnabled"
+              class="form-control"
+            >
+              <label class="label">
+                <span class="label-text">Wiederholung</span>
+              </label>
+              <select
+                v-model="recurrencePattern"
+                class="select select-bordered w-full"
+              >
+                <option :value="RecurrencePattern.DAILY">Täglich</option>
+                <option :value="RecurrencePattern.WEEKLY">Wöchentlich</option>
+                <option :value="RecurrencePattern.BIWEEKLY">
+                  Alle 2 Wochen
+                </option>
+                <option :value="RecurrencePattern.MONTHLY">Monatlich</option>
+                <option :value="RecurrencePattern.QUARTERLY">
+                  Vierteljährlich
+                </option>
+                <option :value="RecurrencePattern.YEARLY">Jährlich</option>
+              </select>
+            </div>
+            <div
+              v-if="recurrencePattern === RecurrencePattern.MONTHLY"
+              class="form-control"
+            >
+              <label class="label">
+                <span class="label-text">Tag des Monats</span>
+              </label>
+              <input
+                type="number"
+                v-model="executionDay"
+                class="input input-bordered"
+                min="1"
+                max="31"
+                placeholder="Tag (1-31)"
+              />
+            </div>
+          </div>
+
+          <div class="form-control">
             <label class="cursor-pointer label">
-              <span class="label-text">Wiederholt sich</span>
-              <input type="checkbox" class="toggle" v-model="repeatsEnabled" />
+              <span class="label-text">Verschieben, wenn Wochenende</span>
+              <input
+                type="checkbox"
+                class="toggle"
+                v-model="moveScheduleEnabled"
+              />
             </label>
           </div>
 
-          <div v-if="repeatsEnabled" class="form-control">
-            <label class="label">
-              <span class="label-text">Wiederholung</span>
-            </label>
-            <select
-              v-model="recurrencePattern"
-              class="select select-bordered w-full"
-            >
-              <option :value="RecurrencePattern.DAILY">Täglich</option>
-              <option :value="RecurrencePattern.WEEKLY">Wöchentlich</option>
-              <option :value="RecurrencePattern.BIWEEKLY">Alle 2 Wochen</option>
-              <option :value="RecurrencePattern.MONTHLY">Monatlich</option>
-              <option :value="RecurrencePattern.QUARTERLY">
-                Vierteljährlich
-              </option>
-              <option :value="RecurrencePattern.YEARLY">Jährlich</option>
-            </select>
-          </div>
           <div
-            v-if="recurrencePattern === RecurrencePattern.MONTHLY"
+            v-if="moveScheduleEnabled"
             class="form-control"
           >
-            <label class="label">
-              <span class="label-text">Tag des Monats</span>
+            <div class="flex space-x-2">
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  class="radio radio-sm"
+                  value="before"
+                  v-model="weekendHandlingDirection"
+                />
+                <span class="text-sm">Nach vorne (Freitag)</span>
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  class="radio radio-sm"
+                  value="after"
+                  v-model="weekendHandlingDirection"
+                />
+                <span class="text-sm">Nach hinten (Montag)</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="form-control">
+            <label class="cursor-pointer label">
+              <span class="label-text">Endet</span>
             </label>
+            <div class="flex space-x-2">
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  class="radio radio-sm"
+                  :value="RecurrenceEndType.NEVER"
+                  v-model="recurrenceEndType"
+                />
+                <span class="text-sm">Nie</span>
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  class="radio radio-sm"
+                  :value="RecurrenceEndType.COUNT"
+                  v-model="recurrenceEndType"
+                />
+                <span class="text-sm">Nach X Terminen</span>
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  class="radio radio-sm"
+                  :value="RecurrenceEndType.DATE"
+                  v-model="recurrenceEndType"
+                />
+                <span class="text-sm">Am Datum</span>
+              </label>
+            </div>
+          </div>
+
+          <div
+            v-if="recurrenceEndType === RecurrenceEndType.COUNT"
+            class="form-control"
+          >
             <input
               type="number"
-              v-model="executionDay"
+              v-model="recurrenceCount"
               class="input input-bordered"
               min="1"
-              max="31"
-              placeholder="Tag (1-31)"
+              placeholder="Anzahl der Wiederholungen"
+            />
+          </div>
+
+          <div
+            v-if="recurrenceEndType === RecurrenceEndType.DATE"
+            class="form-control"
+          >
+            <input
+              type="date"
+              v-model="endDate"
+              class="input input-bordered"
+              :min="startDate"
+              placeholder="Enddatum"
             />
           </div>
         </div>
 
+        <div class="mt-4">
+          <div class="text-sm font-semibold mb-2">
+            Zeitpunkt: {{ dateDescription }}
+          </div>
+          <div v-if="upcomingDates.length > 0">
+            <div class="text-sm font-semibold mb-2">Kommende Termine:</div>
+            <div class="grid grid-cols-1 gap-2">
+              <div
+                v-for="(date, index) in upcomingDates"
+                :key="index"
+                class="text-sm"
+              >
+                {{ date.date }} ({{ date.day }})
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ALLGEMEIN - Immer sichtbar unten -->
+    <div class="space-y-4">
+      <div class="card bg-base-200 p-4 rounded-lg">
         <div class="form-control">
           <label class="cursor-pointer label">
-            <span class="label-text">Verschieben, wenn Wochenende</span>
+            <span class="label-text">Nur Prognosebuchung</span>
             <input
               type="checkbox"
               class="toggle"
-              v-model="moveScheduleEnabled"
+              v-model="forecastOnly"
+            />
+          </label>
+          <p
+            class="text-xs text-base-content/70"
+            v-if="forecastOnly"
+          >
+            Bei aktivierter Option werden keine echten Transaktionen erzeugt.
+          </p>
+        </div>
+        <div class="form-control mt-2">
+          <label class="cursor-pointer label">
+            <span class="label-text">Aktiv</span>
+            <input
+              type="checkbox"
+              class="toggle"
+              v-model="isActive"
             />
           </label>
         </div>
-
-        <div v-if="moveScheduleEnabled" class="form-control">
-          <div class="flex space-x-2">
-            <label class="flex items-center gap-2 cursor-pointer">
-              <input
-                type="radio"
-                class="radio radio-sm"
-                value="before"
-                v-model="weekendHandlingDirection"
-              />
-              <span class="text-sm">Nach vorne (Freitag)</span>
-            </label>
-            <label class="flex items-center gap-2 cursor-pointer">
-              <input
-                type="radio"
-                class="radio radio-sm"
-                value="after"
-                v-model="weekendHandlingDirection"
-              />
-              <span class="text-sm">Nach hinten (Montag)</span>
-            </label>
-          </div>
-        </div>
-
-        <div class="form-control">
-          <label class="cursor-pointer label">
-            <span class="label-text">Endet</span>
-          </label>
-          <div class="flex space-x-2">
-            <label class="flex items-center gap-2 cursor-pointer">
-              <input
-                type="radio"
-                class="radio radio-sm"
-                :value="RecurrenceEndType.NEVER"
-                v-model="recurrenceEndType"
-              />
-              <span class="text-sm">Nie</span>
-            </label>
-            <label class="flex items-center gap-2 cursor-pointer">
-              <input
-                type="radio"
-                class="radio radio-sm"
-                :value="RecurrenceEndType.COUNT"
-                v-model="recurrenceEndType"
-              />
-              <span class="text-sm">Nach X Terminen</span>
-            </label>
-            <label class="flex items-center gap-2 cursor-pointer">
-              <input
-                type="radio"
-                class="radio radio-sm"
-                :value="RecurrenceEndType.DATE"
-                v-model="recurrenceEndType"
-              />
-              <span class="text-sm">Am Datum</span>
-            </label>
-          </div>
-        </div>
-
-        <div
-          v-if="recurrenceEndType === RecurrenceEndType.COUNT"
-          class="form-control"
-        >
-          <input
-            type="number"
-            v-model="recurrenceCount"
-            class="input input-bordered"
-            min="1"
-            placeholder="Anzahl der Wiederholungen"
-          />
-        </div>
-
-        <div
-          v-if="recurrenceEndType === RecurrenceEndType.DATE"
-          class="form-control"
-        >
-          <input
-            type="date"
-            v-model="endDate"
-            class="input input-bordered"
-            :min="startDate"
-            placeholder="Enddatum"
-          />
-        </div>
       </div>
 
-      <div class="mt-4">
-        <div class="text-sm font-semibold mb-2">
-          Zeitpunkt: {{ dateDescription }}
-        </div>
-        <div v-if="upcomingDates.length > 0">
-          <div class="text-sm font-semibold mb-2">Kommende Termine:</div>
-          <div class="grid grid-cols-1 gap-2">
-            <div
-              v-for="(date, index) in upcomingDates"
-              :key="index"
-              class="text-sm"
-            >
-              {{ date.date }} ({{ date.day }})
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="card bg-base-200 p-4 rounded-lg">
       <div class="form-control">
-        <label class="cursor-pointer label">
-          <span class="label-text">Nur Prognosebuchung</span>
-          <input type="checkbox" class="toggle" v-model="forecastOnly" />
+        <label class="label">
+          <span class="label-text">Notizen</span>
         </label>
-        <p class="text-xs text-base-content/70" v-if="forecastOnly">
-          Bei aktivierter Option werden keine echten Transaktionen erzeugt.
-        </p>
+        <textarea
+          v-model="note"
+          class="textarea textarea-bordered h-24"
+          placeholder="Zusätzliche Informationen"
+        ></textarea>
       </div>
-      <div class="form-control mt-2">
-        <label class="cursor-pointer label">
-          <span class="label-text">Aktiv</span>
-          <input type="checkbox" class="toggle" v-model="isActive" />
-        </label>
+
+      <div class="flex justify-end space-x-2 pt-4">
+        <button
+          type="button"
+          class="btn"
+          @click="$emit('cancel')"
+        >
+          Abbrechen
+        </button>
+        <button
+          type="submit"
+          class="btn btn-primary"
+        >
+          Speichern
+        </button>
       </div>
-    </div>
-
-    <div class="form-control">
-      <label class="label">
-        <span class="label-text">Notizen</span>
-      </label>
-      <textarea
-        v-model="note"
-        class="textarea textarea-bordered h-24"
-        placeholder="Zusätzliche Informationen"
-      ></textarea>
-    </div>
-
-    <div class="flex justify-end space-x-2 pt-4">
-      <button type="button" class="btn" @click="$emit('cancel')">
-        Abbrechen
-      </button>
-      <button type="submit" class="btn btn-primary">Speichern</button>
     </div>
   </form>
 </template>

@@ -11,6 +11,7 @@ import {
 import dayjs from 'dayjs';
 import { debugLog } from '@/utils/logger';
 import { TransactionService } from '@/services/TransactionService';
+import { CategoryService } from '@/services/CategoryService'; // Neu hinzugefügt für Kategorietransfers
 import { useRuleStore } from '@/stores/ruleStore';
 import { toDateOnlyString } from '@/utils/formatters';
 
@@ -157,12 +158,38 @@ export const PlanningService = {
     if (!planning.forecastOnly) {
       // --- Validierung ---
       if (planning.amount === 0) throw new Error("Betrag 0 ist nicht zulässig.");
-      if (!planning.accountId) throw new Error("Quellkonto fehlt.");
-      if (planning.transactionType !== TransactionType.ACCOUNTTRANSFER && !planning.categoryId)
+      if (!planning.accountId && planning.transactionType !== TransactionType.CATEGORYTRANSFER) {
+        throw new Error("Quellkonto fehlt.");
+      }
+      if (planning.transactionType !== TransactionType.ACCOUNTTRANSFER &&
+          planning.transactionType !== TransactionType.CATEGORYTRANSFER &&
+          !planning.categoryId) {
         throw new Error("Kategorie muss gesetzt sein.");
+      }
 
-      /* 2. Transfer‑ oder Simple‑Pfad (unverändert) */
-      if (
+      /* 2. Kategorietransfer-Pfad (neu) */
+      if (planning.transactionType === TransactionType.CATEGORYTRANSFER) {
+        // Hole Quell- und Zielkategorie IDs
+        const fromCategoryId = planning.categoryId;
+        const toCategoryId = (planning as any).transferToCategoryId;
+
+        if (!fromCategoryId || !toCategoryId) {
+          throw new Error("Für Kategorietransfer werden Quell- und Zielkategorie benötigt");
+        }
+
+        // Kategorietransfer über CategoryService ausführen
+        CategoryService.addCategoryTransfer(
+          fromCategoryId,
+          toCategoryId,
+          Math.abs(planning.amount),
+          executionDate,
+          planning.note || ''
+        );
+
+        transactionsCreated = true;
+      }
+      /* 3. Transfer-Pfad (unverändert) */
+      else if (
         planning.transactionType === TransactionType.ACCOUNTTRANSFER ||
         planning.transferToAccountId
       ) {
@@ -174,7 +201,10 @@ export const PlanningService = {
           planning.note || '',
           planning.id
         );
-      } else {
+        transactionsCreated = true;
+      }
+      /* 4. Standard-Transaktion (unverändert) */
+      else {
         const txType =
           planning.amount < 0 ? TransactionType.EXPENSE : TransactionType.INCOME;
         TransactionService.addTransaction({
@@ -190,18 +220,18 @@ export const PlanningService = {
           recipientId: planning.recipientId || '',
           planningTransactionId: planning.id,
         });
+        transactionsCreated = true;
       }
-      transactionsCreated = true;
     }
 
-    /* 3. Regeln anwenden, Salden neu rechnen */
+    /* Regeln anwenden, Salden neu rechnen */
     const ruleStore = useRuleStore();
     if (transactionsCreated) {
       const latestTx = TransactionService.getAllTransactions().slice(-1)[0];
       if (latestTx) ruleStore.applyRulesToTransaction(latestTx);
     }
 
-    /* 4. Folgetermine bestimmen oder Planung löschen -------------------- */
+    /* Folgetermine bestimmen oder Planung löschen */
     const shouldDelete =
       planning.recurrencePattern === RecurrencePattern.ONCE ||
       (planning.recurrenceEndType === RecurrenceEndType.DATE &&
