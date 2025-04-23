@@ -3,8 +3,8 @@
 # --------------------------------------------------------------------------
 
 # Basisverzeichnis definieren
-$baseDirectory = "D:\_localData\dev\FinWise\FinWise_0.1"
-# $baseDirectory = "C:\00_mldata\programming\FinWise\FinWise_0.1"
+#$baseDirectory = "D:\_localData\dev\FinWise\FinWise_0.1"
+ $baseDirectory = "C:\00_mldata\programming\FinWise\FinWise_0.1"
 $baseDirectoryFull = [System.IO.Path]::GetFullPath($baseDirectory)
 
 # --------------------------------------------------------------------------
@@ -31,7 +31,7 @@ $excludeFiles = @(
 $searchFiles = @(
 
     # ### prompt
-    #"prompt\sytemprompt.md",
+    "prompt\sytemprompt.md",
 
     # ### components\account
     #"src\components\account\AccountCard.vue",
@@ -104,9 +104,9 @@ $searchFiles = @(
     #"src\services\CategoryService.ts",
     #"src\services\DataService.ts",
     #"src\services\index.ts",
-    #"src\services\PlanningService.ts",
+    "src\services\PlanningService.ts",
     #"src\services\ReconciliationService.ts",
-    #"src\services\TransactionService.ts",
+    "src\services\TransactionService.ts",
 
     # ### stores
     #"src\stores\accountStore.ts",
@@ -125,7 +125,7 @@ $searchFiles = @(
     #"src\stores\transactionStore.ts",
 
     # ### types
-    #"src\types\index.ts",
+    "src\types\index.ts",
 
     # ### utils
     #"src\utils\formatters.ts",

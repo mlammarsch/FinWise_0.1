@@ -9,11 +9,11 @@
  * - update:modelValue - Neue Konto-ID
  * - select - Konto wurde gewählt
  */
-import { ref, computed, watch, onMounted, defineExpose } from "vue";
+import { ref, computed, watch, onMounted, defineExpose, nextTick } from "vue";
 import { useAccountStore } from "@/stores/accountStore";
 import CurrencyDisplay from "./CurrencyDisplay.vue";
 import { debugLog } from "@/utils/logger";
-import { nextTick } from "vue";
+import { Icon } from "@iconify/vue";
 
 const props = defineProps<{
   modelValue?: string;
@@ -28,6 +28,7 @@ const highlightedIndex = ref(0);
 const inputRef = ref<HTMLInputElement | null>(null);
 const selected = ref(props.modelValue || "");
 
+// Populate searchTerm on mount
 onMounted(() => {
   if (selected.value) {
     const acc = accountStore.accounts.find((a) => a.id === selected.value);
@@ -41,6 +42,7 @@ onMounted(() => {
   }
 });
 
+// Sync v-model
 watch(
   () => props.modelValue,
   (newVal) => {
@@ -70,45 +72,51 @@ interface Option {
   account?: (typeof accountStore.accounts)[0];
 }
 
+// alle Optionen inkl. Header
 const options = computed<Option[]>(() => {
   const opts: Option[] = [];
-  // Gruppierung nach Accountgruppen
   accountStore.accountGroups.forEach((group) => {
     const groupAccounts = accountStore.accounts.filter(
       (acc) => acc.accountGroupId === group.id && acc.isActive
     );
     if (groupAccounts.length) {
       opts.push({ isHeader: true, headerText: group.name });
-      groupAccounts.forEach((acc) => {
-        opts.push({ isHeader: false, account: acc });
-      });
+      groupAccounts.forEach((acc) =>
+        opts.push({ isHeader: false, account: acc })
+      );
     }
   });
-  // Ungruppierte aktive Konten
   const ungroupped = accountStore.accounts.filter(
     (acc) => !acc.accountGroupId && acc.isActive
   );
   if (ungroupped.length) {
     opts.push({ isHeader: true, headerText: "Andere Konten" });
-    ungroupped.forEach((acc) => {
-      opts.push({ isHeader: false, account: acc });
-    });
+    ungroupped.forEach((acc) => opts.push({ isHeader: false, account: acc }));
   }
   return opts;
 });
 
-const visibleOptions = computed(() => {
+// sichtbare Optionen (inkl. Header, wenn kein Search-Term)
+const visibleOptions = computed<Option[]>(() => {
   if (!dropdownOpen.value) return [];
-
   if (searchTerm.value.trim()) {
     const term = searchTerm.value.toLowerCase();
-    return options.value.filter((opt) => {
-      if (opt.isHeader) return true;
-      return opt.account?.name.toLowerCase().includes(term);
-    });
+    return options.value.filter((opt) =>
+      opt.isHeader ? true : opt.account!.name.toLowerCase().includes(term)
+    );
   }
   return options.value;
 });
+
+// Nur die tatsächlichen Einträge (ohne Header)
+const nonHeaderOptions = computed(() =>
+  visibleOptions.value.filter((opt) => !opt.isHeader)
+);
+
+// aktuell markiertes Element
+const highlightedOption = computed(
+  () => nonHeaderOptions.value[highlightedIndex.value]?.account
+);
 
 function onKeyDown(e: KeyboardEvent) {
   if (!dropdownOpen.value) {
@@ -117,10 +125,7 @@ function onKeyDown(e: KeyboardEvent) {
   }
   if (e.key === "ArrowDown") {
     e.preventDefault();
-    const nonHeaderOptions = visibleOptions.value.filter(
-      (opt) => !opt.isHeader
-    );
-    if (highlightedIndex.value < nonHeaderOptions.length - 1) {
+    if (highlightedIndex.value < nonHeaderOptions.value.length - 1) {
       highlightedIndex.value++;
       scrollToHighlighted();
     }
@@ -132,11 +137,8 @@ function onKeyDown(e: KeyboardEvent) {
     }
   } else if (e.key === "Enter") {
     e.preventDefault();
-    const nonHeaderOptions = visibleOptions.value.filter(
-      (opt) => !opt.isHeader
-    );
-    const selectedAcc = nonHeaderOptions[highlightedIndex.value]?.account;
-    if (selectedAcc) selectAccount(selectedAcc);
+    const acc = highlightedOption.value;
+    if (acc) selectAccount(acc);
   } else if (e.key === "Escape") {
     e.preventDefault();
     closeDropdown();
@@ -144,12 +146,9 @@ function onKeyDown(e: KeyboardEvent) {
 }
 
 function scrollToHighlighted() {
-  const nonHeaderOptions = visibleOptions.value.filter((opt) => !opt.isHeader);
-  const opt = nonHeaderOptions[highlightedIndex.value];
-  if (opt?.account) {
-    const el = document.getElementById(
-      `select-account-option-${opt.account.id}`
-    );
+  const acc = highlightedOption.value;
+  if (acc) {
+    const el = document.getElementById(`select-account-option-${acc.id}`);
     el?.scrollIntoView({ block: "nearest" });
   }
 }
@@ -159,10 +158,8 @@ function toggleDropdown() {
   if (dropdownOpen.value) {
     highlightedIndex.value = 0;
     nextTick(() => {
-      if (inputRef.value) {
-        inputRef.value.focus();
-        inputRef.value.select();
-      }
+      inputRef.value?.focus();
+      inputRef.value?.select();
     });
   }
 }
@@ -172,11 +169,10 @@ function closeDropdown() {
 }
 
 function onBlur(event: FocusEvent) {
-  // Verzögerung, um Klicks auf die Dropdown-Optionen zu erlauben
   setTimeout(() => {
     if (
       !event.relatedTarget ||
-      !event.relatedTarget.closest(".dropdown-container")
+      !(event.relatedTarget as HTMLElement).closest(".dropdown-container")
     ) {
       closeDropdown();
     }
@@ -184,8 +180,7 @@ function onBlur(event: FocusEvent) {
 }
 
 function onFocus(event: FocusEvent) {
-  const target = event.target as HTMLInputElement;
-  setTimeout(() => target.select(), 0);
+  setTimeout(() => (event.target as HTMLInputElement).select(), 0);
 }
 
 function selectAccount(acc: (typeof accountStore.accounts)[0]) {
@@ -201,10 +196,7 @@ function clearSearch() {
   inputRef.value?.focus();
 }
 
-function focusInput() {
-  inputRef.value?.focus();
-}
-defineExpose({ focusInput });
+defineExpose({ focusInput: () => inputRef.value?.focus() });
 </script>
 
 <template>
@@ -221,7 +213,6 @@ defineExpose({ focusInput });
         @blur="onBlur"
         placeholder="Konto suchen..."
       />
-      <!-- X Icon im Feld -->
       <button
         v-if="searchTerm"
         @click="clearSearch"
@@ -246,18 +237,19 @@ defineExpose({ focusInput });
         </div>
         <div
           v-else
-          :id="'select-account-option-' + option.account?.id"
+          :id="'select-account-option-' + option.account!.id"
           class="px-2 py-1 text-sm cursor-pointer hover:bg-base-200"
           :class="{
-            'bg-base-300': option.account && option.account.id === selected,
             'bg-base-300':
-              !option.isHeader &&
-              visibleOptions.indexOf(option) === highlightedIndex,
+              option.account &&
+              (option.account.id === selected ||
+                (highlightedOption &&
+                  option.account.id === highlightedOption.id)),
           }"
           @click="selectAccount(option.account!)"
         >
           <div class="flex justify-between items-center">
-            <span>{{ option.account?.name }}</span>
+            <span>{{ option.account!.name }}</span>
             <CurrencyDisplay
               v-if="option.account"
               :amount="option.account.balance"
