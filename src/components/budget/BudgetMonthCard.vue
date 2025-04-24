@@ -11,11 +11,12 @@
  * Rechtsklick öffnet ein Context‑Dropdown.
  * Das Dropdown schließt bei Blur, ESC oder Klick außerhalb.
  * Über das Dropdown kann man entweder
- *  – „Transferiere zu …“ (Mode: transfer)
- *  – „Fülle auf von …“ (Mode: fill) aufrufen.
+ *  – „Transferiere zu …" (Mode: transfer)
+ *  – „Fülle auf von …" (Mode: fill) aufrufen.
  */
 import { computed, ref, nextTick } from "vue";
 import { useCategoryStore } from "../../stores/categoryStore";
+import { useMonthlyBalanceStore } from "../../stores/monthlyBalanceStore";
 import { Category } from "../../types";
 import CurrencyDisplay from "../ui/CurrencyDisplay.vue";
 import CategoryTransferModal from "./CategoryTransferModal.vue";
@@ -30,6 +31,7 @@ const props = defineProps<{
 
 const categoryStore = useCategoryStore();
 const budgetService = BudgetService;
+const monthlyBalanceStore = useMonthlyBalanceStore();
 
 // Kategorie für verfügbare Mittel und Filter-Funktion
 const availableFundsCategory = categoryStore.getAvailableFundsCategory();
@@ -139,7 +141,7 @@ function onDropdownBlur(e: FocusEvent) {
 }
 
 /**
- * Menüpunkt „Transferiere zu …“
+ * Menüpunkt „Transferiere zu …"
  */
 function optionTransfer() {
   if (!modalData.value?.clickedCategory) return;
@@ -151,7 +153,7 @@ function optionTransfer() {
 }
 
 /**
- * Menüpunkt „Fülle auf von …“
+ * Menüpunkt „Fülle auf von …"
  */
 function optionFill() {
   if (!modalData.value?.clickedCategory) return;
@@ -178,7 +180,10 @@ function executeTransfer(payload: {
 }) {
   showTransferModal.value = false;
   debugLog("[BudgetMonthCard] executeTransfer", payload);
-  // TODO: Persistiere hier über BudgetService oder Store
+
+  // Statt nur Logging: Monatliche Salden neu berechnen, damit der Saldo
+  // in die nächsten Monate übertragen wird
+  monthlyBalanceStore.calculateMonthlyBalances();
 }
 </script>
 
@@ -432,7 +437,10 @@ function executeTransfer(payload: {
         >
           <ul>
             <li>
-              <button class="btn btn-ghost btn-sm w-full" @click="optionFill">
+              <button
+                class="btn btn-ghost btn-sm w-full"
+                @click="optionFill"
+              >
                 <Icon icon="mdi:arrow-collapse-right" />
                 <span>Fülle auf von …</span>
               </button>
