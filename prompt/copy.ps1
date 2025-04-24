@@ -3,8 +3,8 @@
 # --------------------------------------------------------------------------
 
 # Basisverzeichnis definieren
-$baseDirectory = "D:\_localData\dev\FinWise\FinWise_0.1"
-#$baseDirectory = "C:\00_mldata\programming\FinWise\FinWise_0.1"
+#$baseDirectory = "D:\_localData\dev\FinWise\FinWise_0.1"
+$baseDirectory = "C:\00_mldata\programming\FinWise\FinWise_0.1"
 $baseDirectoryFull = [System.IO.Path]::GetFullPath($baseDirectory)
 
 # --------------------------------------------------------------------------
@@ -41,12 +41,12 @@ $searchFiles = @(
     #"src\components\account\AccountReconcileModal.vue",
 
     # ### components\budget
-    "src\components\budget\BudgetCard.vue",
-    "src\components\budget\BudgetCategoryColumn.vue",
+    #"src\components\budget\BudgetCard.vue",
+    #"src\components\budget\BudgetCategoryColumn.vue",
     "src\components\budget\BudgetMonthCard.vue",
-    "src\components\budget\BudgetMonthHeaderCard.vue",
+    #"src\components\budget\BudgetMonthHeaderCard.vue",
     #"src\components\budget\CategoryForm.vue",
-    #"src\components\budget\CategoryTransferModal.vue",
+    "src\components\budget\CategoryTransferModal.vue",
 
     # ### components\planning
     #"src\components\planning\AccountForecastChart.vue",
@@ -104,9 +104,9 @@ $searchFiles = @(
     #"src\services\CategoryService.ts",
     #"src\services\DataService.ts",
     #"src\services\index.ts",
-    #"src\services\PlanningService.ts",
+    "src\services\PlanningService.ts",
     #"src\services\ReconciliationService.ts",
-    #"src\services\TransactionService.ts",
+    "src\services\TransactionService.ts",
 
     # ### stores
     #"src\stores\accountStore.ts",
