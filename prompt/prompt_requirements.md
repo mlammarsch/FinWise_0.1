@@ -1,5 +1,5 @@
 
-# Spezifikationsvorgabe Budget Month Card Berechnungen
+# Solldokumentation Budget Month Card Berechnungen
 Deine Aufgabe ist es, den Bestandscode und deren bisherigen Berechnungen mit der nun folgenden Spezifikation abzugleichen und später in einem 2. Iterationsschritt Code-technisch anzupassen. Es geht hier konkret nur um Kategorien, die der Gruppe Ausgaben zugeteilt sind.
 Gib nach einem ersten, sorgfältigen Review eine liste aus, welche Funktion, in welcher Datei mit der Spezifikation übereinstimmt, wo es Abweichungen gint (Detailbeschreibungen dazu).
 Nummeriere die Reviewpakete deutlich, damit ich Nummerntechnisch darauf Bezug nehmen kann, was Du in die Umsetzung geben sollst und was nicht.
@@ -120,21 +120,12 @@ Der Buchungstype ACCOUNTTRANSFER wird in folgender Berechnungsmethode in der Bud
 	- Ergebnis für April 2025:
 		- KatA: Vormonat 120 + (–20 + 50 –10) + (–20) = 120 + 20 – 20 = **120**
 
-
-
-
-## Eltern- und Kind-Kategorien  (Umsetzung prüfen)
-In der BudgetMonthcard können Kategorien in Gruppen von Eltern- und Kindkategorien eingeteilt werden. Die Auflistung von 1-3 stellt immer die eigenen Berechnungen da. Bei Elternkategorien ist folgende zusätzliche Betrachtung notwendig.
-- **Eltern** summieren **alle** Werte ihrer Unterkategorien (Differenzen anteilig).
-- **Kind** zeigt nur eigene Transfers, Ausgaben, Planung und Saldo.
-- Beispiel:
-    - Kind K1 Saldo = 30 €
-    - Kind K2 Saldo = 70 €
-        → Eltern E.Saldo = 30 + 70 + E.eigeneSaldo.
-
 ## Farbwerte der Werte (Info)
 Dieser Punkt ist nicht Bestandteil dieser Spezifikation
 
 ## Andere Hinweise (Umsetzung prüfen)
 - EXPENSE und INCOME ohne Kategorie werden in der ganzen Berechnung komplett ignoriert, da nicht auswertbar.
 - Überall auf Date basierende Berechnungen müssen auf valueDate umgestellt werden. Das gillt nur für die Kategorienaldenberechnung. Nicht die Berechnung der Kontosalden, was bei der BudgetView ohnehin nicht relevant ist.
+
+# Vorliegender Fehler bei der Saldoberechnung in der BudgetMonthCard
+Eine noch nich gestartete Planbuchung (Prognosebuchung) des Types CATEGORYTRANSFER wird seltsamerweise als Transaktion gewertet in der Spalte Budget. Ein CATEGORYTRANSFER muss immer in Spalte Budget gewertet werden. Ob Prognosebuchung oder Transaktion spielt dabei keine Rolle.

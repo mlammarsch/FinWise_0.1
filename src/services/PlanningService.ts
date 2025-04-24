@@ -167,7 +167,7 @@ export const PlanningService = {
         throw new Error("Kategorie muss gesetzt sein.");
       }
 
-      /* 2. Kategorietransfer-Pfad (neu) */
+      /* 2. Kategorietransfer-Pfad */
       if (planning.transactionType === TransactionType.CATEGORYTRANSFER) {
         // Hole Quell- und Zielkategorie IDs
         const fromCategoryId = planning.categoryId;
@@ -183,7 +183,7 @@ export const PlanningService = {
           toCategoryId,
           Math.abs(planning.amount),
           executionDate,
-          planning.note || ''
+          planning.note || `Ausgeführte Planung: ${planning.name || 'Kategorientransfer'}`
         );
 
         transactionsCreated = true;

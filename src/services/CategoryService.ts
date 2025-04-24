@@ -34,41 +34,30 @@ export const CategoryService = {
     const toCategoryName = categoryStore.getCategoryById(toCategoryId)?.name ?? '';
     const normalizedDate = toDateOnlyString(date);
 
-    const fromTx = {
+    // Eine einzelne Transaktion für den Kategorietransfer erstellen
+    const tx = {
       type: TransactionType.CATEGORYTRANSFER,
       date: normalizedDate,
       valueDate: normalizedDate,
-      accountId: '',
-      categoryId: fromCategoryId,
-      amount: -Math.abs(amount),
+      accountId: null, // Keine Kontozuweisung bei reinen Kategorietransfers
+      categoryId: fromCategoryId,     // Quellkategorie
+      toCategoryId: toCategoryId,     // Zielkategorie
+      amount: -Math.abs(amount),      // Negativ bei der Quellkategorie
       tagIds: [],
-      payee: `Kategorientransfer zu ${toCategoryName}`,
+      payee: `Kategorientransfer von ${fromCategoryName} zu ${toCategoryName}`,
       note,
-      counterTransactionId: null,
+      counterTransactionId: null,     // Nicht benötigt, da es nur eine Transaktion gibt
       planningTransactionId: null,
       isReconciliation: false,
       isCategoryTransfer: true,
-      toCategoryId: toCategoryId,
       reconciled: false,
     };
 
-    const toTx = {
-      ...fromTx,
-      categoryId: toCategoryId,
-      amount: Math.abs(amount),
-      payee: `Kategorientransfer von ${fromCategoryName}`,
-      toCategoryId: fromCategoryId,
-    };
+    const newTx = TransactionService.addTransaction(tx as Omit<Transaction, 'id' | 'runningBalance'>);
 
-    const newFromTx = TransactionService.addTransaction(fromTx as Omit<Transaction, 'id' | 'runningBalance'>);
-    const newToTx = TransactionService.addTransaction(toTx as Omit<Transaction, 'id' | 'runningBalance'>);
+    debugLog('[CategoryService] addCategoryTransfer', { transaction: newTx });
 
-    TransactionService.updateTransaction(newFromTx.id, { counterTransactionId: newToTx.id });
-    TransactionService.updateTransaction(newToTx.id, { counterTransactionId: newFromTx.id });
-
-    debugLog('[CategoryService] addCategoryTransfer', { fromTransaction: newFromTx, toTransaction: newToTx });
-
-    return { fromTransaction: newFromTx, toTransaction: newToTx };
+    return { transaction: newTx };
   },
 
   /**
@@ -102,7 +91,6 @@ export const CategoryService = {
    */
   updateCategoryTransfer(
     transactionId: string,
-    gegentransactionId: string,
     fromCategoryId: string,
     toCategoryId: string,
     amount: number,
@@ -114,30 +102,19 @@ export const CategoryService = {
     const toCategoryName = categoryStore.getCategoryById(toCategoryId)?.name ?? '';
     const normalizedDate = toDateOnlyString(date);
 
-    const updatedFromTx: Partial<Transaction> = {
+    const updatedTx: Partial<Transaction> = {
       categoryId: fromCategoryId,
-      amount: -Math.abs(amount),
       toCategoryId: toCategoryId,
+      amount: -Math.abs(amount),
       date: normalizedDate,
       valueDate: normalizedDate,
-      payee: `Kategorientransfer zu ${toCategoryName}`,
+      payee: `Kategorientransfer von ${fromCategoryName} zu ${toCategoryName}`,
       note
     };
 
-    const updatedToTx: Partial<Transaction> = {
-      categoryId: toCategoryId,
-      amount: Math.abs(amount),
-      toCategoryId: fromCategoryId,
-      date: normalizedDate,
-      valueDate: normalizedDate,
-      payee: `Kategorientransfer von ${fromCategoryName}`,
-      note
-    };
+    TransactionService.updateTransaction(transactionId, updatedTx);
 
-    TransactionService.updateTransaction(transactionId, updatedFromTx);
-    TransactionService.updateTransaction(gegentransactionId, updatedToTx);
-
-    debugLog('[CategoryService] updateCategoryTransfer', { transactionId, gegentransactionId, updatedFromTx, updatedToTx });
+    debugLog('[CategoryService] updateCategoryTransfer', { transactionId, updatedTx });
 
     return true;
   },

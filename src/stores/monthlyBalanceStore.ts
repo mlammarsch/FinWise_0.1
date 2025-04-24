@@ -44,7 +44,7 @@ export const useMonthlyBalanceStore = defineStore('monthlyBalance', () => {
       })
     }
 
-    // auch Zukunft 24 Monate
+    // auch Zukunft 24 Monate (erhöht von ursprünglich weniger)
     const now = new Date()
     for (let i = 0; i < 24; i++) {
       const d   = new Date(now.getFullYear(), now.getMonth() + i, 1)

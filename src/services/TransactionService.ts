@@ -2,15 +2,15 @@
 // Zentrale Drehscheibe für alle Transaktionen, Transfers & Reconcile‑Buchungen.
 
 import { useTransactionStore } from '@/stores/transactionStore';
-import { useAccountStore }     from '@/stores/accountStore';
-import { useCategoryStore }    from '@/stores/categoryStore';
+import { useAccountStore } from '@/stores/accountStore';
+import { useCategoryStore } from '@/stores/categoryStore';
 import { useMonthlyBalanceStore } from '@/stores/monthlyBalanceStore';
 import { Transaction, TransactionType } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 import { debugLog } from '@/utils/logger';
 import { toDateOnlyString } from '@/utils/formatters';
 import { CategoryService } from './CategoryService';
-import { useRuleStore } from '@/stores/ruleStore';    // neu
+import { useRuleStore } from '@/stores/ruleStore';
 
 export const TransactionService = {
 /* ------------------------------------------------------------------ */
@@ -34,18 +34,16 @@ export const TransactionService = {
     const txStore = useTransactionStore();
     const mbStore = useMonthlyBalanceStore();
     const catStore = useCategoryStore();
-    const ruleStore = useRuleStore();                // neu
+    const ruleStore = useRuleStore();
 
-    // Basiskontrolle
     if (!txData.accountId && txData.type !== TransactionType.CATEGORYTRANSFER) {
       throw new Error('Account ID erforderlich.');
     }
 
-    // Normalisieren & anlegen
     const newTx: Transaction = {
       ...txData,
       id: uuidv4(),
-      date:      toDateOnlyString(txData.date),
+      date: toDateOnlyString(txData.date),
       valueDate: txData.valueDate
         ? toDateOnlyString(txData.valueDate)
         : toDateOnlyString(txData.date),
@@ -54,28 +52,30 @@ export const TransactionService = {
 
     const added = txStore.addTransaction(newTx);
 
-    // → Regeln anwenden & speichern
     ruleStore.applyRulesToTransaction(added);
 
     mbStore.calculateMonthlyBalances();
     debugLog('[TransactionService] addTransaction', added);
 
-    /* Automatischer Kategorie‑Transfer bei Einnahmen */
     if (
       added.type === TransactionType.INCOME &&
       added.amount > 0 &&
       added.categoryId
     ) {
-      const available = catStore.getAvailableFundsCategory();
-      if (!available) throw new Error("Kategorie 'Verfügbare Mittel' fehlt");
-      CategoryService.addCategoryTransfer(
-        added.categoryId,
-        available.id,
-        added.amount,
-        added.date,
-        'Automatischer Transfer von Einnahmen'
-      );
+      const category = catStore.getCategoryById(added.categoryId);
+      if (category && category.isIncomeCategory) {
+        const available = catStore.getAvailableFundsCategory();
+        if (!available) throw new Error("Kategorie 'Verfügbare Mittel' fehlt");
+        CategoryService.addCategoryTransfer(
+          added.categoryId,
+          available.id,
+          added.amount,
+          added.date,
+          'Automatischer Transfer von Einnahmen'
+        );
+      }
     }
+
     return added;
   },
 
@@ -135,7 +135,6 @@ export const TransactionService = {
       transferToAccountId: fromAccountId,
     });
 
-    // Verlinken
     this.updateTransaction(fromTx.id, { counterTransactionId: toTx.id });
     this.updateTransaction(toTx.id,   { counterTransactionId: fromTx.id });
 
@@ -157,8 +156,7 @@ export const TransactionService = {
     const mbStore  = useMonthlyBalanceStore();
 
     const catId =
-      catStore.categories.find(c => c.name === 'Ausgleichskorrekturen')?.id ??
-      null;
+      catStore.categories.find(c => c.name === 'Ausgleichskorrekturen')?.id ?? null;
 
     const tx = this.addTransaction({
       type: TransactionType.RECONCILE,
@@ -183,7 +181,7 @@ export const TransactionService = {
 
 /* ------------------------- Update / Delete ----------------------- */
 
-updateTransaction(
+  updateTransaction(
     id: string,
     updates: Partial<Omit<Transaction, 'id' | 'runningBalance'>>
   ): boolean {
@@ -196,7 +194,6 @@ updateTransaction(
 
     const original = txStore.getTransactionById(id);
 
-    // Datums­wechsel bei Einnahmen → Category‑Transfer umbuchen
     const originalMonthKey = original?.date?.substring(0, 7);
     const newDateAfterUpdate = updates.date ?? original?.date ?? '';
     const newMonthKey = newDateAfterUpdate.substring(0, 7);
@@ -205,52 +202,54 @@ updateTransaction(
       original &&
       original.type === TransactionType.INCOME &&
       original.amount > 0 &&
-      original.categoryId &&
-      originalMonthKey !== newMonthKey
+      original.categoryId
     ) {
-      const available = catStore.getAvailableFundsCategory();
-      if (!available) throw new Error("Kategorie 'Verfügbare Mittel' fehlt");
+      const category = catStore.getCategoryById(original.categoryId);
+      if (category && category.isIncomeCategory && originalMonthKey !== newMonthKey) {
+        const available = catStore.getAvailableFundsCategory();
+        if (!available) throw new Error("Kategorie 'Verfügbare Mittel' fehlt");
 
-      // Rücktransfer (alte Buchung rückgängig machen)
-      CategoryService.addCategoryTransfer(
-        available.id,
-        original.categoryId,
-        original.amount,
-        original.date,
-        'Automatischer Rücktransfer wegen Datumsänderung'
-      );
+        CategoryService.addCategoryTransfer(
+          available.id,
+          original.categoryId,
+          original.amount,
+          original.date,
+          'Automatischer Rücktransfer wegen Datumsänderung'
+        );
 
-      // Neuer Transfer am neuen Datum
-      CategoryService.addCategoryTransfer(
-        original.categoryId,
-        available.id,
-        original.amount,
-        newDateAfterUpdate,
-        'Automatischer Transfer wegen Datumsänderung'
-      );
+        CategoryService.addCategoryTransfer(
+          original.categoryId,
+          available.id,
+          original.amount,
+          newDateAfterUpdate,
+          'Automatischer Transfer wegen Datumsänderung'
+        );
+      }
     }
 
     const ok = txStore.updateTransaction(id, updates);
     if (!ok) return false;
 
-    /* Auto‑Transfer bei INCOME‑Diff (bestehend) --------------------------- */
     if (
       original &&
       original.type === TransactionType.INCOME &&
       updates.amount !== undefined
     ) {
-      const diff = updates.amount - original.amount;
-      if (diff !== 0 && original.categoryId) {
-        const available = catStore.getAvailableFundsCategory();
-        if (!available) throw new Error("Kategorie 'Verfügbare Mittel' fehlt");
+      const category = catStore.getCategoryById(original.categoryId);
+      if (category && category.isIncomeCategory) {
+        const diff = updates.amount - original.amount;
+        if (diff !== 0 && original.categoryId) {
+          const available = catStore.getAvailableFundsCategory();
+          if (!available) throw new Error("Kategorie 'Verfügbare Mittel' fehlt");
 
-        CategoryService.addCategoryTransfer(
-          diff > 0 ? original.categoryId : available.id,
-          diff > 0 ? available.id : original.categoryId,
-          Math.abs(diff),
-          updates.date ?? original.date,
-          'Automatischer Transfer bei Betragsanpassung'
-        );
+          CategoryService.addCategoryTransfer(
+            diff > 0 ? original.categoryId : available.id,
+            diff > 0 ? available.id : original.categoryId,
+            Math.abs(diff),
+            updates.date ?? original.date,
+            'Automatischer Transfer bei Betragsanpassung'
+          );
+        }
       }
     }
 
@@ -266,21 +265,23 @@ updateTransaction(
     const tx = txStore.getTransactionById(id);
     if (!tx) return false;
 
-    // Einnahme‑Löschung → Mittel zurück transferieren
     if (
       tx.type === TransactionType.INCOME &&
       tx.amount > 0 &&
       tx.categoryId
     ) {
-      const available = catStore.getAvailableFundsCategory();
-      if (!available) throw new Error("Kategorie 'Verfügbare Mittel' fehlt");
-      CategoryService.addCategoryTransfer(
-        available.id,
-        tx.categoryId,
-        tx.amount,
-        tx.date,
-        'Automatischer Transfer bei Löschung der Einnahme'
-      );
+      const category = catStore.getCategoryById(tx.categoryId);
+      if (category && category.isIncomeCategory) {
+        const available = catStore.getAvailableFundsCategory();
+        if (!available) throw new Error("Kategorie 'Verfügbare Mittel' fehlt");
+        CategoryService.addCategoryTransfer(
+          available.id,
+          tx.categoryId,
+          tx.amount,
+          tx.date,
+          'Automatischer Transfer bei Löschung der Einnahme'
+        );
+      }
     }
 
     const okPrimary = txStore.deleteTransaction(id);
