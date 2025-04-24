@@ -137,7 +137,8 @@ export const useMonthlyBalanceStore = defineStore('monthlyBalance', () => {
     categoryStore.categories.forEach(category => {
       // Alle Transaktionen bis Monatsende (nach valueDate)
       const txsUntilEnd = transactionStore.transactions.filter(tx => {
-        return tx.categoryId === category.id &&
+        return ((tx.categoryId === category.id) ||
+                (tx.type === "CATEGORYTRANSFER" && tx.toCategoryId === category.id)) &&
                toDateOnlyString(tx.valueDate || tx.date) <= endDateStr
       })
 
@@ -150,7 +151,8 @@ export const useMonthlyBalanceStore = defineStore('monthlyBalance', () => {
       // Transaktionen nur dieses Monats (nach valueDate)
       const monthTxs = transactionStore.transactions.filter(tx => {
         const valueDate = new Date(toDateOnlyString(tx.valueDate || tx.date))
-        return tx.categoryId === category.id &&
+        return ((tx.categoryId === category.id) ||
+                (tx.type === "CATEGORYTRANSFER" && tx.toCategoryId === category.id)) &&
                valueDate >= startDate &&
                valueDate <= endDate
       })
@@ -227,7 +229,9 @@ export const useMonthlyBalanceStore = defineStore('monthlyBalance', () => {
       }
       const dateStr = toDateOnlyString(date)
       const txs = transactionStore.transactions.filter(
-        tx => tx.categoryId === categoryId && toDateOnlyString(tx.valueDate || tx.date) <= dateStr
+        tx => (tx.categoryId === categoryId ||
+              (tx.type === "CATEGORYTRANSFER" && tx.toCategoryId === categoryId)) &&
+              toDateOnlyString(tx.valueDate || tx.date) <= dateStr
       )
       return txs.reduce((sum, tx) => sum + tx.amount, 0)
     }
