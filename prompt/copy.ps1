@@ -3,8 +3,8 @@
 # --------------------------------------------------------------------------
 
 # Basisverzeichnis definieren
-$baseDirectory = "D:\_localData\dev\FinWise\FinWise_0.1"
-#$baseDirectory = "C:\00_mldata\programming\FinWise\FinWise_0.1"
+#$baseDirectory = "D:\_localData\dev\FinWise\FinWise_0.1"
+$baseDirectory = "C:\00_mldata\programming\FinWise\FinWise_0.1"
 $baseDirectoryFull = [System.IO.Path]::GetFullPath($baseDirectory)
 
 # --------------------------------------------------------------------------
@@ -99,14 +99,14 @@ $searchFiles = @(
     #"src\router\index.ts",
 
     # ### services
-    #"src\services\AccountService.ts",
+    "src\services\AccountService.ts",
     "src\services\BudgetService.ts",
-    #"src\services\CategoryService.ts",
+    "src\services\CategoryService.ts",
     #"src\services\DataService.ts",
     #"src\services\index.ts",
-    #"src\services\PlanningService.ts",
+    "src\services\PlanningService.ts",
     #"src\services\ReconciliationService.ts",
-    #"src\services\TransactionService.ts",
+    "src\services\TransactionService.ts",
 
     # ### stores
     #"src\stores\accountStore.ts",

@@ -20,6 +20,11 @@ interface MonthlySummary {
 }
 
 /* ----------------------------- Hilfsfunktionen ----------------------------- */
+
+/**
+ * Ermittelt geplante Beträge für eine Kategorie innerhalb eines Monatszeitraums.
+ * Berücksichtigt wiederkehrende Planungstransaktionen und summiert deren Beträge.
+ */
 function getPlannedAmountForCategory(
   categoryId: string,
   monthStart: Date,
@@ -31,15 +36,20 @@ function getPlannedAmountForCategory(
   const startStr = toDateOnlyString(monthStart);
   const endStr = toDateOnlyString(monthEnd);
 
+  // Eigene Plantransaktionen berechnen
   planningStore.planningTransactions.forEach(planTx => {
     if (planTx.isActive && planTx.categoryId === categoryId) {
-      const occ = PlanningService
-        .calculateNextOccurrences(planTx, startStr, endStr)
-        .length;
-      amount += planTx.amount * occ;
+      // Nur INCOME und EXPENSE berücksichtigen, keine ACCOUNTTRANSFER
+      if (planTx.transactionType !== TransactionType.ACCOUNTTRANSFER) {
+        const occ = PlanningService
+          .calculateNextOccurrences(planTx, startStr, endStr)
+          .length;
+        amount += planTx.amount * occ;
+      }
     }
   });
 
+  // Kind-Kategorien rekursiv einbeziehen
   categoryStore
     .getChildCategories(categoryId)
     .filter(c => c.isActive)
@@ -50,6 +60,126 @@ function getPlannedAmountForCategory(
   return amount;
 }
 
+/**
+ * Berechnet den Budget-Wert (linke Spalte) einer Ausgabekategorie.
+ * Berücksichtigt nur CATEGORYTRANSFER Transaktionen (positiv und negativ).
+ */
+function computeCategoryBudgetedAmount(
+  categoryId: string,
+  monthStart: Date,
+  monthEnd: Date
+): number {
+  const categoryStore = useCategoryStore();
+  const transactionStore = useTransactionStore();
+  const category = categoryStore.getCategoryById(categoryId);
+  if (!category) return 0;
+
+  // Nur CATEGORYTRANSFER Transaktionen im Zeitraum
+  const txs = transactionStore.transactions.filter(tx => {
+    const txDate = new Date(toDateOnlyString(tx.valueDate || tx.date));  // valueDate für Kategorien
+    return (
+      (tx.categoryId === categoryId || tx.toCategoryId === categoryId) &&
+      tx.type === TransactionType.CATEGORYTRANSFER &&
+      txDate >= monthStart && txDate <= monthEnd
+    );
+  });
+
+  // Budget = Summe aller Category-Transfers
+  let budgetAmount = txs.reduce((sum, tx) => sum + (tx.categoryId === categoryId ? tx.amount : 0), 0);
+
+  // Unterkategorien rekursiv einbeziehen
+  categoryStore
+    .getChildCategories(categoryId)
+    .filter(c => c.isActive)
+    .forEach(child => {
+      budgetAmount += computeCategoryBudgetedAmount(child.id, monthStart, monthEnd);
+    });
+
+  return budgetAmount;
+}
+
+/**
+ * Berechnet Transaktionsbeträge (mittlere Spalte) einer Ausgabekategorie.
+ * Berücksichtigt nur EXPENSE und INCOME Transaktionen.
+ */
+function computeCategoryTransactionsAmount(
+  categoryId: string,
+  monthStart: Date,
+  monthEnd: Date
+): number {
+  const categoryStore = useCategoryStore();
+  const transactionStore = useTransactionStore();
+  const planningStore = usePlanningStore();
+  const category = categoryStore.getCategoryById(categoryId);
+  if (!category) return 0;
+
+  // Reale Transaktionen im Zeitraum (nur EXPENSE und INCOME)
+  const txs = transactionStore.transactions.filter(tx => {
+    const txDate = new Date(toDateOnlyString(tx.valueDate || tx.date));  // valueDate für Kategorien
+    return (
+      tx.categoryId === categoryId &&
+      (tx.type === TransactionType.EXPENSE || tx.type === TransactionType.INCOME) &&
+      txDate >= monthStart && txDate <= monthEnd
+    );
+  });
+
+  // Transaktionsbetrag
+  let transactionsAmount = txs.reduce((sum, tx) => sum + tx.amount, 0);
+
+  // Geplante Beträge (optional, falls gewünscht)
+  const plannedAmount = getPlannedAmountForCategory(categoryId, monthStart, monthEnd);
+
+  // Gesamte Transaktionen für diese Kategorie
+  let totalTransactionsAmount = transactionsAmount + plannedAmount;  // let statt const korrigiert
+
+  // Unterkategorien rekursiv einbeziehen
+  categoryStore
+    .getChildCategories(categoryId)
+    .filter(c => c.isActive)
+    .forEach(child => {
+      totalTransactionsAmount += computeCategoryTransactionsAmount(child.id, monthStart, monthEnd);
+    });
+
+  return totalTransactionsAmount;
+}
+
+/**
+ * Berechnet den Monatssaldo (rechte Spalte) einer Ausgabekategorie.
+ * Berücksichtigt Vormonatssaldo + aktuelle Transaktionen + Budget-Transfers.
+ */
+function computeCategorySaldo(
+  categoryId: string,
+  monthStart: Date,
+  monthEnd: Date
+): number {
+  const mbStore = useMonthlyBalanceStore();
+  const categoryStore = useCategoryStore();
+
+  // Vormonatsberechnung
+  const prev = new Date(monthStart);
+  prev.setDate(0); // Letzter Tag des Vormonats
+  const previousSaldo = mbStore.getProjectedCategoryBalanceForDate(categoryId, prev) ?? 0;
+
+  // Aktuelle Transaktionen (EXPENSE & INCOME)
+  const transactionsAmount = computeCategoryTransactionsAmount(categoryId, monthStart, monthEnd);
+
+  // Budget-Transfers (CATEGORYTRANSFER)
+  const budgetAmount = computeCategoryBudgetedAmount(categoryId, monthStart, monthEnd);
+
+  // Saldo = Vormonatssaldo + aktuelle Transaktionen + Budget-Transfers
+  let saldo = previousSaldo + transactionsAmount + budgetAmount;
+
+  // Unterkategorien rekursiv einbeziehen
+  categoryStore
+    .getChildCategories(categoryId)
+    .filter(c => c.isActive)
+    .forEach(child => {
+      saldo += computeCategorySaldo(child.id, monthStart, monthEnd) - previousSaldo;
+    });
+
+  return saldo;
+}
+
 /* ----------------------- Expense-Kategorie-Berechnung ----------------------- */
 function computeExpenseCategoryData(
   categoryId: string,
@@ -57,60 +187,20 @@ function computeExpenseCategoryData(
   monthEnd: Date
 ): MonthlyBudgetData {
   const categoryStore = useCategoryStore();
-  const transactionStore = useTransactionStore();
-  const mbStore = useMonthlyBalanceStore();
-  const cat = categoryStore.getCategoryById(categoryId);
-  if (!cat) return { budgeted: 0, spent: 0, saldo: 0 };
+  const category = categoryStore.getCategoryById(categoryId);
 
-  // Vormonats-Saldo
-  const prev = new Date(monthStart);
-  prev.setMonth(prev.getMonth() - 1);
-  const previousSaldo =
-    mbStore.getProjectedCategoryBalanceForDate(categoryId, prev) ?? 0;
+  if (!category) return { budgeted: 0, spent: 0, saldo: 0 };
 
-  // Alle Buchungen des Monats
-  const txs = transactionStore.transactions.filter(tx => {
-    const d = new Date(toDateOnlyString(tx.date));
-    return tx.categoryId === categoryId && d >= monthStart && d <= monthEnd;
-  });
+  // Budget (linke Spalte): Nur CATEGORYTRANSFER (positiv/negativ)
+  const budgeted = computeCategoryBudgetedAmount(categoryId, monthStart, monthEnd);
 
-  // Budget-Transfers (nur CATEGORYTRANSFER)
-  const budgetAmount = txs
-    .filter(tx => tx.type === TransactionType.CATEGORYTRANSFER)
-    .reduce((sum, tx) => sum + tx.amount, 0);
+  // Transaktionen (mittlere Spalte): Nur EXPENSE und INCOME
+  const spent = computeCategoryTransactionsAmount(categoryId, monthStart, monthEnd);
 
-  // Ausgaben
-  const expenseAmount = txs
-    .filter(tx => tx.type === TransactionType.EXPENSE)
-    .reduce((sum, tx) => sum + tx.amount, 0);
+  // Saldo (rechte Spalte): Vormonats + Transaktionen + Budget
+  const saldo = computeCategorySaldo(categoryId, monthStart, monthEnd);
 
-  // Geplante Ausgaben
-  const plannedAmount = getPlannedAmountForCategory(
-    categoryId,
-    monthStart,
-    monthEnd
-  );
-
-  // Transaktionen (Ausgaben + Planung)
-  const spent = expenseAmount + plannedAmount;
-  const saldo = previousSaldo + budgetAmount + spent;
-
-  // Unterkategorien rekursiv addieren
-  let totalBudget = budgetAmount;
-  let totalSpent = spent;
-  let totalSaldo = saldo;
-
-  categoryStore
-    .getChildCategories(categoryId)
-    .filter(c => c.isActive)
-    .forEach(child => {
-      const d = computeExpenseCategoryData(child.id, monthStart, monthEnd);
-      totalBudget += d.budgeted;
-      totalSpent += d.spent;
-      totalSaldo += d.saldo - previousSaldo;
-    });
-
-  return { budgeted: totalBudget, spent: totalSpent, saldo: totalSaldo };
+  return { budgeted, spent, saldo };
 }
 
 /* ------------------------ Income-Kategorie-Berechnung ----------------------- */
@@ -119,43 +209,15 @@ function computeIncomeCategoryData(
   monthStart: Date,
   monthEnd: Date
 ): MonthlyBudgetData {
-  const categoryStore = useCategoryStore();
-  const transactionStore = useTransactionStore();
-  const cat = categoryStore.getCategoryById(categoryId);
-  if (!cat) return { budgeted: 0, spent: 0, saldo: 0 };
+  // Für Einnahmekategorien verwenden wir die gleiche Berechnungslogik
+  // mit Anpassungen für positive/negative Beträge
+  const data = computeExpenseCategoryData(categoryId, monthStart, monthEnd);
 
-  const plannedAmount = getPlannedAmountForCategory(
-    categoryId,
-    monthStart,
-    monthEnd
-  );
-
-  const txs = transactionStore.transactions.filter(tx => {
-    const d = new Date(toDateOnlyString(tx.date));
-    return (
-      tx.categoryId === categoryId &&
-      d >= monthStart &&
-      d <= monthEnd &&
-      tx.type === TransactionType.INCOME
-    );
-  });
-  const incomeAmount = txs.reduce((sum, tx) => sum + tx.amount, 0);
-
-  const totalBudget = plannedAmount;
-  const totalSpent = incomeAmount;
-  const totalSaldo = incomeAmount - plannedAmount;
-
-  categoryStore
-    .getChildCategories(categoryId)
-    .filter(c => c.isActive)
-    .forEach(child => {
-      const d = computeIncomeCategoryData(child.id, monthStart, monthEnd);
-      totalBudget += d.budgeted;
-      totalSpent += d.spent;
-      totalSaldo += d.saldo;
-    });
-
-  return { budgeted: totalBudget, spent: totalSpent, saldo: totalSaldo };
+  return {
+    budgeted: data.budgeted,
+    spent: data.spent,
+    saldo: data.saldo
+  };
 }
 
 /* ------------------------------ Public API ---------------------------------- */

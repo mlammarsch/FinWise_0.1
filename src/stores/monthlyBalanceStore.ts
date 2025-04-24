@@ -70,22 +70,26 @@ export const useMonthlyBalanceStore = defineStore('monthlyBalance', () => {
     const startStr= toDateOnlyString(start)
     const endStr  = toDateOnlyString(end)
 
+    // Konten-Salden basierend auf tx.date
     const txsUntilEnd = transactionStore.transactions.filter(
       tx => toDateOnlyString(tx.date) <= endStr
     )
 
     const accountBalances: Record<string, number> = {}
-    const categoryBalances: Record<string, number> = {}
-
     accountStore.accounts.forEach(acc => {
       accountBalances[acc.id] = txsUntilEnd
         .filter(tx => tx.accountId === acc.id)
         .reduce((s, tx) => s + tx.amount, 0)
     })
 
+    // Kategorie-Salden basierend auf tx.valueDate (wenn vorhanden, sonst tx.date)
+    const categoryBalances: Record<string, number> = {}
     categoryStore.categories.forEach(cat => {
-      categoryBalances[cat.id] = txsUntilEnd
-        .filter(tx => tx.categoryId === cat.id)
+      categoryBalances[cat.id] = transactionStore.transactions
+        .filter(tx => {
+          const txDate = toDateOnlyString(tx.valueDate || tx.date)
+          return tx.categoryId === cat.id && txDate <= endStr
+        })
         .reduce((s, tx) => s + tx.amount, 0)
     })
 
@@ -170,6 +174,7 @@ export const useMonthlyBalanceStore = defineStore('monthlyBalance', () => {
     }
   })
 
+  // Getter für Kategoriesalden nach valueDate
   const getCategoryBalanceForDate = computed(() => {
     return (categoryId: string, date: Date): number => {
       const mb = monthlyBalances.value.find(
@@ -180,7 +185,10 @@ export const useMonthlyBalanceStore = defineStore('monthlyBalance', () => {
       }
       const ds = toDateOnlyString(date)
       return transactionStore.transactions
-        .filter(tx => tx.categoryId === categoryId && toDateOnlyString(tx.date) <= ds)
+        .filter(tx => {
+          const txDate = toDateOnlyString(tx.valueDate || tx.date)
+          return tx.categoryId === categoryId && txDate <= ds
+        })
         .reduce((s, tx) => s + tx.amount, 0)
     }
   })

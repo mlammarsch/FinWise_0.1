@@ -1,4 +1,4 @@
-// D:/_localData/dev/FinWise/FinWise_0.1/src/utils/runningBalances.ts
+// Pfad: src/utils/runningBalances.ts
 
 /**
  * Gruppiert Transaktionen eines Kontos nach Datum und berechnet den
@@ -52,7 +52,62 @@ export interface BalanceInfo {
 }
 
 /**
- * Berechnet den Saldo für eine Kategorie (Ausgaben).
+ * Berechnet den Budget-Wert (linke Spalte) einer Ausgabenkategorie.
+ * Berücksichtigt nur CATEGORYTRANSFER Transaktionen im gegebenen Zeitraum.
+ */
+export function calculateCategoryBudgetedAmount(
+  transactions: any[],
+  categoryId: string,
+  start: Date,
+  end: Date
+): number {
+  // Nur Category-Transfers im Zeitraum (inklusive toCategoryId)
+  const txs = transactions.filter(tx => {
+    const txDate = new Date(tx.valueDate || tx.date);
+    return (
+      (tx.categoryId === categoryId || tx.toCategoryId === categoryId) &&
+      tx.type === 'CATEGORYTRANSFER' &&
+      txDate >= start && txDate <= end
+    );
+  });
+
+  // Summe aller Transfers für diese Kategorie
+  return txs.reduce((sum, tx) => {
+    // Wenn diese Kategorie die Quelle ist, dann ist der Betrag negativ
+    // Wenn diese Kategorie das Ziel ist, dann ist der Betrag positiv
+    if (tx.categoryId === categoryId) return sum + tx.amount;
+    if (tx.toCategoryId === categoryId) return sum + Math.abs(tx.amount); // Immer positiver Betrag für Empfänger
+    return sum;
+  }, 0);
+}
+
+/**
+ * Berechnet den Transaktions-Wert (mittlere Spalte) einer Ausgabenkategorie.
+ * Berücksichtigt nur EXPENSE und INCOME Transaktionen im gegebenen Zeitraum.
+ */
+export function calculateCategoryTransactionsAmount(
+  transactions: any[],
+  categoryId: string,
+  start: Date,
+  end: Date
+): number {
+  // Nur Transaktionen des Typs EXPENSE oder INCOME im Zeitraum
+  const txs = transactions.filter(tx => {
+    const txDate = new Date(tx.valueDate || tx.date);
+    return (
+      tx.categoryId === categoryId &&
+      (tx.type === 'EXPENSE' || tx.type === 'INCOME') &&
+      txDate >= start && txDate <= end
+    );
+  });
+
+  // Summe aller Transaktionen
+  return txs.reduce((sum, tx) => sum + tx.amount, 0);
+}
+
+/**
+ * Berechnet den Saldo (rechte Spalte) einer Ausgabenkategorie.
+ * Berücksichtigt Vormonats-Saldo + aktuelle Transaktionen + Budget-Transfers.
  */
 export function calculateCategorySaldo(
   transactions: any[],
@@ -61,23 +116,30 @@ export function calculateCategorySaldo(
   end: Date,
   startBalanceInfo: BalanceInfo | number = 0
 ): { budgeted: number; spent: number; saldo: number } {
+  // Vormonats-Saldo (von extern übergeben)
   const startBalance = typeof startBalanceInfo === 'number'
     ? startBalanceInfo
     : startBalanceInfo.balance;
 
-  const txs = transactions.filter(tx => tx.categoryId === categoryId);
-  const txsCurrent = txs.filter(tx => new Date(tx.valueDate) >= start && new Date(tx.valueDate) <= end);
-  const txsBefore = txs.filter(tx => new Date(tx.valueDate) < start);
-  const previousTxsSum = txsBefore.reduce((sum, tx) => sum + tx.amount, 0);
-  const spentThisMonth = txsCurrent.reduce((sum, tx) => sum + tx.amount, 0);
-  const effectivePreviousSaldo = startBalance !== 0 ? startBalance : previousTxsSum;
-  const saldo = effectivePreviousSaldo + spentThisMonth;
+  // Budget-Transfers berechnen (linke Spalte)
+  const budgetedAmount = calculateCategoryBudgetedAmount(transactions, categoryId, start, end);
 
-  return { budgeted: 0, spent: spentThisMonth, saldo };
+  // Transaktionen berechnen (mittlere Spalte)
+  const transactionsAmount = calculateCategoryTransactionsAmount(transactions, categoryId, start, end);
+
+  // Saldo = Vormonats-Saldo + aktuelle Transaktionen + Budget-Transfers
+  const saldo = startBalance + transactionsAmount + budgetedAmount;
+
+  return {
+    budgeted: budgetedAmount,
+    spent: transactionsAmount,
+    saldo: saldo
+  };
 }
 
 /**
  * Berechnet den Saldo für eine Einnahmekategorie.
+ * Verwendet die gleiche Logik wie für Ausgabekategorien.
  */
 export function calculateIncomeCategorySaldo(
   transactions: any[],
@@ -86,15 +148,6 @@ export function calculateIncomeCategorySaldo(
   end: Date,
   startBalanceInfo: BalanceInfo | number = 0
 ): { budgeted: number; spent: number; saldo: number } {
-  const startBalance = typeof startBalanceInfo === 'number'
-    ? startBalanceInfo
-    : startBalanceInfo.balance;
-
-  const txs = transactions.filter(tx => tx.categoryId === categoryId);
-  const txsCurrent = txs.filter(tx => new Date(tx.valueDate) >= start && new Date(tx.valueDate) <= end);
-  const sumThisMonth = txsCurrent.reduce((sum, tx) => sum + tx.amount, 0);
-  const effectiveStart = startBalance;
-  const saldo = effectiveStart - sumThisMonth;
-
-  return { budgeted: 0, spent: sumThisMonth, saldo };
+  // Einnahmen berechnen gleich wie Ausgaben, mit Vorzeichenanpassungen
+  return calculateCategorySaldo(transactions, categoryId, start, end, startBalanceInfo);
 }
