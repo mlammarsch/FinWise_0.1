@@ -70,28 +70,38 @@ export const useMonthlyBalanceStore = defineStore('monthlyBalance', () => {
     const startDateStr = toDateOnlyString(startDate)
     const endDateStr   = toDateOnlyString(endDate)
 
-    const txsUntilEnd = transactionStore.transactions
+    // Für Konten: Nach date filtern
+    const txsForAccountsUntilEnd = transactionStore.transactions
       ? transactionStore.transactions.filter(tx => toDateOnlyString(tx.date) <= endDateStr)
+      : []
+
+    // Für Kategorien: Nach valueDate filtern
+    const txsForCategoriesUntilEnd = transactionStore.transactions
+      ? transactionStore.transactions.filter(tx => toDateOnlyString(tx.valueDate || tx.date) <= endDateStr)
       : []
 
     const accountBalances: Record<string, number> = {}
     const categoryBalances: Record<string, number> = {}
 
+    // Kontosalden berechnen (nach date)
     accountStore.accounts.forEach(account => {
-      const accountTxs = txsUntilEnd.filter(tx => tx.accountId === account.id)
+      const accountTxs = txsForAccountsUntilEnd.filter(tx => tx.accountId === account.id)
       const balance = accountTxs.reduce((sum, tx) => sum + tx.amount, 0)
       accountBalances[account.id] = balance
     })
 
+    // Kategoriesalden berechnen (nach valueDate)
     categoryStore.categories.forEach(cat => {
-      const categoryTxs = txsUntilEnd.filter(tx => tx.categoryId === cat.id)
+      const categoryTxs = txsForCategoriesUntilEnd.filter(tx => tx.categoryId === cat.id)
       const balance = categoryTxs.reduce((sum, tx) => sum + tx.amount, 0)
       categoryBalances[cat.id] = balance
     })
 
+    // Kopien für projizierte Salden
     const projectedAccountBalances  = { ...accountBalances }
     const projectedCategoryBalances = { ...categoryBalances }
 
+    // Vormonat ermitteln
     const prevMonth = month === 0 ? 11 : month - 1
     const prevYear  = month === 0 ? year - 1 : year
     const prevMonthBalance = monthlyBalances.value.find(
@@ -99,8 +109,17 @@ export const useMonthlyBalanceStore = defineStore('monthlyBalance', () => {
     )
 
     if (prevMonthBalance) {
+      // "Rollende" Monatssalden für Kategorien
       categoryStore.categories.forEach((cat: Category) => {
-        // geplante Beträge in diesem Monat berechnen
+        // Transaktionen und Planbuchungen dieses Monats (nach valueDate)
+        const monthTxs = transactionStore.transactions.filter(tx => {
+          const valueDate = new Date(toDateOnlyString(tx.valueDate || tx.date))
+          return tx.categoryId === cat.id &&
+                 valueDate >= startDate &&
+                 valueDate <= endDate
+        })
+
+        // Prognosebuchungen für diesen Monat
         const plannedAmount = planningStore.planningTransactions
           .filter(pt => pt.isActive && pt.categoryId === cat.id)
           .reduce((sum, pt) => {
@@ -110,29 +129,35 @@ export const useMonthlyBalanceStore = defineStore('monthlyBalance', () => {
             return sum + pt.amount * occ
           }, 0)
 
-        const prevRaw   = prevMonthBalance.categoryBalances[cat.id]   || 0
-        const currentRaw= categoryBalances[cat.id]                   || 0
-        const delta     = currentRaw - prevRaw
-
-        if (!cat.isIncomeCategory) {
-          // Ausgaben: Vormonats-Projektion + Monats-Delta + Planung
-          projectedCategoryBalances[cat.id] =
-            prevMonthBalance.projectedCategoryBalances[cat.id] +
-            delta +
-            plannedAmount
-        } else {
-          // Einnahmen: Vormonats-Projektion + Monats-Delta + Planung
-          projectedCategoryBalances[cat.id] =
-            (prevMonthBalance.projectedCategoryBalances[cat.id] || 0) +
-            delta +
-            plannedAmount
-        }
+        // Monatssaldo = Vormonatssaldo + Transaktionen des Monats + Prognosen des Monats
+        projectedCategoryBalances[cat.id] =
+          (prevMonthBalance.projectedCategoryBalances[cat.id] || 0) +
+          monthTxs.reduce((sum, tx) => sum + tx.amount, 0) +
+          plannedAmount
       })
 
-      Object.keys(prevMonthBalance.projectedAccountBalances).forEach(accountId => {
-        if (projectedAccountBalances[accountId] !== undefined) {
-          projectedAccountBalances[accountId] += prevMonthBalance.projectedAccountBalances[accountId]
-        }
+      // Ähnliches Prinzip für Konten (aber nach date)
+      accountStore.accounts.forEach(account => {
+        const monthTxs = transactionStore.transactions.filter(tx => {
+          const date = new Date(toDateOnlyString(tx.date))
+          return tx.accountId === account.id &&
+                 date >= startDate &&
+                 date <= endDate
+        })
+
+        const plannedAmount = planningStore.planningTransactions
+          .filter(pt => pt.isActive && pt.accountId === account.id)
+          .reduce((sum, pt) => {
+            const occ = PlanningService
+              .calculateNextOccurrences(pt, startDateStr, endDateStr)
+              .length
+            return sum + pt.amount * occ
+          }, 0)
+
+        projectedAccountBalances[account.id] =
+          (prevMonthBalance.projectedAccountBalances[account.id] || 0) +
+          monthTxs.reduce((sum, tx) => sum + tx.amount, 0) +
+          plannedAmount
       })
     }
 
