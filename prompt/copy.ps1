@@ -57,7 +57,7 @@ $searchFiles = @(
     #"src\components\rules\RuleForm.vue",
 
     # ### components\transaction
-    # "src\components\transaction\CategoryTransactionList.vue",
+     "src\components\transaction\CategoryTransactionList.vue",
     #"src\components\transaction\TransactionCard.vue",
     #"src\components\transaction\TransactionDetailModal.vue",
     #"src\components\transaction\TransactionForm.vue",
@@ -101,7 +101,7 @@ $searchFiles = @(
     # ### services
     #"src\services\AccountService.ts",
     "src\services\BudgetService.ts",
-    #"src\services\CategoryService.ts",
+    "src\services\CategoryService.ts",
     #"src\services\DataService.ts",
     #"src\services\index.ts",
     "src\services\PlanningService.ts",

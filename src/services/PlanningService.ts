@@ -298,7 +298,7 @@ export const PlanningService = {
    */
   updateForecasts() {
     const monthlyBalanceStore = useMonthlyBalanceStore();
-    monthlyBalanceStore.calculateMonthlyBalances();
+    // monthlyBalanceStore.calculateMonthlyBalances();
     debugLog("[PlanningService] updateForecasts - Monatsbilanzen aktualisiert");
     return true;
   }
