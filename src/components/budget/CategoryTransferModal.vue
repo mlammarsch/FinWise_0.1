@@ -1,8 +1,7 @@
-<!-- Datei: src/components/budget/CategoryTransferModal.vue -->
 <script setup lang="ts">
 /**
  * Pfad zur Komponente: src/components/budget/CategoryTransferModal.vue
- * Funktion: Übertragung von Beträgen zwischen Kategorien mittels CategoryService.
+ * Funktion: Übertragung von Beträgen zwischen Kategorien mittels TransactionService.
  *
  * Komponenten-Props:
  * - isOpen: boolean – Sichtbarkeit
@@ -27,6 +26,7 @@ import CurrencyDisplay from "../ui/CurrencyDisplay.vue";
 import CurrencyInput from "../ui/CurrencyInput.vue";
 import SelectCategory from "../ui/SelectCategory.vue";
 import { useCategoryStore } from "@/stores/categoryStore";
+import { TransactionService } from "@/services/TransactionService";
 import { CategoryService } from "@/services/CategoryService";
 import { debugLog } from "@/utils/logger";
 import { Icon } from "@iconify/vue";
@@ -45,14 +45,12 @@ const props = withDefaults(
     toCategoryId?: string;
     note?: string;
   }>(),
-  {
-    mode: "transfer",
-  }
+  { mode: "transfer" }
 );
 
 const emit = defineEmits(["close", "transfer"]);
-
 const categoryStore = useCategoryStore();
+const transactionService = TransactionService;
 const categoryService = CategoryService;
 
 const fromCategoryIdLocal = ref("");
@@ -73,105 +71,76 @@ const normalizedMonthEnd = computed(() =>
   props.month ? new Date(toDateOnlyString(props.month.end)) : new Date()
 );
 
-const categoryOptions = computed(() => {
-  if (!props.month || !props.month.start || !props.month.end) return [];
-  return categoryService.getCategoryTransferOptions(
-    normalizedMonthStart.value,
-    normalizedMonthEnd.value
-  );
-});
-
-const fromCategoryOptions = computed(() => {
-  return categoryOptions.value.filter(
-    (opt) => opt.id !== toCategoryIdLocal.value
-  );
-});
-
-const toCategoryOptions = computed(() => {
-  return categoryOptions.value.filter(
-    (opt) => opt.id !== fromCategoryIdLocal.value
-  );
-});
-
+const categoryOptions = computed(() =>
+  props.month
+    ? categoryService.getCategoryTransferOptions(
+        normalizedMonthStart.value,
+        normalizedMonthEnd.value
+      )
+    : []
+);
+const fromCategoryOptions = computed(() =>
+  categoryOptions.value.filter((opt) => opt.id !== toCategoryIdLocal.value)
+);
+const toCategoryOptions = computed(() =>
+  categoryOptions.value.filter((opt) => opt.id !== fromCategoryIdLocal.value)
+);
 const availableFromBalance = computed(() => {
-  const selectedOption = categoryOptions.value.find(
+  const o = categoryOptions.value.find(
     (opt) => opt.id === fromCategoryIdLocal.value
   );
-  return selectedOption?.saldo ?? 0;
+  return o?.saldo ?? 0;
 });
 
 onMounted(() => {
-  debugLog("[CategoryTransferModal] mounted - incoming props", { ...props });
+  debugLog("[CategoryTransferModal] mounted", { ...props });
 });
 
 watch(
   () => props.isOpen,
   (open) => {
-    if (open) {
-      isProcessing.value = false;
-      if (props.prefillDate) {
-        date.value = props.prefillDate;
-      } else {
-        const defaultDate = props.month
-          ? new Date(props.month.end).toISOString().split("T")[0]
-          : new Date().toISOString().split("T")[0];
-        date.value = defaultDate;
-      }
-      amount.value = props.prefillAmount || 0;
-      noteLocal.value = props.note || "";
-
-      if (props.transactionId) {
-        fromCategoryIdLocal.value = props.fromCategoryId || "";
-        toCategoryIdLocal.value = props.toCategoryId || "";
-      } else {
-        if (props.mode === "transfer" && props.preselectedCategoryId) {
-          fromCategoryIdLocal.value = props.preselectedCategoryId;
-          toCategoryIdLocal.value = "";
-        } else if (props.mode === "fill" && props.preselectedCategoryId) {
-          toCategoryIdLocal.value = props.preselectedCategoryId;
-          const availableFundsCat = categoryStore.getAvailableFundsCategory();
-          fromCategoryIdLocal.value = availableFundsCat?.id || "";
-        } else {
-          fromCategoryIdLocal.value = "";
-          toCategoryIdLocal.value = "";
-        }
-      }
-
-      nextTick(() => {
-        if (props.transactionId) {
-          amountRef.value?.focus();
-          amountRef.value?.select();
-        } else if (props.mode === "fill") {
-          if (amount.value > 0) {
-            amountRef.value?.focus();
-            amountRef.value?.select();
-          } else {
-            fromCategoryRef.value?.focusInput();
-          }
-        } else {
-          if (fromCategoryIdLocal.value) {
-            toCategoryRef.value?.focusInput();
-          } else {
-            fromCategoryRef.value?.focusInput();
-          }
-        }
-      });
-
-      debugLog("[CategoryTransferModal] Initialized state", {
-        from: fromCategoryIdLocal.value,
-        to: toCategoryIdLocal.value,
-        amount: amount.value,
-        date: date.value,
-        note: noteLocal.value,
-        mode: props.mode,
-      });
-    } else {
+    if (!open) {
       fromCategoryIdLocal.value = "";
       toCategoryIdLocal.value = "";
       amount.value = 0;
       date.value = "";
       noteLocal.value = "";
+      return;
     }
+    isProcessing.value = false;
+    date.value =
+      props.prefillDate ||
+      (props.month
+        ? props.month.end.toISOString().split("T")[0]
+        : new Date().toISOString().split("T")[0]);
+    amount.value = props.prefillAmount || 0;
+    noteLocal.value = props.note || "";
+    if (props.transactionId) {
+      fromCategoryIdLocal.value = props.fromCategoryId || "";
+      toCategoryIdLocal.value = props.toCategoryId || "";
+    } else if (props.mode === "transfer" && props.preselectedCategoryId) {
+      fromCategoryIdLocal.value = props.preselectedCategoryId;
+    } else if (props.mode === "fill" && props.preselectedCategoryId) {
+      toCategoryIdLocal.value = props.preselectedCategoryId;
+      fromCategoryIdLocal.value =
+        categoryStore.getAvailableFundsCategory()?.id || "";
+    }
+    nextTick(() => {
+      if (props.transactionId || amount.value > 0) {
+        amountRef.value?.focus();
+        amountRef.value?.select();
+      } else {
+        fromCategoryRef.value?.focusInput();
+      }
+    });
+    debugLog("[CategoryTransferModal] initialized", {
+      from: fromCategoryIdLocal.value,
+      to: toCategoryIdLocal.value,
+      amount: amount.value,
+      date: date.value,
+      note: noteLocal.value,
+      mode: props.mode,
+    });
   },
   { immediate: true }
 );
@@ -184,7 +153,7 @@ async function performTransfer() {
     !date.value ||
     isProcessing.value
   ) {
-    debugLog("[CategoryTransferModal] Validation failed or processing", {
+    debugLog("[CategoryTransferModal] Validation failed", {
       from: fromCategoryIdLocal.value,
       to: toCategoryIdLocal.value,
       amount: amount.value,
@@ -192,14 +161,12 @@ async function performTransfer() {
     });
     return;
   }
-
   isProcessing.value = true;
-
   try {
     let success = false;
     if (props.transactionId && props.gegentransactionId) {
-      debugLog("[CategoryTransferModal] Attempting to update transfer");
-      success = await categoryService.updateCategoryTransfer(
+      debugLog("[CategoryTransferModal] update transfer");
+      success = transactionService.updateCategoryTransfer(
         props.transactionId,
         props.gegentransactionId,
         fromCategoryIdLocal.value,
@@ -209,26 +176,22 @@ async function performTransfer() {
         noteLocal.value
       );
     } else {
-      debugLog("[CategoryTransferModal] Attempting to add transfer");
-      const result = await categoryService.addCategoryTransfer(
+      debugLog("[CategoryTransferModal] add transfer");
+      const res = transactionService.addCategoryTransfer(
         fromCategoryIdLocal.value,
         toCategoryIdLocal.value,
         amount.value,
         date.value,
         noteLocal.value
       );
-      success = !!result;
+      success = !!res;
     }
-
     if (success) {
-      debugLog("[CategoryTransferModal] Transfer successful");
       emit("transfer");
       emit("close");
-    } else {
-      debugLog("[CategoryTransferModal] Transfer failed");
     }
-  } catch (error) {
-    debugLog("[CategoryTransferModal] Error during transfer:", error);
+  } catch (err) {
+    debugLog("[CategoryTransferModal] Error", err);
   } finally {
     isProcessing.value = false;
   }
@@ -244,7 +207,10 @@ async function performTransfer() {
   >
     <div class="modal-box w-full max-w-lg">
       <h3 class="font-bold text-lg mb-4 flex items-center">
-        <Icon icon="mdi:swap-horizontal-bold" class="mr-2 text-xl" />
+        <Icon
+          icon="mdi:swap-horizontal-bold"
+          class="mr-2 text-xl"
+        />
         <template v-if="transactionId">Kategorietransfer bearbeiten</template>
         <template v-else-if="mode === 'fill'">
           Fülle
@@ -302,7 +268,10 @@ async function performTransfer() {
             v-model="amount"
             :class="amount > availableFromBalance ? 'input-error' : ''"
           />
-          <label class="label" v-if="fromCategoryIdLocal">
+          <label
+            class="label"
+            v-if="fromCategoryIdLocal"
+          >
             <span
               class="label-text-alt flex items-center"
               :class="
@@ -357,7 +326,11 @@ async function performTransfer() {
 
         <!-- Actions -->
         <div class="modal-action mt-6">
-          <button type="button" class="btn btn-ghost" @click="$emit('close')">
+          <button
+            type="button"
+            class="btn btn-ghost"
+            @click="$emit('close')"
+          >
             Abbrechen
           </button>
           <button
@@ -374,7 +347,10 @@ async function performTransfer() {
         </div>
       </form>
     </div>
-    <div class="modal-backdrop bg-black/30" @click="$emit('close')"></div>
+    <div
+      class="modal-backdrop bg-black/30"
+      @click="$emit('close')"
+    ></div>
   </div>
 </template>
 

@@ -1,4 +1,4 @@
-<!-- src/components/ui/SelectCategory.vue -->
+<!-- Datei: src/components/ui/SelectCategory.vue -->
 <script setup lang="ts">
 /**
  * Pfad zur Komponente: src/components/ui/SelectCategory.vue
@@ -16,7 +16,7 @@ import { useCategoryStore } from "@/stores/categoryStore";
 import CurrencyDisplay from "./CurrencyDisplay.vue";
 import { debugLog } from "@/utils/logger";
 import { useTransactionStore } from "@/stores/transactionStore";
-import { calculateCategorySaldo } from "@/utils/runningBalances";
+import { CategoryService } from "@/services/CategoryService";
 import { Icon } from "@iconify/vue";
 
 const props = defineProps<{
@@ -32,12 +32,30 @@ const searchTerm = ref("");
 const dropdownOpen = ref(false);
 const highlightedIndex = ref(0);
 const inputRef = ref<HTMLInputElement | null>(null);
-
 const selected = ref(props.modelValue || "");
 
 /**
- * Initialisiert den Suchbegriff basierend auf der ausgewählten Kategorie-ID beim Laden.
+ * Delegator für Saldo-Berechnung über CategoryService.
  */
+const currentDate = new Date();
+const currentMonthStart = new Date(
+  currentDate.getFullYear(),
+  currentDate.getMonth(),
+  1
+);
+const currentMonthEnd = new Date(
+  currentDate.getFullYear(),
+  currentDate.getMonth() + 1,
+  0
+);
+function calculateCategorySaldo(categoryId: string) {
+  return CategoryService.calculateCategorySaldo(
+    categoryId,
+    currentMonthStart,
+    currentMonthEnd
+  );
+}
+
 onMounted(() => {
   if (selected.value) {
     const cat = categoryStore.categories.find((c) => c.id === selected.value);
@@ -51,9 +69,6 @@ onMounted(() => {
   }
 });
 
-/**
- * Synchronisiert den lokalen Zustand (selected, searchTerm) mit Änderungen der modelValue-Prop.
- */
 watch(
   () => props.modelValue,
   (newVal) => {
@@ -65,15 +80,10 @@ watch(
         id: cat.id,
         name: cat.name,
       });
-    } else if (!newVal && searchTerm.value && !dropdownOpen.value) {
-      //searchTerm.value = ""; // Behalte Text bei
     }
   }
 );
 
-/**
- * Stößt das 'update:modelValue'-Event an, wenn sich die interne Auswahl ändert.
- */
 watch(selected, (newVal) => {
   debugLog("[SelectCategory] watch:selected → emit update:modelValue", {
     newVal,
@@ -82,26 +92,10 @@ watch(selected, (newVal) => {
   emit("select", newVal || undefined);
 });
 
-// Berechne aktuellen Monat für Saldoanzeige
-const currentDate = new Date();
-const currentMonthStart = new Date(
-  currentDate.getFullYear(),
-  currentDate.getMonth(),
-  1
-);
-const currentMonthEnd = new Date(
-  currentDate.getFullYear(),
-  currentDate.getMonth() + 1,
-  0
-);
-
 const availableCategory = computed(() =>
   categoryStore.getAvailableFundsCategory()
 );
 
-/**
- * Filtert Kategorien basierend auf filterOutArray und Suchbegriff.
- */
 const filteredCategories = computed(() => {
   let cats = categoryStore.categories;
   if (props.filterOutArray?.length) {
@@ -135,9 +129,6 @@ interface Option {
   category?: (typeof categoryStore.categories)[0];
 }
 
-/**
- * Erstellt die Liste der Dropdown-Optionen, gruppiert nach Einnahmen/Ausgaben.
- */
 const options = computed<Option[]>(() => {
   const opts: Option[] = [];
   let includeAvailable = false;
@@ -154,14 +145,13 @@ const options = computed<Option[]>(() => {
         if (availableCategory.value.name.toLowerCase().includes(term)) {
           availableMatchesSearch = true;
         } else {
-          includeAvailable = false; // Don't include if it doesn't match search
+          includeAvailable = false;
         }
       }
     }
   }
 
   if (includeAvailable) {
-    // Always add "Available" at the top if included
     opts.push({ isHeader: false, category: availableCategory.value });
   }
 
@@ -192,31 +182,18 @@ const options = computed<Option[]>(() => {
   return opts;
 });
 
-/**
- * Gibt die sichtbaren Optionen zurück (abhängig von dropdownOpen).
- */
-const visibleOptions = computed(() => {
-  if (!dropdownOpen.value) return [];
-  return options.value;
-});
+const visibleOptions = computed(() =>
+  dropdownOpen.value ? options.value : []
+);
 
-/**
- * Gibt nur die tatsächlichen Kategorie-Optionen (keine Header) unter den sichtbaren zurück.
- */
 const nonHeaderOptions = computed(() =>
   visibleOptions.value.filter((opt) => !opt.isHeader)
 );
 
-/**
- * Gibt die aktuell hervorgehobene Kategorie zurück.
- */
 const highlightedOption = computed(
   () => nonHeaderOptions.value[highlightedIndex.value]?.category
 );
 
-/**
- * Behandelt Tastatureingaben (Pfeiltasten, Enter, Escape).
- */
 function onKeyDown(e: KeyboardEvent) {
   if (!dropdownOpen.value && !["Escape", "Tab"].includes(e.key)) {
     toggleDropdown();
@@ -225,7 +202,6 @@ function onKeyDown(e: KeyboardEvent) {
     }
     return;
   }
-
   switch (e.key) {
     case "ArrowDown":
       e.preventDefault();
@@ -243,8 +219,8 @@ function onKeyDown(e: KeyboardEvent) {
       break;
     case "Enter":
       e.preventDefault();
-      const selectedCat = highlightedOption.value;
-      if (selectedCat) selectCategory(selectedCat);
+      const sel = highlightedOption.value;
+      if (sel) selectCategory(sel);
       break;
     case "Escape":
       e.preventDefault();
@@ -253,9 +229,6 @@ function onKeyDown(e: KeyboardEvent) {
   }
 }
 
-/**
- * Scrollt zur hervorgehobenen Option.
- */
 function scrollToHighlighted() {
   const opt = nonHeaderOptions.value[highlightedIndex.value];
   if (opt?.category) {
@@ -266,92 +239,61 @@ function scrollToHighlighted() {
   }
 }
 
-/**
- * Öffnet/schließt das Dropdown.
- */
 function toggleDropdown() {
   dropdownOpen.value = !dropdownOpen.value;
   if (dropdownOpen.value) {
     highlightedIndex.value = 0;
-    const currentSelectionIndex = nonHeaderOptions.value.findIndex(
-      (opt) => opt.category?.id === selected.value
+    const idx = nonHeaderOptions.value.findIndex(
+      (o) => o.category?.id === selected.value
     );
-    if (currentSelectionIndex !== -1) {
-      highlightedIndex.value = currentSelectionIndex;
-    }
-    nextTick(() => {
-      // Fokus wird durch onFocus gesetzt
-      scrollToHighlighted();
-    });
+    if (idx !== -1) highlightedIndex.value = idx;
+    nextTick(() => scrollToHighlighted());
   }
 }
 
-/**
- * Schließt das Dropdown.
- */
 function closeDropdown() {
   dropdownOpen.value = false;
-  const currentCat = categoryStore.categories.find(
-    (c) => c.id === selected.value
-  );
-  if (currentCat && searchTerm.value !== currentCat.name) {
-    searchTerm.value = currentCat.name;
-  } else if (!selected.value) {
-    // searchTerm.value = ""; // Behalte Text
+  const cat = categoryStore.categories.find((c) => c.id === selected.value);
+  if (cat && searchTerm.value !== cat.name) {
+    searchTerm.value = cat.name;
   }
 }
 
-/**
- * Schließt das Dropdown verzögert bei Fokusverlust.
- */
 function onBlur(event: FocusEvent) {
   setTimeout(() => {
-    const relatedTarget = event.relatedTarget as HTMLElement | null;
-    if (!relatedTarget || !relatedTarget.closest(".dropdown-container")) {
+    const tgt = event.relatedTarget as HTMLElement | null;
+    if (!tgt || !tgt.closest(".dropdown-container")) {
       closeDropdown();
     }
   }, 200);
 }
 
-/**
- * Markiert Text bei Fokus und öffnet ggf. Dropdown.
- */
 function onFocus(event: FocusEvent) {
-  const target = event.target as HTMLInputElement;
-  setTimeout(() => target.select(), 0);
-  if (!dropdownOpen.value) {
-    toggleDropdown();
-  }
+  const tgt = event.target as HTMLInputElement;
+  setTimeout(() => tgt.select(), 0);
+  if (!dropdownOpen.value) toggleDropdown();
 }
 
-/**
- * Wählt eine Kategorie aus.
- */
 function selectCategory(cat: (typeof categoryStore.categories)[0]) {
-  debugLog("[SelectCategory] selectCategory", { id: cat.id, name: cat.name });
+  debugLog("[SelectCategory] selectCategory", {
+    id: cat.id,
+    name: cat.name,
+  });
   selected.value = cat.id;
   searchTerm.value = cat.name;
   closeDropdown();
-  debugLog("[SelectCategory] after selection", { selected: selected.value });
 }
 
-/**
- * Löscht die Suche.
- */
 function clearSearch() {
   searchTerm.value = "";
   selected.value = "";
   emit("update:modelValue", undefined);
   emit("select", undefined);
   inputRef.value?.focus();
-  if (!dropdownOpen.value) {
-    toggleDropdown();
-  } else {
-    highlightedIndex.value = 0;
-  }
+  if (!dropdownOpen.value) toggleDropdown();
+  else highlightedIndex.value = 0;
 }
 
-// Exponiert focusInput
 function focusInput() {
   inputRef.value?.focus();
 }
@@ -360,7 +302,6 @@ defineExpose({ focusInput });
 
 <template>
   <div class="relative dropdown-container">
-    <!-- Suchfeld -->
     <div class="relative">
       <input
         ref="inputRef"
@@ -377,7 +318,6 @@ defineExpose({ focusInput });
         placeholder="Kategorie suchen..."
         autocomplete="off"
       />
-      <!-- Löschen Button -->
       <button
         type="button"
         v-if="searchTerm"
@@ -387,21 +327,18 @@ defineExpose({ focusInput });
       >
         <Icon icon="mdi:close-circle-outline" />
       </button>
-      <!-- Chevron Icon entfernt -->
     </div>
-    <!-- Dropdown Liste -->
+
     <div
       v-if="dropdownOpen"
       class="absolute z-40 w-full bg-base-100 border border-base-300 rounded-lg mt-1 max-h-60 overflow-y-auto shadow-lg dropdown-container"
       role="listbox"
     >
-      <!-- Optionen oder "Keine Ergebnisse"-Meldung -->
-      <template v-if="visibleOptions.length > 0">
+      <template v-if="visibleOptions.length">
         <template
           v-for="option in visibleOptions"
-          :key="option.isHeader ? 'header-' + option.headerText : option.category!.id"
+          :key="option.isHeader ? 'header-'+option.headerText : option.category!.id"
         >
-          <!-- Header (Einnahmen/Ausgaben) -->
           <div
             v-if="option.isHeader"
             class="px-3 py-1.5 font-semibold text-sm text-primary select-none sticky top-0 bg-base-200 z-10"
@@ -409,7 +346,6 @@ defineExpose({ focusInput });
           >
             {{ option.headerText }}
           </div>
-          <!-- Kategorie Option -->
           <div
             v-else-if="option.category"
             :id="'select-category-option-' + option.category.id"
@@ -418,32 +354,27 @@ defineExpose({ focusInput });
               'bg-base-300':
                 nonHeaderOptions.findIndex(
                   (o) => o.category?.id === option.category?.id
-                ) === highlightedIndex, // Hervorhebung Tastatur
-              'font-medium': option.category.id === selected, // Hervorhebung Auswahl
+                ) === highlightedIndex,
+              'font-medium': option.category.id === selected,
             }"
             @mousedown.prevent="selectCategory(option.category)"
             role="option"
             :aria-selected="option.category.id === selected"
           >
             <span>{{ option.category.name }}</span>
-            <!-- Saldo Anzeige -->
             <span class="text-xs opacity-80">
               <CurrencyDisplay
-                :amount="
-                  calculateCategorySaldo(
-                    transactionStore.transactions,
-                    option.category.id,
-                    currentMonthStart,
-                    currentMonthEnd
-                  ).saldo
-                "
+                :amount="calculateCategorySaldo(option.category.id).saldo"
                 :as-integer="true"
               />
             </span>
           </div>
         </template>
       </template>
-      <div v-else class="px-3 py-1.5 text-sm text-base-content/60 italic">
+      <div
+        v-else
+        class="px-3 py-1.5 text-sm text-base-content/60 italic"
+      >
         Keine Kategorien gefunden.
       </div>
     </div>
@@ -451,7 +382,6 @@ defineExpose({ focusInput });
 </template>
 
 <style scoped>
-/* Verhindert Autocomplete-Überlagerung */
 input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus,
