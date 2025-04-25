@@ -3,8 +3,8 @@
 # --------------------------------------------------------------------------
 
 # Basisverzeichnis definieren
-#$baseDirectory = "D:\_localData\dev\FinWise\FinWise_0.1"
-$baseDirectory = "C:\00_mldata\programming\FinWise\FinWise_0.1"
+$baseDirectory = "D:\_localData\dev\FinWise\FinWise_0.1"
+#$baseDirectory = "C:\00_mldata\programming\FinWise\FinWise_0.1"
 $baseDirectoryFull = [System.IO.Path]::GetFullPath($baseDirectory)
 
 # --------------------------------------------------------------------------
@@ -31,7 +31,7 @@ $excludeFiles = @(
 $searchFiles = @(
 
     # ### prompt
-     "prompt\sytemprompt.md",
+    "prompt\sytemprompt.md",
 
     # ### components\account
     #"src\components\account\AccountCard.vue",
@@ -43,10 +43,10 @@ $searchFiles = @(
     # ### components\budget
     #"src\components\budget\BudgetCard.vue",
     #"src\components\budget\BudgetCategoryColumn.vue",
-    # "src\components\budget\BudgetMonthCard.vue",
-    #"src\components\budget\BudgetMonthHeaderCard.vue",
+    "src\components\budget\BudgetMonthCard.vue",
+    "src\components\budget\BudgetMonthHeaderCard.vue",
     #"src\components\budget\CategoryForm.vue",
-    "src\components\budget\CategoryTransferModal.vue",
+    #"src\components\budget\CategoryTransferModal.vue",
 
     # ### components\planning
     #"src\components\planning\AccountForecastChart.vue",
@@ -60,7 +60,7 @@ $searchFiles = @(
     # "src\components\transaction\CategoryTransactionList.vue",
     #"src\components\transaction\TransactionCard.vue",
     #"src\components\transaction\TransactionDetailModal.vue",
-    "src\components\transaction\TransactionForm.vue",
+    #"src\components\transaction\TransactionForm.vue",
     #"src\components\transaction\TransactionList.vue",
 
     # ### components\ui
@@ -99,13 +99,13 @@ $searchFiles = @(
     #"src\router\index.ts",
 
     # ### services
-    "src\services\AccountService.ts",
+    #"src\services\AccountService.ts",
     "src\services\BudgetService.ts",
-    "src\services\CategoryService.ts",
+    #"src\services\CategoryService.ts",
     #"src\services\DataService.ts",
     #"src\services\index.ts",
     "src\services\PlanningService.ts",
-    "src\services\ReconciliationService.ts",
+    #"src\services\ReconciliationService.ts",
     "src\services\TransactionService.ts",
 
     # ### stores
@@ -134,7 +134,7 @@ $searchFiles = @(
 
     # ### views
     #"src\views\AccountsView.vue",
-    #"src\views\BudgetsView.vue",
+    "src\views\BudgetsView.vue",
     #"src\views\BudgetsView2.vue",
     #"src\views\DashboardView.vue",
     #"src\views\PlanningView.vue"
