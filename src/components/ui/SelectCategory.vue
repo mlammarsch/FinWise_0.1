@@ -13,11 +13,11 @@
  */
 import { ref, computed, watch, onMounted, nextTick, defineExpose } from "vue";
 import { useCategoryStore } from "@/stores/categoryStore";
+import { useTransactionStore } from "@/stores/transactionStore";
 import CurrencyDisplay from "./CurrencyDisplay.vue";
 import { debugLog } from "@/utils/logger";
-import { useTransactionStore } from "@/stores/transactionStore";
-import { calculateCategorySaldo } from "@/utils/runningBalances";
 import { Icon } from "@iconify/vue";
+import { BalanceService } from "@/services/BalanceService";
 
 const props = defineProps<{
   modelValue?: string;

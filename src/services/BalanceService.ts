@@ -578,7 +578,7 @@ export const BalanceService = {
     }, 0);
 
     return categoryBalance + childrenBalance;
-  }
+  },
 
     /**
    * Gruppiert Transaktionen eines Kontos nach Datum und berechnet den

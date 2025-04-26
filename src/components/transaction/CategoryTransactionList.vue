@@ -24,6 +24,7 @@ import CategoryTransferModal from "../budget/CategoryTransferModal.vue";
 import { AccountService } from "@/services/AccountService";
 import { CategoryService } from "@/services/CategoryService";
 import { debugLog } from "@/utils/logger";
+import { BalanceService } from "@/services/BalanceService";
 
 const props = defineProps<{
   transactions: Transaction[];

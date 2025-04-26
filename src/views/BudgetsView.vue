@@ -8,6 +8,7 @@ import BudgetMonthCard from "../components/budget/BudgetMonthCard.vue";
 import BudgetMonthHeaderCard from "../components/budget/BudgetMonthHeaderCard.vue";
 import PagingYearComponent from "../components/ui/PagingYearComponent.vue";
 import { toDateOnlyString } from "@/utils/formatters";
+import { BalanceService } from "@/services/BalanceService";
 
 const categoryStore = useCategoryStore();
 const transactionStore = useTransactionStore();
@@ -93,29 +94,15 @@ const availableByMonth = computed(() => {
     const availableCat = categoryStore.categories.find(
       (cat) => cat.name === "Verfügbare Mittel"
     );
+
     if (!availableCat) return 0;
-    const prevTxs = transactionStore.transactions.filter(
-      (tx) =>
-        tx.categoryId === availableCat.id &&
-        new Date(tx.valueDate) < month.start &&
-        (tx.type === "EXPENSE" ||
-          tx.type === "INCOME" ||
-          tx.type === "ACCOUNTTRANSFER" ||
-          tx.type === "CATEGORYTRANSFER")
+
+    // Verwende den BalanceService für die Saldoabfrage
+    return BalanceService.getTodayBalance(
+      "category",
+      availableCat.id,
+      month.end
     );
-    const prevBalance = prevTxs.reduce((sum, tx) => sum + tx.amount, 0);
-    const currentTxs = transactionStore.transactions.filter(
-      (tx) =>
-        tx.categoryId === availableCat.id &&
-        new Date(tx.valueDate) >= month.start &&
-        new Date(tx.valueDate) <= month.end &&
-        (tx.type === "EXPENSE" ||
-          tx.type === "INCOME" ||
-          tx.type === "ACCOUNTTRANSFER" ||
-          tx.type === "CATEGORYTRANSFER")
-    );
-    const currentSum = currentTxs.reduce((sum, tx) => sum + tx.amount, 0);
-    return prevBalance + currentSum;
   });
 });
 </script>
