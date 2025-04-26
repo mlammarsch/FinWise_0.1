@@ -213,6 +213,9 @@ watch(
     executionDay,
     moveScheduleEnabled,
     weekendHandlingDirection,
+    recurrenceEndType,
+    recurrenceCount,
+    endDate,
   ],
   () => {
     updateDateDescription();

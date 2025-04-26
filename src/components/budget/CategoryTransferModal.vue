@@ -2,7 +2,7 @@
 <script setup lang="ts">
 /**
  * Pfad zur Komponente: src/components/budget/CategoryTransferModal.vue
- * Funktion: Übertragung von Beträgen zwischen Kategorien mittels CategoryService.
+ * Funktion: Übertragung von Beträgen zwischen Kategorien mittels TransactionService.
  *
  * Komponenten-Props:
  * - isOpen: boolean – Sichtbarkeit
@@ -27,9 +27,10 @@ import CurrencyDisplay from "../ui/CurrencyDisplay.vue";
 import CurrencyInput from "../ui/CurrencyInput.vue";
 import SelectCategory from "../ui/SelectCategory.vue";
 import { useCategoryStore } from "@/stores/categoryStore";
-import { CategoryService } from "@/services/CategoryService";
 import { debugLog } from "@/utils/logger";
 import { Icon } from "@iconify/vue";
+import { TransactionService } from "@/services/TransactionService";
+import { BalanceService } from "@/services/BalanceService";
 
 const props = withDefaults(
   defineProps<{
@@ -53,7 +54,6 @@ const props = withDefaults(
 const emit = defineEmits(["close", "transfer"]);
 
 const categoryStore = useCategoryStore();
-const categoryService = CategoryService;
 
 const fromCategoryIdLocal = ref("");
 const toCategoryIdLocal = ref("");
@@ -75,7 +75,7 @@ const normalizedMonthEnd = computed(() =>
 
 const categoryOptions = computed(() => {
   if (!props.month || !props.month.start || !props.month.end) return [];
-  return categoryService.getCategoryTransferOptions(
+  return TransactionService.getCategoryTransferOptions(
     normalizedMonthStart.value,
     normalizedMonthEnd.value
   );
@@ -199,7 +199,7 @@ async function performTransfer() {
     let success = false;
     if (props.transactionId && props.gegentransactionId) {
       debugLog("[CategoryTransferModal] Attempting to update transfer");
-      success = await categoryService.updateCategoryTransfer(
+      success = await TransactionService.updateCategoryTransfer(
         props.transactionId,
         props.gegentransactionId,
         fromCategoryIdLocal.value,
@@ -210,7 +210,7 @@ async function performTransfer() {
       );
     } else {
       debugLog("[CategoryTransferModal] Attempting to add transfer");
-      const result = await categoryService.addCategoryTransfer(
+      const result = await TransactionService.addCategoryTransfer(
         fromCategoryIdLocal.value,
         toCategoryIdLocal.value,
         amount.value,
@@ -222,6 +222,8 @@ async function performTransfer() {
 
     if (success) {
       debugLog("[CategoryTransferModal] Transfer successful");
+      // Explizite Aktualisierung der Salden
+      BalanceService.calculateMonthlyBalances();
       emit("transfer");
       emit("close");
     } else {

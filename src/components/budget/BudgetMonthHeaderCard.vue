@@ -2,13 +2,13 @@
 <script setup lang="ts">
 /**
  * Kopf‑Karte eines Budget‑Monats.
- * Utils‑Abhängigkeit (addCategoryTransfer) entfällt – es wird nun CategoryService genutzt.
+ * Utils‑Abhängigkeit (addCategoryTransfer) entfällt – es wird nun TransactionService genutzt.
  */
 import CurrencyDisplay from "../ui/CurrencyDisplay.vue";
 import { ref, computed, nextTick } from "vue";
 import { useCategoryStore } from "../../stores/categoryStore";
 import CategoryTransferModal from "../budget/CategoryTransferModal.vue";
-import { CategoryService } from "@/services/CategoryService"; /* ✨ neu */
+import { TransactionService } from "@/services/TransactionService";
 import { debugLog } from "@/utils/logger";
 import { toDateOnlyString } from "@/utils/formatters";
 
@@ -98,8 +98,7 @@ function handleTransfer(data: {
   date: string;
   note: string;
 }) {
-  CategoryService.addCategoryTransfer(
-    /* ⬅️ Utils‑Call ersetzt */
+  TransactionService.addCategoryTransfer(
     data.fromCategoryId,
     data.toCategoryId,
     data.amount,

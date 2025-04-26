@@ -8,7 +8,6 @@ import { Transaction, TransactionType } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 import { debugLog } from '@/utils/logger';
 import { toDateOnlyString } from '@/utils/formatters';
-import { CategoryService } from './CategoryService';
 import { useRuleStore } from '@/stores/ruleStore';
 import { BalanceService } from './BalanceService';
 
@@ -56,7 +55,6 @@ export const TransactionService = {
     // → Regeln anwenden & speichern
     ruleStore.applyRulesToTransaction(added);
 
-    BalanceService.calculateMonthlyBalances();
     debugLog('[TransactionService] addTransaction', added);
 
     /* Automatischer Kategorie‑Transfer bei Einnahmen */
@@ -67,14 +65,21 @@ export const TransactionService = {
     ) {
       const available = catStore.getAvailableFundsCategory();
       if (!available) throw new Error("Kategorie 'Verfügbare Mittel' fehlt");
-      CategoryService.addCategoryTransfer(
-        added.categoryId,
-        available.id,
-        added.amount,
-        added.date,
-        'Automatischer Transfer von Einnahmen'
-      );
+
+      const cat = catStore.getCategoryById(added.categoryId);
+      if (cat?.isIncomeCategory) {
+        this.addCategoryTransfer(
+          added.categoryId,
+          available.id,
+          added.amount,
+          added.date,
+          'Automatischer Transfer von Einnahmen'
+        );
+      }
     }
+
+    // Salden aktualisieren
+    BalanceService.calculateMonthlyBalances();
     return added;
   },
 
@@ -137,9 +142,128 @@ export const TransactionService = {
     this.updateTransaction(fromTx.id, { counterTransactionId: toTx.id });
     this.updateTransaction(toTx.id,   { counterTransactionId: fromTx.id });
 
-    BalanceService.calculateMonthlyBalances();
     debugLog('[TransactionService] addAccountTransfer', { fromTx, toTx });
+
+    // Salden aktualisieren
+    BalanceService.calculateMonthlyBalances();
     return { fromTransaction: fromTx, toTransaction: toTx };
+  },
+
+/* -------------------- Kategorie‑zu‑Kategorie‑Transfer -------------------- */
+
+  addCategoryTransfer(
+    fromCategoryId: string,
+    toCategoryId: string,
+    amount: number,
+    date: string,
+    note: string = ''
+  ) {
+    const categoryStore = useCategoryStore();
+    const fromCategoryName = categoryStore.getCategoryById(fromCategoryId)?.name ?? '';
+    const toCategoryName = categoryStore.getCategoryById(toCategoryId)?.name ?? '';
+    const normalizedDate = toDateOnlyString(date);
+
+    const fromTx = {
+      type: TransactionType.CATEGORYTRANSFER,
+      date: normalizedDate,
+      valueDate: normalizedDate,
+      accountId: '',
+      categoryId: fromCategoryId,
+      amount: -Math.abs(amount),
+      tagIds: [],
+      payee: `Kategorientransfer zu ${toCategoryName}`,
+      note,
+      counterTransactionId: null,
+      planningTransactionId: null,
+      isReconciliation: false,
+      isCategoryTransfer: true,
+      toCategoryId: toCategoryId,
+      reconciled: false,
+    };
+
+    const toTx = {
+      ...fromTx,
+      categoryId: toCategoryId,
+      amount: Math.abs(amount),
+      payee: `Kategorientransfer von ${fromCategoryName}`,
+      toCategoryId: fromCategoryId,
+    };
+
+    const newFromTx = this.addTransaction(fromTx as Omit<Transaction, 'id' | 'runningBalance'>);
+    const newToTx = this.addTransaction(toTx as Omit<Transaction, 'id' | 'runningBalance'>);
+
+    this.updateTransaction(newFromTx.id, { counterTransactionId: newToTx.id });
+    this.updateTransaction(newToTx.id, { counterTransactionId: newFromTx.id });
+
+    debugLog('[TransactionService] addCategoryTransfer', { fromTransaction: newFromTx, toTransaction: newToTx });
+
+    // Salden aktualisieren
+    BalanceService.calculateMonthlyBalances();
+    return { fromTransaction: newFromTx, toTransaction: newToTx };
+  },
+
+  updateCategoryTransfer(
+    transactionId: string,
+    gegentransactionId: string,
+    fromCategoryId: string,
+    toCategoryId: string,
+    amount: number,
+    date: string,
+    note: string = ''
+  ) {
+    const categoryStore = useCategoryStore();
+    const fromCategoryName = categoryStore.getCategoryById(fromCategoryId)?.name ?? '';
+    const toCategoryName = categoryStore.getCategoryById(toCategoryId)?.name ?? '';
+    const normalizedDate = toDateOnlyString(date);
+
+    const updatedFromTx: Partial<Transaction> = {
+      categoryId: fromCategoryId,
+      amount: -Math.abs(amount),
+      toCategoryId: toCategoryId,
+      date: normalizedDate,
+      valueDate: normalizedDate,
+      payee: `Kategorientransfer zu ${toCategoryName}`,
+      note
+    };
+
+    const updatedToTx: Partial<Transaction> = {
+      categoryId: toCategoryId,
+      amount: Math.abs(amount),
+      toCategoryId: fromCategoryId,
+      date: normalizedDate,
+      valueDate: normalizedDate,
+      payee: `Kategorientransfer von ${fromCategoryName}`,
+      note
+    };
+
+    this.updateTransaction(transactionId, updatedFromTx);
+    this.updateTransaction(gegentransactionId, updatedToTx);
+
+    debugLog('[TransactionService] updateCategoryTransfer', { transactionId, gegentransactionId, updatedFromTx, updatedToTx });
+
+    // Salden aktualisieren
+    BalanceService.calculateMonthlyBalances();
+    return true;
+  },
+
+  getCategoryTransferOptions(
+    monthStart: Date,
+    monthEnd: Date
+  ): Array<{ id: string; name: string; saldo: number }> {
+    const categoryStore = useCategoryStore();
+
+    return categoryStore.categories
+      .filter(cat => cat.isActive)
+      .map(cat => {
+        // Saldo über BalanceService abfragen
+        const saldo = BalanceService.getTodayBalance('category', cat.id, monthEnd);
+        return {
+          id: cat.id,
+          name: cat.name,
+          saldo: saldo
+        };
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
   },
 
 /* --------------------- Ausgleichs‑Buchung ------------------------ */
@@ -174,6 +298,7 @@ export const TransactionService = {
       reconciled: true,
     });
 
+    // Salden aktualisieren
     BalanceService.calculateMonthlyBalances();
     return tx;
   },
@@ -208,7 +333,7 @@ updateTransaction(
       if (!available) throw new Error("Kategorie 'Verfügbare Mittel' fehlt");
 
       // Rücktransfer (alte Buchung rückgängig machen)
-      CategoryService.addCategoryTransfer(
+      this.addCategoryTransfer(
         available.id,
         original.categoryId,
         original.amount,
@@ -217,7 +342,7 @@ updateTransaction(
       );
 
       // Neuer Transfer am neuen Datum
-      CategoryService.addCategoryTransfer(
+      this.addCategoryTransfer(
         original.categoryId,
         available.id,
         original.amount,
@@ -240,7 +365,7 @@ updateTransaction(
         const available = catStore.getAvailableFundsCategory();
         if (!available) throw new Error("Kategorie 'Verfügbare Mittel' fehlt");
 
-        CategoryService.addCategoryTransfer(
+        this.addCategoryTransfer(
           diff > 0 ? original.categoryId : available.id,
           diff > 0 ? available.id : original.categoryId,
           Math.abs(diff),
@@ -250,6 +375,7 @@ updateTransaction(
       }
     }
 
+    // Salden aktualisieren
     BalanceService.calculateMonthlyBalances();
     return true;
   },
@@ -269,7 +395,7 @@ updateTransaction(
     ) {
       const available = catStore.getAvailableFundsCategory();
       if (!available) throw new Error("Kategorie 'Verfügbare Mittel' fehlt");
-      CategoryService.addCategoryTransfer(
+      this.addCategoryTransfer(
         available.id,
         tx.categoryId,
         tx.amount,
@@ -284,6 +410,7 @@ updateTransaction(
     if (tx.counterTransactionId)
       txStore.deleteTransaction(tx.counterTransactionId);
 
+    // Salden aktualisieren
     BalanceService.calculateMonthlyBalances();
     return true;
   },
@@ -294,6 +421,9 @@ updateTransaction(
     unique.forEach(id => this.deleteTransaction(id) && deleted++);
     const success = deleted === unique.length;
     debugLog('[TransactionService] deleteMultipleTransactions', { requested: unique.length, deleted });
+
+    // Salden aktualisieren
+    BalanceService.calculateMonthlyBalances();
     return { success, deletedCount: deleted };
   },
 };

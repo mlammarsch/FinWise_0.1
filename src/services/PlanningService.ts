@@ -10,7 +10,6 @@ import {
 import dayjs from 'dayjs';
 import { debugLog } from '@/utils/logger';
 import { TransactionService } from '@/services/TransactionService';
-import { CategoryService } from '@/services/CategoryService';
 import { useRuleStore } from '@/stores/ruleStore';
 import { toDateOnlyString } from '@/utils/formatters';
 import { BalanceService } from './BalanceService';
@@ -173,8 +172,8 @@ export const PlanningService = {
           throw new Error("Für Kategorietransfer werden Quell- und Zielkategorie benötigt");
         }
 
-        // Kategorietransfer über CategoryService ausführen
-        CategoryService.addCategoryTransfer(
+        // Kategorietransfer über TransactionService ausführen
+        TransactionService.addCategoryTransfer(
           fromCategoryId,
           toCategoryId,
           Math.abs(planning.amount),

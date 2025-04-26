@@ -151,14 +151,14 @@ function savePlanning(data: any) {
   }
   showNewPlanningModal.value = false;
   showEditPlanningModal.value = false;
-  BalanceService.recalculateMonthlyBalances();
+  BalanceService.calculateMonthlyBalances();
 }
 
 function deletePlanning(planning: PlanningTransaction) {
   if (confirm("Möchten Sie diese geplante Transaktion wirklich löschen?")) {
     PlanningService.deletePlanningTransaction(planning.id);
     debugLog("[PlanningView] Deleted planning", planning.id);
-    BalanceService.recalculateMonthlyBalances();
+    BalanceService.calculateMonthlyBalances();
   }
 }
 

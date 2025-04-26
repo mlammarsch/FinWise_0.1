@@ -118,26 +118,16 @@ export const BalanceService = {
       accountBalances[account.id] = balance;
     });
 
-    // 3. Kategoriesalden berechnen
+    // 3. Kategoriesalden berechnen - KORRIGIERT
     const categoryBalances: Record<string, number> = {};
     categoryStore.categories.forEach(cat => {
-      const catTxs = categoryTxsUntilEnd.filter(tx => {
-        if (tx.type === TransactionType.CATEGORYTRANSFER) {
-          return tx.categoryId === cat.id || tx.toCategoryId === cat.id;
-        }
-        return tx.categoryId === cat.id;
-      });
-
+      // Nur Transaktionen, die direkt diese Kategorie betreffen
       let balance = 0;
-      catTxs.forEach(tx => {
-        if (tx.type === TransactionType.CATEGORYTRANSFER) {
-          if (tx.categoryId === cat.id) {
-            balance += tx.amount; // Abgang von Kategorie
-          }
-          if (tx.toCategoryId === cat.id) {
-            balance += Math.abs(tx.amount); // Zugang zu Kategorie
-          }
-        } else {
+
+      categoryTxsUntilEnd.forEach(tx => {
+        // Berücksichtige nur direkte Category-Zuordnungen
+        // (keine toCategoryId mehr)
+        if (tx.categoryId === cat.id) {
           balance += tx.amount;
         }
       });
@@ -245,19 +235,11 @@ export const BalanceService = {
       );
       return txs.reduce((sum, tx) => sum + tx.amount, 0);
     } else {
-      // Für Kategorien: Nach valueDate filtern
+      // Für Kategorien: Nach valueDate filtern, nur direkte Kategoriezuordnungen berücksichtigen
       let balance = 0;
       txStore.transactions.forEach(tx => {
-        if (toDateOnlyString(tx.valueDate) <= dateStr) {
-          if (tx.type === TransactionType.CATEGORYTRANSFER) {
-            if (tx.categoryId === id) {
-              balance += tx.amount; // Abgang
-            } else if (tx.toCategoryId === id) {
-              balance += Math.abs(tx.amount); // Zugang
-            }
-          } else if (tx.categoryId === id) {
-            balance += tx.amount;
-          }
+        if (toDateOnlyString(tx.valueDate) <= dateStr && tx.categoryId === id) {
+          balance += tx.amount;
         }
       });
       return balance;
@@ -316,8 +298,7 @@ export const BalanceService = {
       return txDate >= startStr && txDate <= endStr &&
              (entityType === 'account'
                ? tx.accountId === id && tx.type !== TransactionType.CATEGORYTRANSFER
-               : (tx.categoryId === id ||
-                  (tx.type === TransactionType.CATEGORYTRANSFER && tx.toCategoryId === id)));
+               : tx.categoryId === id);
     });
 
     // 2. Transaktionen nach dem richtigen Datum sortieren
@@ -353,16 +334,8 @@ export const BalanceService = {
         return txDate === currentDateStr;
       });
 
-      // Tagesbetrag berechnen
-      const dayAmount = dayTxs.reduce((sum, tx) => {
-        // Für Kategorien: bei CATEGORYTRANSFER die richtige Richtung beachten
-        if (entityType === 'category' && tx.type === TransactionType.CATEGORYTRANSFER) {
-          if (tx.categoryId === id) return sum + tx.amount;  // Abgang von dieser Kategorie
-          if (tx.toCategoryId === id) return sum + Math.abs(tx.amount); // Zugang zu dieser Kategorie
-          return sum;
-        }
-        return sum + tx.amount;
-      }, 0);
+      // Tagesbetrag berechnen - KORRIGIERT
+      const dayAmount = dayTxs.reduce((sum, tx) => sum + tx.amount, 0);
 
       runningBalance += dayAmount;
 
@@ -385,23 +358,11 @@ export const BalanceService = {
           // Prüfen, ob die Entität betroffen ist
           return entityType === 'account'
             ? plan.accountId === id && plan.transactionType !== TransactionType.CATEGORYTRANSFER
-            : plan.categoryId === id ||
-              (plan.transactionType === TransactionType.CATEGORYTRANSFER &&
-               (plan as any).transferToCategoryId === id);
+            : plan.categoryId === id;
         });
 
-        // Prognosebetrag berechnen
-        let planAmount = 0;
-        planTxs.forEach(plan => {
-          // Für Kategorien: bei CATEGORYTRANSFER die richtige Richtung beachten
-          if (entityType === 'category' && plan.transactionType === TransactionType.CATEGORYTRANSFER) {
-            if (plan.categoryId === id) planAmount += plan.amount;  // Von dieser Kategorie
-            if ((plan as any).transferToCategoryId === id) planAmount += Math.abs(plan.amount); // Zu dieser Kategorie
-          } else {
-            planAmount += plan.amount;
-          }
-        });
-
+        // Prognosebetrag berechnen - KORRIGIERT
+        const planAmount = planTxs.reduce((sum, plan) => sum + plan.amount, 0);
         projected += planAmount;
       }
 
@@ -580,7 +541,7 @@ export const BalanceService = {
     return categoryBalance + childrenBalance;
   },
 
-    /**
+  /**
    * Gruppiert Transaktionen eines Kontos nach Datum und berechnet den
    * laufenden Saldo je Gruppe für die Anzeige in Kontolisten.
    *
@@ -626,5 +587,4 @@ export const BalanceService = {
 
     return finalGroups;
   }
-
 };

@@ -129,7 +129,7 @@ const deleteAccountGroup = (groupId: string) => {
 
 // Button-Funktion: Monatssalden aktualisieren
 const updateMonthlyBalances = () => {
-  BalanceService.recalculateMonthlyBalances();
+  BalanceService.calculateMonthlyBalances();
 };
 </script>
 
