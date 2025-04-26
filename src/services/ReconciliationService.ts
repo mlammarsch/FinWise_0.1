@@ -1,11 +1,10 @@
 // src/services/ReconciliationService.ts
 import { useReconciliationStore } from '@/stores/reconciliationStore';
 import { useTransactionStore } from '@/stores/transactionStore';
-import { useMonthlyBalanceStore } from '@/stores/monthlyBalanceStore';
 import { Account, TransactionType } from '@/types';
 import { debugLog } from '@/utils/logger';
 import { TransactionService } from './TransactionService';
-import { AccountService } from './AccountService';
+import { BalanceService } from './BalanceService';
 import { toDateOnlyString } from '@/utils/formatters';
 
 function calcDifference(
@@ -13,7 +12,8 @@ function calcDifference(
   reconcileDate: string,
   actual: number,
 ) {
-  const current = AccountService.getCurrentBalance(
+  const current = BalanceService.getTodayBalance(
+    'account',
     accountId,
     new Date(reconcileDate),
   );
@@ -22,7 +22,7 @@ function calcDifference(
 }
 
 export const ReconciliationService = {
-  /* ----------------------------- UI‑Flow API ---------------------------- */
+  /* ----------------------------- UI‑Flow API ---------------------------- */
 
   startReconciliation(account: Account) {
     const store = useReconciliationStore();
@@ -37,10 +37,9 @@ export const ReconciliationService = {
 
   reconcileAccount(): boolean {
     const store = useReconciliationStore();
-    const mbStore = useMonthlyBalanceStore();
 
     if (!store.currentAccount) {
-      debugLog('[ReconciliationService] no currentAccount – abort');
+      debugLog('[ReconciliationService] no currentAccount – abort');
       return false;
     }
 
@@ -51,7 +50,7 @@ export const ReconciliationService = {
     );
 
     if (diff === 0) {
-      debugLog('[ReconciliationService] difference 0 – nothing to do');
+      debugLog('[ReconciliationService] difference 0 – nothing to do');
       store.reset();
       return true;
     }
@@ -77,7 +76,7 @@ export const ReconciliationService = {
     });
 
     // Monats­salden neu berechnen
-    mbStore.calculateMonthlyBalances();
+    BalanceService.calculateMonthlyBalances();
     store.reset();
     return true;
   },

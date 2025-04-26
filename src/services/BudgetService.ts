@@ -1,13 +1,12 @@
 // src/services/BudgetService.ts
-// Salden‑Quelle: MonthlyBalanceStore  +  TransactionService
 import { useCategoryStore } from "@/stores/categoryStore";
 import { useTransactionStore } from "@/stores/transactionStore";
-import { useMonthlyBalanceStore } from "@/stores/monthlyBalanceStore";
 import { usePlanningStore } from "@/stores/planningStore";
 import { PlanningService } from "./PlanningService";
 import { Category, TransactionType } from "@/types";
 import { toDateOnlyString } from "@/utils/formatters";
 import { debugLog } from "@/utils/logger";
+import { BalanceService } from "./BalanceService";
 
 interface MonthlyBudgetData {
   budgeted: number;
@@ -64,19 +63,17 @@ function computeExpenseCategoryData(
 ): MonthlyBudgetData {
   const categoryStore = useCategoryStore();
   const transactionStore = useTransactionStore();
-  const mbStore = useMonthlyBalanceStore();
   const cat = categoryStore.getCategoryById(categoryId);
   if (!cat) return { budgeted: 0, spent: 0, saldo: 0 };
 
-  // Vormonats‑Saldo (prognostiziert oder 0)
+  // Vormonats‑Saldo (prognostiziert oder 0) über BalanceService
   const prev = new Date(monthStart);
-  prev.setMonth(prev.getMonth() - 1);
-  const previousSaldo =
-    mbStore.getProjectedCategoryBalanceForDate(categoryId, prev) ?? 0;
+  prev.setDate(prev.getDate() - 1); // Tag vor Monatsstart
+  const previousSaldo = BalanceService.getProjectedBalance('category', categoryId, prev);
 
-  // Buchungen dieses Monats
+  // Buchungen dieses Monats - KORRIGIERT: valueDate statt date verwenden
   const txs = transactionStore.transactions.filter(tx => {
-    const d = new Date(toDateOnlyString(tx.date));
+    const d = new Date(toDateOnlyString(tx.valueDate));
     return tx.categoryId === categoryId && d >= monthStart && d <= monthEnd;
   });
 
@@ -139,8 +136,9 @@ function computeIncomeCategoryData(
     monthEnd
   );
 
+  // KORRIGIERT: valueDate statt date verwenden
   const txs = transactionStore.transactions.filter(tx => {
-    const d = new Date(toDateOnlyString(tx.date));
+    const d = new Date(toDateOnlyString(tx.valueDate));
     return (
       tx.categoryId === categoryId &&
       d >= monthStart &&
@@ -167,7 +165,7 @@ function computeIncomeCategoryData(
   return { budgeted: totalBudget, spent: totalSpent, saldo: totalSaldo };
 }
 
-/* ------------------------------ Public API ---------------------------------- */
+/* ------------------------------ Public API ---------------------------------- */
 
 export const BudgetService = {
   getAggregatedMonthlyBudgetData(
@@ -180,6 +178,8 @@ export const BudgetService = {
       debugLog("[BudgetService] Category not found", categoryId);
       return { budgeted: 0, spent: 0, saldo: 0 };
     }
+
+    // Berechnung über die bestehende Funktionen, die jetzt BalanceService nutzen
     return cat.isIncomeCategory
       ? computeIncomeCategoryData(categoryId, monthStart, monthEnd)
       : computeExpenseCategoryData(categoryId, monthStart, monthEnd);

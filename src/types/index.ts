@@ -231,3 +231,8 @@ export interface AutomationRule {
   priority: number
   isActive: boolean
 }
+
+export interface BalanceInfo {
+  balance: number;
+  date: Date;
+}

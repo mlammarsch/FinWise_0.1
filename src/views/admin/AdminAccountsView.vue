@@ -4,14 +4,13 @@ import { useAccountStore } from "../../stores/accountStore";
 import AccountForm from "../../components/account/AccountForm.vue";
 import CurrencyDisplay from "../../components/ui/CurrencyDisplay.vue";
 import { Account, AccountType, AccountGroup } from "../../types";
-import AccountGroupForm from "../../components/account/AccountGroupForm.vue"; // Import AccountGroupForm
+import AccountGroupForm from "../../components/account/AccountGroupForm.vue";
 import { useRouter } from "vue-router";
-import { useMonthlyBalanceStore } from "@/stores/monthlyBalanceStore"; // Neuer Import
 import { Icon } from "@iconify/vue";
+import { BalanceService } from "@/services/BalanceService";
 
 // Stores
 const accountStore = useAccountStore();
-const monthlyBalanceStore = useMonthlyBalanceStore();
 const router = useRouter();
 
 // State für Modals
@@ -130,7 +129,7 @@ const deleteAccountGroup = (groupId: string) => {
 
 // Button-Funktion: Monatssalden aktualisieren
 const updateMonthlyBalances = () => {
-  monthlyBalanceStore.calculateMonthlyBalances();
+  BalanceService.recalculateMonthlyBalances();
 };
 </script>
 

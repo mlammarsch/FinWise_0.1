@@ -4,17 +4,17 @@
 import { useTransactionStore } from '@/stores/transactionStore';
 import { useAccountStore }     from '@/stores/accountStore';
 import { useCategoryStore }    from '@/stores/categoryStore';
-import { useMonthlyBalanceStore } from '@/stores/monthlyBalanceStore';
 import { Transaction, TransactionType } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 import { debugLog } from '@/utils/logger';
 import { toDateOnlyString } from '@/utils/formatters';
 import { CategoryService } from './CategoryService';
-import { useRuleStore } from '@/stores/ruleStore';    // neu
+import { useRuleStore } from '@/stores/ruleStore';
+import { BalanceService } from './BalanceService';
 
 export const TransactionService = {
 /* ------------------------------------------------------------------ */
-/* --------------------------- Read APIs ---------------------------- */
+/* --------------------------- Read APIs ---------------------------- */
 /* ------------------------------------------------------------------ */
   getAllTransactions(): Transaction[] {
     return useTransactionStore().transactions;
@@ -27,14 +27,13 @@ export const TransactionService = {
   },
 
 /* ------------------------------------------------------------------ */
-/* --------------------------- Write APIs --------------------------- */
+/* --------------------------- Write APIs --------------------------- */
 /* ------------------------------------------------------------------ */
 
   addTransaction(txData: Omit<Transaction, 'id' | 'runningBalance'>): Transaction {
     const txStore = useTransactionStore();
-    const mbStore = useMonthlyBalanceStore();
     const catStore = useCategoryStore();
-    const ruleStore = useRuleStore();                // neu
+    const ruleStore = useRuleStore();
 
     // Basiskontrolle
     if (!txData.accountId && txData.type !== TransactionType.CATEGORYTRANSFER) {
@@ -57,7 +56,7 @@ export const TransactionService = {
     // → Regeln anwenden & speichern
     ruleStore.applyRulesToTransaction(added);
 
-    mbStore.calculateMonthlyBalances();
+    BalanceService.calculateMonthlyBalances();
     debugLog('[TransactionService] addTransaction', added);
 
     /* Automatischer Kategorie‑Transfer bei Einnahmen */
@@ -90,11 +89,10 @@ export const TransactionService = {
     note = '',
     planningTransactionId: string | null = null
   ) {
-    if (fromAccountId === toAccountId) throw new Error('Quell = Zielkonto');
+    if (fromAccountId === toAccountId) throw new Error('Quell = Zielkonto');
     if (amount === 0) throw new Error('Betrag 0');
 
     const accStore = useAccountStore();
-    const mbStore  = useMonthlyBalanceStore();
 
     const fromName = accStore.getAccountById(fromAccountId)?.name ?? '';
     const toName   = accStore.getAccountById(toAccountId)?.name ?? '';
@@ -139,7 +137,7 @@ export const TransactionService = {
     this.updateTransaction(fromTx.id, { counterTransactionId: toTx.id });
     this.updateTransaction(toTx.id,   { counterTransactionId: fromTx.id });
 
-    mbStore.calculateMonthlyBalances();
+    BalanceService.calculateMonthlyBalances();
     debugLog('[TransactionService] addAccountTransfer', { fromTx, toTx });
     return { fromTransaction: fromTx, toTransaction: toTx };
   },
@@ -154,7 +152,6 @@ export const TransactionService = {
   ) {
     if (amount === 0) return null;
     const catStore = useCategoryStore();
-    const mbStore  = useMonthlyBalanceStore();
 
     const catId =
       catStore.categories.find(c => c.name === 'Ausgleichskorrekturen')?.id ??
@@ -177,7 +174,7 @@ export const TransactionService = {
       reconciled: true,
     });
 
-    mbStore.calculateMonthlyBalances();
+    BalanceService.calculateMonthlyBalances();
     return tx;
   },
 
@@ -188,7 +185,6 @@ updateTransaction(
     updates: Partial<Omit<Transaction, 'id' | 'runningBalance'>>
   ): boolean {
     const txStore = useTransactionStore();
-    const mbStore = useMonthlyBalanceStore();
     const catStore = useCategoryStore();
 
     if (updates.date) updates.date = toDateOnlyString(updates.date);
@@ -254,13 +250,12 @@ updateTransaction(
       }
     }
 
-    mbStore.calculateMonthlyBalances();
+    BalanceService.calculateMonthlyBalances();
     return true;
   },
 
   deleteTransaction(id: string): boolean {
     const txStore = useTransactionStore();
-    const mbStore = useMonthlyBalanceStore();
     const catStore = useCategoryStore();
 
     const tx = txStore.getTransactionById(id);
@@ -289,7 +284,7 @@ updateTransaction(
     if (tx.counterTransactionId)
       txStore.deleteTransaction(tx.counterTransactionId);
 
-    mbStore.calculateMonthlyBalances();
+    BalanceService.calculateMonthlyBalances();
     return true;
   },
 

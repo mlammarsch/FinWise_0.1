@@ -13,11 +13,11 @@
  */
 import { ref, computed, onMounted, watch } from "vue";
 import { useAccountStore } from "@/stores/accountStore";
-import { useMonthlyBalanceStore } from "@/stores/monthlyBalanceStore";
 import { usePlanningStore } from "@/stores/planningStore";
 import CurrencyDisplay from "@/components/ui/CurrencyDisplay.vue";
 import { formatDate, toDateOnlyString } from "@/utils/formatters";
 import { debugLog } from "@/utils/logger";
+import { BalanceService } from "@/services/BalanceService";
 
 const props = defineProps<{
   startDate: string;
@@ -26,7 +26,6 @@ const props = defineProps<{
 
 // Stores
 const accountStore = useAccountStore();
-const monthlyBalanceStore = useMonthlyBalanceStore();
 const planningStore = usePlanningStore();
 
 // Chart-Konfiguration
@@ -138,15 +137,16 @@ function generateForecastData() {
       );
 
       // Aktueller und prognostizierter Kontostand
-      const balance = monthlyBalanceStore.getAccountBalanceForDate(
+      const balance = BalanceService.getTodayBalance(
+        "account",
         account.id,
         lastDay
       );
-      const projectedBalance =
-        monthlyBalanceStore.getProjectedAccountBalanceForDate(
-          account.id,
-          lastDay
-        );
+      const projectedBalance = BalanceService.getProjectedBalance(
+        "account",
+        account.id,
+        lastDay
+      );
 
       // Hole alle geplanten Transaktionen für diesen Monat
       const monthStart = new Date(

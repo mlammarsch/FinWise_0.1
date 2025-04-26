@@ -6,9 +6,9 @@ import { useTagStore } from "../stores/tagStore";
 import { useCategoryStore } from "../stores/categoryStore";
 import { useRecipientStore } from "../stores/recipientStore";
 import { useTransactionStore } from "../stores/transactionStore";
-import { useTransactionFilterStore } from "../stores/transactionFilterStore"; // Neuer Import
-import { useReconciliationStore } from "../stores/reconciliationStore"; // Neuer Import
-import { useSearchStore } from "../stores/searchStore"; // Neuer Import
+import { useTransactionFilterStore } from "../stores/transactionFilterStore";
+import { useReconciliationStore } from "../stores/reconciliationStore";
+import { useSearchStore } from "../stores/searchStore";
 import AccountGroupCard from "../components/account/AccountGroupCard.vue";
 import AccountForm from "../components/account/AccountForm.vue";
 import AccountGroupForm from "../components/account/AccountGroupForm.vue";
@@ -18,13 +18,13 @@ import TransactionCard from "../components/transaction/TransactionCard.vue";
 import TransactionForm from "../components/transaction/TransactionForm.vue";
 import SearchGroup from "../components/ui/SearchGroup.vue";
 import { formatDate } from "../utils/formatters";
-import { groupTransactionsByDateWithRunningBalance } from "../utils/runningBalances";
 import { TransactionType } from "../types";
-import { TransactionService } from "@/services/TransactionService"; // Service importieren statt Util
+import { TransactionService } from "@/services/TransactionService";
+import { AccountService } from "@/services/AccountService";
+import { BalanceService } from "@/services/BalanceService";
 import { Icon } from "@iconify/vue";
 import { debugLog } from "@/utils/logger";
 import MonthSelector from "../components/ui/MonthSelector.vue";
-import { AccountService } from "@/services/AccountService";
 
 // Stores
 const accountStore = useAccountStore();
@@ -196,10 +196,13 @@ const groupedTransactions = computed(() => {
   const allTxs = transactionStore.getTransactionsByAccount(
     selectedAccount.value.id
   );
-  const fullGrouped = groupTransactionsByDateWithRunningBalance(
+
+  // Verwende den BalanceService statt der Utils-Funktion
+  const fullGrouped = BalanceService.getTransactionsGroupedByDate(
     allTxs,
     selectedAccount.value
   );
+
   const groups = fullGrouped
     .map((group) => {
       const filtered = group.transactions.filter((tx) =>

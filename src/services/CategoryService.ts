@@ -1,16 +1,12 @@
 // src/services/CategoryService.ts
 import { useCategoryStore } from '@/stores/categoryStore';
 import { useTransactionStore } from '@/stores/transactionStore';
-import { useMonthlyBalanceStore } from '@/stores/monthlyBalanceStore';
 import { TransactionType, Category, Transaction } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 import { debugLog } from '@/utils/logger';
 import { TransactionService } from './TransactionService';
 import { toDateOnlyString } from '@/utils/formatters';
-import {
-  calculateCategorySaldo as calculateSaldoUtil,
-  calculateIncomeCategorySaldo as calculateIncomeSaldoUtil,
-} from '@/utils/runningBalances';
+import { BalanceService } from './BalanceService';
 
 interface CategorySaldoData {
   budgeted: number;
@@ -221,49 +217,29 @@ export const CategoryService = {
     monthEnd: Date
   ): CategorySaldoData {
     const transactionStore = useTransactionStore();
-    const monthlyBalanceStore = useMonthlyBalanceStore();
     const categoryStore = useCategoryStore();
 
     const normalizedMonthStart = new Date(toDateOnlyString(monthStart));
     const normalizedMonthEnd = new Date(toDateOnlyString(monthEnd));
 
-    const category = categoryStore.getCategoryById(categoryId);
-    const startBalanceInfo =
-      monthlyBalanceStore.getLatestPersistedCategoryBalance(categoryId, normalizedMonthStart) ||
-      { balance: category?.startBalance || 0, date: normalizedMonthStart };
+    // Saldoabfrage über BalanceService
+    const startSaldo = BalanceService.getTodayBalance('category', categoryId, new Date(normalizedMonthStart.getTime() - 1));
+    const endSaldo = BalanceService.getTodayBalance('category', categoryId, normalizedMonthEnd);
 
-    const filteredTxsForSaldo = transactionStore.transactions.filter(tx => {
-      const txDate = new Date(toDateOnlyString(tx.date));
-      const isInPeriodOrAtStart = txDate >= startBalanceInfo.date && txDate <= normalizedMonthEnd;
-      if (!isInPeriodOrAtStart) return false;
-      return (tx.type === TransactionType.CATEGORYTRANSFER && (tx.categoryId === categoryId || tx.toCategoryId === categoryId)) ||
-             (tx.categoryId === categoryId &&
-              (tx.type === TransactionType.EXPENSE ||
-               tx.type === TransactionType.INCOME ||
-               tx.type === TransactionType.RECONCILE));
-    });
-
+    // Zur Berechnung der Ausgaben für diesen Monat
     const filteredTxsForSpent = transactionStore.transactions.filter(tx => {
-      const txDate = new Date(toDateOnlyString(tx.date));
+      const txDate = new Date(toDateOnlyString(tx.valueDate));
       return tx.categoryId === categoryId &&
              txDate >= normalizedMonthStart && txDate <= normalizedMonthEnd &&
              tx.type === TransactionType.EXPENSE;
     });
 
-    const saldoData = calculateSaldoUtil(
-      filteredTxsForSaldo,
-      categoryId,
-      normalizedMonthStart,
-      normalizedMonthEnd,
-      startBalanceInfo
-    );
-
     const spentAmount = filteredTxsForSpent.reduce((sum, tx) => sum + tx.amount, 0);
 
     const result: CategorySaldoData = {
-      budgeted: saldoData.budgeted,
+      budgeted: 0, // Wird vom BudgetService separat berechnet
       spent: Math.abs(spentAmount),
-      saldo: saldoData.saldo
+      saldo: endSaldo
     };
     return result;
   },
@@ -277,49 +253,28 @@ export const CategoryService = {
     monthEnd: Date
   ): CategorySaldoData {
     const transactionStore = useTransactionStore();
-    const monthlyBalanceStore = useMonthlyBalanceStore();
-    const categoryStore = useCategoryStore();
 
     const normalizedMonthStart = new Date(toDateOnlyString(monthStart));
     const normalizedMonthEnd = new Date(toDateOnlyString(monthEnd));
 
-    const category = categoryStore.getCategoryById(categoryId);
-    const startBalanceInfo =
-      monthlyBalanceStore.getLatestPersistedCategoryBalance(categoryId, normalizedMonthStart) ||
-      { balance: category?.startBalance || 0, date: normalizedMonthStart };
+    // Saldoabfrage über BalanceService
+    const startSaldo = BalanceService.getTodayBalance('category', categoryId, new Date(normalizedMonthStart.getTime() - 1));
+    const endSaldo = BalanceService.getTodayBalance('category', categoryId, normalizedMonthEnd);
 
-    const filteredTxsForSaldo = transactionStore.transactions.filter(tx => {
-      const txDate = new Date(toDateOnlyString(tx.date));
-      const isInPeriodOrAtStart = txDate >= startBalanceInfo.date && txDate <= normalizedMonthEnd;
-      if (!isInPeriodOrAtStart) return false;
-      return (tx.type === TransactionType.CATEGORYTRANSFER && (tx.categoryId === categoryId || tx.toCategoryId === categoryId)) ||
-             (tx.categoryId === categoryId &&
-              (tx.type === TransactionType.EXPENSE ||
-               tx.type === TransactionType.INCOME ||
-               tx.type === TransactionType.RECONCILE));
-    });
-
+    // Zur Berechnung der Einnahmen für diesen Monat
     const filteredTxsForSpent = transactionStore.transactions.filter(tx => {
-      const txDate = new Date(toDateOnlyString(tx.date));
+      const txDate = new Date(toDateOnlyString(tx.valueDate));
       return tx.categoryId === categoryId &&
              txDate >= normalizedMonthStart && txDate <= normalizedMonthEnd &&
              tx.type === TransactionType.INCOME;
     });
 
-    const saldoData = calculateIncomeSaldoUtil(
-      filteredTxsForSaldo,
-      categoryId,
-      normalizedMonthStart,
-      normalizedMonthEnd,
-      startBalanceInfo
-    );
-
     const receivedAmount = filteredTxsForSpent.reduce((sum, tx) => sum + tx.amount, 0);
 
     const result: CategorySaldoData = {
-      budgeted: saldoData.budgeted,
+      budgeted: 0, // Wird vom BudgetService separat berechnet
       spent: receivedAmount,
-      saldo: saldoData.saldo
+      saldo: endSaldo
     };
     return result;
   },
@@ -337,21 +292,13 @@ export const CategoryService = {
     return categoryStore.categories
       .filter(cat => cat.isActive)
       .map(cat => {
-        if (cat.isIncomeCategory && cat.id !== availableFundsCategory?.id) {
-          const saldoData = this.calculateIncomeCategorySaldo(cat.id, monthStart, monthEnd);
-          return {
-            id: cat.id,
-            name: cat.name,
-            saldo: saldoData.saldo
-          };
-        } else {
-          const saldoData = this.calculateCategorySaldo(cat.id, monthStart, monthEnd);
-          return {
-            id: cat.id,
-            name: cat.name,
-            saldo: saldoData.saldo
-          };
-        }
+        // Saldo über BalanceService abfragen
+        const saldo = BalanceService.getTodayBalance('category', cat.id, monthEnd);
+        return {
+          id: cat.id,
+          name: cat.name,
+          saldo: saldo
+        };
       })
       .sort((a, b) => a.name.localeCompare(b.name));
   }

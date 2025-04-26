@@ -11,7 +11,6 @@ import { usePlanningStore } from "@/stores/planningStore";
 import { useAccountStore } from "@/stores/accountStore";
 import { useCategoryStore } from "@/stores/categoryStore";
 import { useRecipientStore } from "@/stores/recipientStore";
-import { useMonthlyBalanceStore } from "@/stores/monthlyBalanceStore";
 
 import PlanningTransactionForm from "@/components/planning/PlanningTransactionForm.vue";
 import AccountForecastChart from "@/components/planning/AccountForecastChart.vue";
@@ -25,12 +24,12 @@ import PagingComponent from "@/components/ui/PagingComponent.vue";
 import { formatDate } from "@/utils/formatters";
 import { debugLog } from "@/utils/logger";
 import { PlanningService } from "@/services/PlanningService";
+import { BalanceService } from "@/services/BalanceService";
 
 const planningStore = usePlanningStore();
 const accountStore = useAccountStore();
 const categoryStore = useCategoryStore();
 const recipientStore = useRecipientStore();
-const monthlyBalanceStore = useMonthlyBalanceStore();
 
 // UI‑Status
 const showNewPlanningModal = ref(false);
@@ -40,7 +39,7 @@ const searchQuery = ref("");
 const selectedAccountId = ref("");
 const activeTab = ref<"upcoming" | "accounts" | "categories">("upcoming");
 
-// Pagination / Zeitraum
+// Pagination / Zeitraum
 const currentPage = ref(1);
 const itemsPerPage = ref<number | "all">(25);
 const itemsPerPageOptions = [10, 20, 25, 50, 100, "all"];
@@ -152,14 +151,14 @@ function savePlanning(data: any) {
   }
   showNewPlanningModal.value = false;
   showEditPlanningModal.value = false;
-  monthlyBalanceStore.calculateMonthlyBalances();
+  BalanceService.recalculateMonthlyBalances();
 }
 
 function deletePlanning(planning: PlanningTransaction) {
   if (confirm("Möchten Sie diese geplante Transaktion wirklich löschen?")) {
     PlanningService.deletePlanningTransaction(planning.id);
     debugLog("[PlanningView] Deleted planning", planning.id);
-    monthlyBalanceStore.calculateMonthlyBalances();
+    BalanceService.recalculateMonthlyBalances();
   }
 }
 
@@ -192,7 +191,7 @@ function updateForecasts() {
 
 // Auto‑Execute Check bei Mount
 onMounted(() => {
-  monthlyBalanceStore.calculateMonthlyBalances();
+  BalanceService.recalculateMonthlyBalances();
 
   const today = dayjs().format("YYYY-MM-DD");
   let autoCount = 0;

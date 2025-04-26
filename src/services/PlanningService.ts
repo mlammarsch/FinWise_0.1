@@ -1,6 +1,5 @@
 // Datei: src/services/PlanningService.ts
 import { usePlanningStore } from '@/stores/planningStore';
-import { useMonthlyBalanceStore } from '@/stores/monthlyBalanceStore';
 import {
   PlanningTransaction,
   RecurrencePattern,
@@ -11,9 +10,10 @@ import {
 import dayjs from 'dayjs';
 import { debugLog } from '@/utils/logger';
 import { TransactionService } from '@/services/TransactionService';
-import { CategoryService } from '@/services/CategoryService'; // Neu hinzugefügt für Kategorietransfers
+import { CategoryService } from '@/services/CategoryService';
 import { useRuleStore } from '@/stores/ruleStore';
 import { toDateOnlyString } from '@/utils/formatters';
+import { BalanceService } from './BalanceService';
 
 export const PlanningService = {
   /**
@@ -21,10 +21,9 @@ export const PlanningService = {
    */
   addPlanningTransaction(planning: Partial<PlanningTransaction>) {
     const planningStore = usePlanningStore();
-    const monthlyBalanceStore = useMonthlyBalanceStore();
     const newPlanning = planningStore.addPlanningTransaction(planning);
     debugLog("[PlanningService] addPlanningTransaction", newPlanning);
-    monthlyBalanceStore.calculateMonthlyBalances();
+    BalanceService.calculateMonthlyBalances();
     return newPlanning;
   },
 
@@ -33,10 +32,9 @@ export const PlanningService = {
    */
   updatePlanningTransaction(id: string, planning: Partial<PlanningTransaction>) {
     const planningStore = usePlanningStore();
-    const monthlyBalanceStore = useMonthlyBalanceStore();
     const success = planningStore.updatePlanningTransaction(id, planning);
     debugLog("[PlanningService] updatePlanningTransaction", { id, updates: planning });
-    monthlyBalanceStore.calculateMonthlyBalances();
+    BalanceService.calculateMonthlyBalances();
     return success;
   },
 
@@ -45,10 +43,9 @@ export const PlanningService = {
    */
   deletePlanningTransaction(id: string) {
     const planningStore = usePlanningStore();
-    const monthlyBalanceStore = useMonthlyBalanceStore();
     planningStore.deletePlanningTransaction(id);
     debugLog("[PlanningService] deletePlanningTransaction", id);
-    monthlyBalanceStore.calculateMonthlyBalances();
+    BalanceService.calculateMonthlyBalances();
     return true;
   },
 
@@ -146,7 +143,6 @@ export const PlanningService = {
    */
   executePlanningTransaction(planningId: string, executionDate: string) {
     const planningStore = usePlanningStore();
-    const monthlyBalanceStore = useMonthlyBalanceStore();
     const planning = planningStore.getPlanningTransactionById(planningId);
     if (!planning) {
       debugLog('[PlanningService] executePlanningTransaction - Planning not found', { planningId });
@@ -258,7 +254,7 @@ export const PlanningService = {
       }
     }
 
-    monthlyBalanceStore.calculateMonthlyBalances();
+    BalanceService.calculateMonthlyBalances();
     debugLog('[PlanningService] executePlanningTransaction', {
       planningId: planning.id,
       executionDate,
@@ -297,8 +293,7 @@ export const PlanningService = {
    * Aktualisiert die Prognosen, indem die Monatsbilanzen neu berechnet werden.
    */
   updateForecasts() {
-    const monthlyBalanceStore = useMonthlyBalanceStore();
-    monthlyBalanceStore.calculateMonthlyBalances();
+    BalanceService.calculateMonthlyBalances();
     debugLog("[PlanningService] updateForecasts - Monatsbilanzen aktualisiert");
     return true;
   }

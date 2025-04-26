@@ -1,10 +1,10 @@
 // src/services/AccountService.ts
 import { useAccountStore } from '@/stores/accountStore';
 import { useTransactionStore } from '@/stores/transactionStore';
-import { useMonthlyBalanceStore } from '@/stores/monthlyBalanceStore';
 import { Account, AccountGroup } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 import { debugLog } from '@/utils/logger';
+import { BalanceService } from './BalanceService';
 
 interface AccountInfo {
   id: string;
@@ -52,9 +52,7 @@ export const AccountService = {
    * Berücksichtigt nur Transaktionen bis zum angegebenen Datum.
    */
   getCurrentBalance(accountId: string, asOf: Date = new Date()): number {
-    const mbStore = useMonthlyBalanceStore();
-    const bal = mbStore.getAccountBalanceForDate(accountId, asOf);
-    return bal ?? 0;
+    return BalanceService.getTodayBalance('account', accountId, asOf);
   },
 
   /**
@@ -62,19 +60,14 @@ export const AccountService = {
    * Berücksichtigt auch zukünftige geplante Transaktionen.
    */
   getProjectedBalance(accountId: string, asOf: Date = new Date()): number {
-    const mbStore = useMonthlyBalanceStore();
-    const bal = mbStore.getProjectedAccountBalanceForDate(accountId, asOf);
-    return bal ?? 0;
+    return BalanceService.getProjectedBalance('account', accountId, asOf);
   },
 
   /**
    * Gesamtsaldo aller aktiven Konten zum Stichtag.
    */
   getTotalBalance(asOf: Date = new Date()): number {
-    const accStore = useAccountStore();
-    return accStore.activeAccounts
-      .filter(a => !a.isOfflineBudget)
-      .reduce((sum, a) => sum + this.getCurrentBalance(a.id, asOf), 0);
+    return BalanceService.getTotalBalance(asOf, false);
   },
 
   /**
@@ -84,14 +77,7 @@ export const AccountService = {
     const accStore = useAccountStore();
     const result: Record<string, number> = {};
     accStore.accountGroups.forEach(g => {
-      const groupAccounts = accStore.accounts.filter(
-        a => a.accountGroupId === g.id && a.isActive && !a.isOfflineBudget
-      );
-      const bal = groupAccounts.reduce(
-        (s, a) => s + this.getCurrentBalance(a.id, asOf),
-        0
-      );
-      result[g.id] = bal;
+      result[g.id] = BalanceService.getAccountGroupBalance(g.id, asOf, false);
     });
     return result;
   },

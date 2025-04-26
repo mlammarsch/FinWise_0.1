@@ -12,11 +12,11 @@
  */
 import { ref, computed, onMounted, watch } from "vue";
 import { useCategoryStore } from "@/stores/categoryStore";
-import { useMonthlyBalanceStore } from "@/stores/monthlyBalanceStore";
 import { usePlanningStore } from "@/stores/planningStore";
 import CurrencyDisplay from "@/components/ui/CurrencyDisplay.vue";
 import { formatDate } from "@/utils/formatters";
 import { debugLog } from "@/utils/logger";
+import { BalanceService } from "@/services/BalanceService";
 
 const props = defineProps<{
   startDate: string;
@@ -24,7 +24,6 @@ const props = defineProps<{
 
 // Stores
 const categoryStore = useCategoryStore();
-const monthlyBalanceStore = useMonthlyBalanceStore();
 const planningStore = usePlanningStore();
 
 // Typ für die Kategorie-Prognosedaten
@@ -149,15 +148,16 @@ function generateForecastData() {
       );
 
       // Aktueller und prognostizierter Kategoriesaldo
-      const balance = monthlyBalanceStore.getCategoryBalanceForDate(
+      const balance = BalanceService.getTodayBalance(
+        "category",
         category.id,
         lastDay
       );
-      const projectedBalance =
-        monthlyBalanceStore.getProjectedCategoryBalanceForDate(
-          category.id,
-          lastDay
-        );
+      const projectedBalance = BalanceService.getProjectedBalance(
+        "category",
+        category.id,
+        lastDay
+      );
 
       // Hole alle geplanten Transaktionen für diesen Monat in dieser Kategorie
       const monthStart = new Date(
