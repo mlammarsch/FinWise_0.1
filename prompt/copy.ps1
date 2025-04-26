@@ -41,10 +41,10 @@ $searchFiles = @(
     #"src\components\account\AccountReconcileModal.vue",
 
     # ### components\budget
-    "src\components\budget\BudgetCard.vue",
-    "src\components\budget\BudgetCategoryColumn.vue",
-    "src\components\budget\BudgetMonthCard.vue",
-    "src\components\budget\BudgetMonthHeaderCard.vue",
+    # "src\components\budget\BudgetCard.vue",
+    # "src\components\budget\BudgetCategoryColumn.vue",
+    # "src\components\budget\BudgetMonthCard.vue",
+    # "src\components\budget\BudgetMonthHeaderCard.vue",
     #"src\components\budget\CategoryForm.vue",
     #"src\components\budget\CategoryTransferModal.vue",
 
@@ -99,20 +99,20 @@ $searchFiles = @(
     #"src\router\index.ts",
 
     # ### services
-    #"src\services\AccountService.ts",
+    "src\services\AccountService.ts",
     "src\services\BudgetService.ts",
-    #"src\services\CategoryService.ts",
+    "src\services\CategoryService.ts",
     #"src\services\DataService.ts",
     #"src\services\index.ts",
-    #"src\services\PlanningService.ts",
-    #"src\services\ReconciliationService.ts",
-    #"src\services\TransactionService.ts",
+    "src\services\PlanningService.ts",
+    "src\services\ReconciliationService.ts",
+    "src\services\TransactionService.ts",
 
     # ### stores
     #"src\stores\accountStore.ts",
     #"src\stores\categoryStore.ts",
     "src\stores\monthlyBalanceStore.ts",
-    #"src\stores\planningStore.ts",
+    "src\stores\planningStore.ts",
     #"src\stores\recipientStore.ts",
     #"src\stores\reconciliationStore.ts",
     #"src\stores\ruleStore.ts",
@@ -121,15 +121,17 @@ $searchFiles = @(
     #"src\stores\statisticsStore.ts",
     #"src\stores\tagStore.ts",
     #"src\stores\themeStore.ts",
-    #"src\stores\transactionFilterStore.ts",
-    #"src\stores\transactionStore.ts",
+    "src\stores\transactionFilterStore.ts",
+    "src\stores\transactionStore.ts",
 
     # ### types
-    #"src\types\index.ts"
+    "src\types\index.ts"
 
     # ### utils
-    #"src\utils\formatters.ts",
-    #"src\utils\logger.ts",
+    "src\utils\formatters.ts",
+    "src\utils\dateUtils.ts",
+    "src\utils\planningTransactionUtils.ts"
+    # "src\utils\logger.ts",
     "src\utils\runningBalances.ts",
 
     # ### views
