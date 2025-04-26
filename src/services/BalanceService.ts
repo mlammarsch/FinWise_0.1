@@ -590,7 +590,7 @@ export const BalanceService = {
    */
   getTransactionsGroupedByDate(
     transactions: Transaction[],
-    account: Account
+    account: any
   ): Array<{ date: string; transactions: Transaction[]; runningBalance: number }> {
     const offset = account.offset || 0;
     const firstOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
@@ -604,7 +604,7 @@ export const BalanceService = {
     const groups = filteredTransactions.reduce((acc, tx) => {
       const key = tx.date.split("T")[0];
       if (!acc[key]) {
-        acc[key] = { date: key, transactions: [] };
+        acc[key] = { date: key, transactions: [] as Transaction[] };
       }
       acc[key].transactions.push(tx);
       return acc;
@@ -613,15 +613,18 @@ export const BalanceService = {
     // 3. Saldo je Gruppe berechnen und Gruppen sortieren
     const finalGroups = Object.values(groups)
       .map(group => {
-        const lastTx = group.transactions[group.transactions.length - 1];
-        const applyOffset = new Date(group.date).getTime() >= firstOfMonth ? offset : 0;
+        // Korrekte Berechnung des laufenden Saldos für das Datum
+        const date = new Date(group.date);
+        const rawBalance = this.getTodayBalance('account', account.id, date);
+        const applyOffset = date.getTime() >= firstOfMonth ? offset : 0;
         return {
           ...group,
-          runningBalance: lastTx.runningBalance - applyOffset
+          runningBalance: rawBalance - applyOffset
         };
       })
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     return finalGroups;
   }
+
 };

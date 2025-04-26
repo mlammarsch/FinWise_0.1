@@ -191,7 +191,7 @@ function updateForecasts() {
 
 // Auto‑Execute Check bei Mount
 onMounted(() => {
-  BalanceService.recalculateMonthlyBalances();
+  BalanceService.calculateMonthlyBalances();
 
   const today = dayjs().format("YYYY-MM-DD");
   let autoCount = 0;

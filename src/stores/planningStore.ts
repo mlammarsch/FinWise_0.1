@@ -1,4 +1,8 @@
-// Datei: src/stores/planningStore.ts (vollständig)
+/**
+ * Pfad: src/stores/planningStore.ts
+ * Store für geplante Transaktionen, sorgt für CRUD und Aktualisierung der Monatsbilanzen über BalanceService.
+ */
+
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { v4 as uuidv4 } from 'uuid'
@@ -22,13 +26,12 @@ import { useTransactionStore } from './transactionStore'
 import { useRuleStore } from './ruleStore'
 import { toDateOnlyString } from '@/utils/formatters'
 import { debugLog } from '@/utils/logger'
-import { useMonthlyBalanceStore } from '@/stores/monthlyBalanceStore'
+import { BalanceService } from '@/services/BalanceService'
 import { TransactionService } from '@/services/TransactionService'
 
 export const usePlanningStore = defineStore('planning', () => {
   const planningTransactions = ref<PlanningTransaction[]>([])
   const transactionStore = useTransactionStore()
-  const monthlyBalanceStore = useMonthlyBalanceStore()
 
   const getPlanningTransactionById = computed(() => {
     return (id: string) => planningTransactions.value.find(tx => tx.id === id)
@@ -76,7 +79,7 @@ export const usePlanningStore = defineStore('planning', () => {
       name: newPlanning.name,
       amount: newPlanning.amount
     })
-    monthlyBalanceStore.calculateMonthlyBalances()
+    BalanceService.calculateMonthlyBalances()
     return newPlanning
   }
 
@@ -93,7 +96,7 @@ export const usePlanningStore = defineStore('planning', () => {
         name: planningTransactions.value[index].name,
         updates: Object.keys(planning).join(', ')
       })
-      monthlyBalanceStore.calculateMonthlyBalances()
+      BalanceService.calculateMonthlyBalances()
       return true
     }
     return false
@@ -109,7 +112,7 @@ export const usePlanningStore = defineStore('planning', () => {
     }
     planningTransactions.value = planningTransactions.value.filter(p => p.id !== id)
     savePlanningTransactions()
-    monthlyBalanceStore.calculateMonthlyBalances()
+    BalanceService.calculateMonthlyBalances()
   }
 
   function savePlanningTransactions() {
