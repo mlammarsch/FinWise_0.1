@@ -1,12 +1,20 @@
 <!-- Datei: src/views/admin/AdminPlanningView.vue -->
 <script setup lang="ts">
+/**
+ * Pfad zur Komponente: src/views/admin/AdminPlanningView.vue
+ * Administrative Verwaltung von Planungstransaktionen.
+ */
 import { ref, computed } from "vue";
 import dayjs from "dayjs";
 import { usePlanningStore } from "@/stores/planningStore";
 import { useAccountStore } from "@/stores/accountStore";
 import { useCategoryStore } from "@/stores/categoryStore";
 import { useRecipientStore } from "@/stores/recipientStore";
-import { PlanningTransaction, RecurrencePattern } from "@/types";
+import {
+  PlanningTransaction,
+  RecurrencePattern,
+  TransactionType,
+} from "@/types";
 import CurrencyDisplay from "@/components/ui/CurrencyDisplay.vue";
 import SearchGroup from "@/components/ui/SearchGroup.vue";
 import PlanningTransactionForm from "@/components/planning/PlanningTransactionForm.vue";
@@ -123,6 +131,76 @@ function formatRecurrencePattern(pattern: RecurrencePattern): string {
     [RecurrencePattern.YEARLY]: "Jährlich",
   }[pattern];
 }
+
+// Neue Methoden für die Anzeige von Transaktionstypen
+function getTransactionTypeIcon(type: TransactionType): string {
+  switch (type) {
+    case TransactionType.ACCOUNTTRANSFER:
+      return "mdi:bank-transfer";
+    case TransactionType.CATEGORYTRANSFER:
+      return "mdi:briefcase-transfer-outline";
+    case TransactionType.EXPENSE:
+      return "mdi:bank-transfer-out";
+    case TransactionType.INCOME:
+      return "mdi:bank-transfer-in";
+    default:
+      return "mdi:help-circle-outline";
+  }
+}
+
+function getTransactionTypeClass(type: TransactionType): string {
+  switch (type) {
+    case TransactionType.ACCOUNTTRANSFER:
+    case TransactionType.CATEGORYTRANSFER:
+      return "text-warning";
+    case TransactionType.EXPENSE:
+      return "text-error";
+    case TransactionType.INCOME:
+      return "text-success";
+    default:
+      return "";
+  }
+}
+
+function getTransactionTypeLabel(type: TransactionType): string {
+  switch (type) {
+    case TransactionType.ACCOUNTTRANSFER:
+      return "Kontotransfer";
+    case TransactionType.CATEGORYTRANSFER:
+      return "Kategorietransfer";
+    case TransactionType.EXPENSE:
+      return "Ausgabe";
+    case TransactionType.INCOME:
+      return "Einnahme";
+    default:
+      return "Unbekannt";
+  }
+}
+
+// Hilfsfunktion zur korrekten Anzeige von Quelle und Ziel je nach Transaktionstyp
+function getSourceName(planning: PlanningTransaction): string {
+  if (planning.transactionType === TransactionType.CATEGORYTRANSFER) {
+    return categoryStore.getCategoryById(planning.categoryId)?.name || "-";
+  } else {
+    return accountStore.getAccountById(planning.accountId)?.name || "-";
+  }
+}
+
+function getTargetName(planning: PlanningTransaction): string {
+  if (planning.transactionType === TransactionType.CATEGORYTRANSFER) {
+    return (
+      categoryStore.getCategoryById(planning.transferToCategoryId || "")
+        ?.name || "-"
+    );
+  } else if (planning.transactionType === TransactionType.ACCOUNTTRANSFER) {
+    return (
+      accountStore.getAccountById(planning.transferToAccountId || "")?.name ||
+      "-"
+    );
+  } else {
+    return categoryStore.getCategoryById(planning.categoryId)?.name || "-";
+  }
+}
 </script>
 
 <template>
@@ -160,9 +238,10 @@ function formatRecurrencePattern(pattern: RecurrencePattern): string {
           <thead>
             <tr>
               <th>Name</th>
+              <th>Buchungstyp</th>
               <th>Empfänger</th>
-              <th>Konto</th>
-              <th>Kategorie</th>
+              <th>Quelle</th>
+              <th>Ziel</th>
               <th>Intervall</th>
               <th>Start</th>
               <th class="text-right">Betrag</th>
@@ -173,36 +252,26 @@ function formatRecurrencePattern(pattern: RecurrencePattern): string {
           <tbody>
             <tr v-for="planning in paginatedPlannings" :key="planning.id">
               <td>{{ planning.name }}</td>
+              <td class="text-center">
+                <div
+                  class="tooltip"
+                  :data-tip="getTransactionTypeLabel(planning.transactionType)"
+                >
+                  <Icon
+                    :icon="getTransactionTypeIcon(planning.transactionType)"
+                    :class="getTransactionTypeClass(planning.transactionType)"
+                    class="text-2xl"
+                  />
+                </div>
+              </td>
               <td>
                 {{
                   recipientStore.getRecipientById(planning.recipientId || "")
                     ?.name || "-"
                 }}
               </td>
-              <td>
-                {{
-                  accountStore.getAccountById(planning.accountId)?.name ||
-                  "Unbekannt"
-                }}
-                <span
-                  v-if="planning.transferToAccountId"
-                  class="text-xs text-base-content/60 ml-1"
-                >
-                  →
-                  {{
-                    accountStore.getAccountById(planning.transferToAccountId)
-                      ?.name || "Unbekannt"
-                  }}
-                </span>
-              </td>
-              <td>
-                {{
-                  planning.categoryId
-                    ? categoryStore.getCategoryById(planning.categoryId)
-                        ?.name || "-"
-                    : "-"
-                }}
-              </td>
+              <td>{{ getSourceName(planning) }}</td>
+              <td>{{ getTargetName(planning) }}</td>
               <td>{{ formatRecurrencePattern(planning.recurrencePattern) }}</td>
               <td>{{ planning.startDate }}</td>
               <td class="text-right">
@@ -262,7 +331,7 @@ function formatRecurrencePattern(pattern: RecurrencePattern): string {
               </td>
             </tr>
             <tr v-if="paginatedPlannings.length === 0">
-              <td colspan="9" class="text-center py-4">
+              <td colspan="10" class="text-center py-4">
                 Keine geplanten Transaktionen vorhanden.
               </td>
             </tr>

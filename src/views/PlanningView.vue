@@ -16,7 +16,7 @@ import PlanningTransactionForm from "@/components/planning/PlanningTransactionFo
 import AccountForecastChart from "@/components/planning/AccountForecastChart.vue";
 import CategoryForecastChart from "@/components/planning/CategoryForecastChart.vue";
 
-import { PlanningTransaction } from "@/types";
+import { PlanningTransaction, TransactionType } from "@/types";
 import CurrencyDisplay from "@/components/ui/CurrencyDisplay.vue";
 import SearchGroup from "@/components/ui/SearchGroup.vue";
 import MonthSelector from "@/components/ui/MonthSelector.vue";
@@ -167,11 +167,77 @@ function executePlanning(planningId: string, date: string) {
   debugLog("[PlanningView] Executed planning", { planningId, date });
 }
 
-// Hilfs‑Funktionen
-function getAccountName(accountId: string): string {
-  return accountStore.getAccountById(accountId)?.name || "Unbekanntes Konto";
+// Neue Methoden für die Anzeige von Transaktionstypen
+function getTransactionTypeIcon(type: TransactionType): string {
+  switch (type) {
+    case TransactionType.ACCOUNTTRANSFER:
+      return "mdi:bank-transfer";
+    case TransactionType.CATEGORYTRANSFER:
+      return "mdi:briefcase-transfer-outline";
+    case TransactionType.EXPENSE:
+      return "mdi:bank-transfer-out";
+    case TransactionType.INCOME:
+      return "mdi:bank-transfer-in";
+    default:
+      return "mdi:help-circle-outline";
+  }
 }
 
+function getTransactionTypeClass(type: TransactionType): string {
+  switch (type) {
+    case TransactionType.ACCOUNTTRANSFER:
+    case TransactionType.CATEGORYTRANSFER:
+      return "text-warning";
+    case TransactionType.EXPENSE:
+      return "text-error";
+    case TransactionType.INCOME:
+      return "text-success";
+    default:
+      return "";
+  }
+}
+
+function getTransactionTypeLabel(type: TransactionType): string {
+  switch (type) {
+    case TransactionType.ACCOUNTTRANSFER:
+      return "Kontotransfer";
+    case TransactionType.CATEGORYTRANSFER:
+      return "Kategorietransfer";
+    case TransactionType.EXPENSE:
+      return "Ausgabe";
+    case TransactionType.INCOME:
+      return "Einnahme";
+    default:
+      return "Unbekannt";
+  }
+}
+
+// Hilfsfunktion zur korrekten Anzeige von Quelle und Ziel je nach Transaktionstyp
+function getSourceName(planning: PlanningTransaction): string {
+  if (planning.transactionType === TransactionType.CATEGORYTRANSFER) {
+    return categoryStore.getCategoryById(planning.categoryId)?.name || "-";
+  } else {
+    return accountStore.getAccountById(planning.accountId)?.name || "-";
+  }
+}
+
+function getTargetName(planning: PlanningTransaction): string {
+  if (planning.transactionType === TransactionType.CATEGORYTRANSFER) {
+    return (
+      categoryStore.getCategoryById(planning.transferToCategoryId || "")
+        ?.name || "-"
+    );
+  } else if (planning.transactionType === TransactionType.ACCOUNTTRANSFER) {
+    return (
+      accountStore.getAccountById(planning.transferToAccountId || "")?.name ||
+      "-"
+    );
+  } else {
+    return categoryStore.getCategoryById(planning.categoryId)?.name || "-";
+  }
+}
+
+// Hilfs‑Funktionen
 function clearFilters() {
   selectedAccountId.value = "";
   searchQuery.value = "";
@@ -313,10 +379,11 @@ onMounted(() => {
           <thead>
             <tr>
               <th>Datum</th>
+              <th>Buchungstyp</th>
               <th>Name</th>
               <th>Empfänger</th>
-              <th>Konto</th>
-              <th>Kategorie</th>
+              <th>Quelle</th>
+              <th>Ziel</th>
               <th class="text-right">Betrag</th>
               <th class="text-center">Status</th>
               <th class="text-right">Aktionen</th>
@@ -328,6 +395,24 @@ onMounted(() => {
               :key="`${e.transaction.id}-${e.date}`"
             >
               <td>{{ formatDate(e.date) }}</td>
+              <td class="text-center">
+                <div
+                  class="tooltip"
+                  :data-tip="
+                    getTransactionTypeLabel(e.transaction.transactionType)
+                  "
+                >
+                  <Icon
+                    :icon="
+                      getTransactionTypeIcon(e.transaction.transactionType)
+                    "
+                    :class="
+                      getTransactionTypeClass(e.transaction.transactionType)
+                    "
+                    class="text-2xl"
+                  />
+                </div>
+              </td>
               <td>{{ e.transaction.name }}</td>
               <td>
                 {{
@@ -336,15 +421,8 @@ onMounted(() => {
                   )?.name || "-"
                 }}
               </td>
-              <td>{{ getAccountName(e.transaction.accountId) }}</td>
-              <td>
-                {{
-                  e.transaction.categoryId
-                    ? categoryStore.getCategoryById(e.transaction.categoryId)
-                        ?.name || "-"
-                    : "-"
-                }}
-              </td>
+              <td>{{ getSourceName(e.transaction) }}</td>
+              <td>{{ getTargetName(e.transaction) }}</td>
               <td class="text-right">
                 <CurrencyDisplay
                   :amount="e.transaction.amount"
@@ -390,7 +468,7 @@ onMounted(() => {
               </td>
             </tr>
             <tr v-if="paginatedTransactions.length === 0">
-              <td colspan="8" class="text-center py-4">
+              <td colspan="9" class="text-center py-4">
                 Keine anstehenden Transaktionen im ausgewählten Zeitraum.
               </td>
             </tr>

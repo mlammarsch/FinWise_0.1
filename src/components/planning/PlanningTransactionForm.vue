@@ -1,3 +1,4 @@
+<!-- Datei: src/components/planning/PlanningTransactionForm.vue -->
 <script setup lang="ts">
 /**
  * Pfad zur Komponente: src/components/planning/PlanningTransactionForm.vue
@@ -153,10 +154,9 @@ const isCategoryIdValid = computed(
   () => !isCategoryIdRequired.value || !!categoryId.value
 );
 
-const isRecipientIdRequired = computed(() => isExpense.value || isIncome.value);
-const isRecipientIdValid = computed(
-  () => !isRecipientIdRequired.value || !!recipientId.value
-);
+// Empfänger ist nicht mehr Pflichtfeld
+const isRecipientIdRequired = computed(() => false);
+const isRecipientIdValid = computed(() => true);
 
 const isToAccountIdRequired = computed(() => isAccountTransfer.value);
 const isToAccountIdValid = computed(
@@ -446,12 +446,10 @@ function validateForm(): boolean {
 function savePlanningTransaction() {
   if (!validateForm()) return;
 
-  const transactionData = formatTransactionForSave({
+  // Basis-Daten für alle Transaktionstypen
+  let finalData = {
     name: name.value,
-    accountId: accountId.value,
-    categoryId: categoryId.value,
     tagIds: tagIds.value,
-    recipientId: recipientId.value,
     amount: amount.value,
     amountType: amountType.value,
     approximateAmount: approximateAmount.value,
@@ -466,18 +464,44 @@ function savePlanningTransaction() {
     recurrenceCount: recurrenceCount.value,
     executionDay: executionDay.value,
     weekendHandling: weekendHandling.value,
-    moveScheduleEnabled: moveScheduleEnabled.value,
-    weekendHandlingDirection: weekendHandlingDirection.value,
-    transactionType: transactionType.value,
-    toAccountId: toAccountId.value,
-    fromCategoryId: fromCategoryId.value,
     isActive: isActive.value,
     forecastOnly: forecastOnly.value,
     repeatsEnabled: repeatsEnabled.value,
-  });
+    transactionType: transactionType.value,
+  };
 
-  debugLog("[PlanningTransactionForm] Final data for save:", transactionData);
-  emit("save", transactionData);
+  // Je nach Transaktionstyp zusätzliche Felder setzen
+  if (isExpense.value || isIncome.value) {
+    finalData = {
+      ...finalData,
+      accountId: accountId.value,
+      categoryId: categoryId.value,
+      recipientId: recipientId.value,
+      transferToAccountId: null,
+      transferToCategoryId: null,
+    };
+  } else if (isAccountTransfer.value) {
+    finalData = {
+      ...finalData,
+      accountId: accountId.value,
+      transferToAccountId: toAccountId.value,
+      categoryId: null,
+      transferToCategoryId: null,
+      recipientId: null,
+    };
+  } else if (isCategoryTransfer.value) {
+    finalData = {
+      ...finalData,
+      categoryId: fromCategoryId.value,
+      transferToCategoryId: categoryId.value,
+      accountId: null,
+      transferToAccountId: null,
+      recipientId: null,
+    };
+  }
+
+  debugLog("[PlanningTransactionForm] Final data for save:", finalData);
+  emit("save", finalData);
 }
 
 /**
@@ -507,7 +531,6 @@ function saveRuleAndCloseModal(ruleData: any) {
   alert(`Regel "${ruleData.name}" wurde erfolgreich erstellt.`);
 }
 </script>
-
 
 <template>
   <form
@@ -789,17 +812,9 @@ function saveRuleAndCloseModal(ruleData: any) {
             <SelectRecipient
               v-model="recipientId"
               @create="onCreateRecipient"
-              :class="{ 'input-error': formAttempted && !isRecipientIdValid }"
-              aria-describedby="recipient-validation"
-              :required="isRecipientIdRequired"
+              placeholder="Optional: Empfänger/Auftraggeber auswählen..."
             />
-            <div
-              id="recipient-validation"
-              class="validator-hint text-error mt-1"
-              v-if="formAttempted && !isRecipientIdValid"
-            >
-              Empfänger muss ausgewählt werden.
-            </div>
+            <!-- Validierungshinweis entfernt, da Empfänger nun optional ist -->
           </fieldset>
         </div>
 

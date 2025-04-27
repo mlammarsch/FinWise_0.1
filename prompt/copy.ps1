@@ -130,8 +130,8 @@ $searchFiles = @(
 
     # ### utils
     # "src\utils\formatters.ts",
-    # "src\utils\dateUtils.ts",
-    # "src\utils\planningTransactionUtils.ts"
+    "src\utils\dateUtils.ts",
+    "src\utils\planningTransactionUtils.ts"
     # "src\utils\logger.ts",
 
     # ### views

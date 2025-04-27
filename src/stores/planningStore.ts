@@ -51,9 +51,9 @@ export const usePlanningStore = defineStore('planning', () => {
       id: txId,
       name: planning.name || '',
       accountId: planning.accountId || '',
-      categoryId: planning.categoryId || '',
+      categoryId: planning.categoryId || null,
       tagIds: planning.tagIds || [],
-      recipientId: planning.recipientId || '',
+      recipientId: planning.recipientId || null,
       amount: planning.amount || 0,
       amountType: planning.amountType || AmountType.EXACT,
       approximateAmount: planning.approximateAmount,
@@ -62,22 +62,30 @@ export const usePlanningStore = defineStore('planning', () => {
       note: planning.note || '',
       startDate: planning.startDate || new Date().toISOString(),
       valueDate: planning.valueDate || planning.startDate || new Date().toISOString(),
-      endDate: planning.endDate,
+      endDate: planning.endDate || null,
       recurrencePattern: planning.recurrencePattern || RecurrencePattern.ONCE,
       recurrenceEndType: planning.recurrenceEndType || RecurrenceEndType.NEVER,
-      recurrenceCount: planning.recurrenceCount,
-      executionDay: planning.executionDay,
+      recurrenceCount: planning.recurrenceCount || null,
+      executionDay: planning.executionDay || null,
       weekendHandling: planning.weekendHandling || WeekendHandlingType.NONE,
       isActive: planning.isActive !== undefined ? planning.isActive : true,
       forecastOnly: planning.forecastOnly !== undefined ? planning.forecastOnly : false,
-      transactionType: planning.transactionType
+      transactionType: planning.transactionType || TransactionType.EXPENSE,
+      // Wichtig: Übernehme explizit die Transfer-Felder
+      transferToAccountId: planning.transferToAccountId,
+      transferToCategoryId: planning.transferToCategoryId,
+      counterPlanningTransactionId: planning.counterPlanningTransactionId || null,
+      autoExecute: planning.autoExecute || false
     }
     planningTransactions.value.push(newPlanning)
     savePlanningTransactions()
     debugLog('[planningStore] addPlanningTransaction', {
       id: newPlanning.id,
       name: newPlanning.name,
-      amount: newPlanning.amount
+      amount: newPlanning.amount,
+      transactionType: newPlanning.transactionType,
+      transferToAccountId: newPlanning.transferToAccountId,
+      transferToCategoryId: newPlanning.transferToCategoryId
     })
     BalanceService.calculateMonthlyBalances()
     return newPlanning
@@ -94,7 +102,9 @@ export const usePlanningStore = defineStore('planning', () => {
       debugLog('[planningStore] updatePlanningTransaction', {
         id,
         name: planningTransactions.value[index].name,
-        updates: Object.keys(planning).join(', ')
+        updates: Object.keys(planning).join(', '),
+        transferToAccountId: planningTransactions.value[index].transferToAccountId,
+        transferToCategoryId: planningTransactions.value[index].transferToCategoryId
       })
       BalanceService.calculateMonthlyBalances()
       return true

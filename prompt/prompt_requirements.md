@@ -1,3 +1,12 @@
+# Aufgabenbeschreibung.
+Deine Aufgabe ist, alles was ich in der DOM Klammer <Alter Prompt/> stehen habe im Code zu reviewen, ob das vollständig umgesetzt ist. Es ist aus der letzten Umsetzungssession der Promt gewesen.
+## Fehler, die ich feststellen konnte
+- Offenbar gibt es keine Gegenbuchungen gibt, wenn es sich um Plantransfers handelt. Im Store ist nur die Hauptbuchung zu sehen.
+- Weiterhin ist in der src\components\planning\PlanningTransactionForm.vue das Abspeichern der toCategoryId (CategoryTransfer) oder toAccountId (AccountTransfer). Wird nur bei einem Update der Planung und nochmaligem Setzen richtig abbgespeichert. Ich vermute bei der Neuerstellung ist ein Fehler bei der richtigen to* Zuteilung. Das muss gefixt werden.
+
+Vor Codeaausgabe, erstelle mir erst eine Liste von Auffälligkeiten, die Dein Review ergeben hat. Ich habe alle betroffenen Services unten angeheftet, sowie alle betroffenen UI vue Dateien. Gehe auch mal in die src\utils\planningTransactionUtils.ts. Die war bei der Erstellung der Aufgabe nicht dabei und enthält möglicherweise weitere Anhaltspunkte.
+
+<Alter Prompt>
 # Beschreibung, wie Buchungen typisiert sind und was der Unterschied zwischen Transaktion und Prognosebchung ist.
 
 ## Grundsätzliches zu Buchungsarten (Types)
@@ -129,13 +138,7 @@ Hinweis: Fokus liegt ausschließlich auf Planbuchungen!
 
 ---
 
-# Offene Fragen zum Thema PlanningTransactionForm:
 
-1. Stimmt die Annahme, dass bei EXPENSE/INCOME **accountId/categoryId** genutzt und **toAccountId/toCategoryId** geleert werden müssen?
-2. Stimmt die Annahme, dass bei ACCOUNTTRANSFER und CATEGORYTRANSFER die **Quelle/Ziel** jeweils über **accountId/toAccountId** bzw. **categoryId/toCategoryId** gespeichert werden?
-3. Ist es korrekt, dass aktuell bei Planungen **keine Gegenbuchungen** erzeugt werden?
-
----
 
 # Änderungsanforderung – **AdminPlanningView** und **PlanningView**
 
@@ -206,3 +209,4 @@ Hinweis: Fokus liegt ausschließlich auf Planbuchungen!
 - Icons in der Spalte "Buchungstyp" anzeigen, keine Textdarstellung.
 - Farbige Icons je nach Buchungstyp für bessere visuelle Trennung.
 - Icons mit Tooltip und den deutschen Typen Bezeichnungen ausstatten
+</Alter Prompt>
