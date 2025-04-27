@@ -1,9 +1,4 @@
-1.) ich fürchte im planning service läuft noch etwas falsch. ich lege eine eine kategorie also einen typ kategorie transfer an und mir wird diese buchung, diese prognosebuchung die noch nicht ausgeführt ist in der budget month card also im budget service als prognosebuchung angezeigt. schaue unten in der spezifikation. ein kategorie transfer hat in der spalte budget zu erscheinen. nicht in der prognose. das ist das eine. zum anderen stelle ich fest oder habe ich das gefühl dass nur eine income buchung erstellt wird obwohl ich ein kategorie transfer aktiviert habe. möglicherweise ist das der fehler dass die prognose den type nicht beachtet. bitte prüfe was für ein buchungstype angelegt wird wenn ich eine kategorie transfer angelegt habe. bei einem kategorie transfer werden normalerweise auch eine buchung und eine gegenbuchung angelegt
-
-2.) Die Saldoberechnung bei Prognosebuchungen erscheint mir genau um einen Monat nach hinten verschoben (Siehe Bildanhang). Hier liegt im Mai eine Planbuchung mit 20€ mit 3 maliger Wiederholung. Beschreibe mir den Unterschied zwisschen der Saldoberechnung projected und der realen. Bei Transaktionen werden die Salden korrekt berechnet. Es ist nur bei Prognosebuchung dieser Verzug um +1 Monat zu sehen.
-
-# Spezifikationsvorgabe Budget Month Card Berechnungen
-
+# Beschreibung, wie Buchungen typisiert sind und was der Unterschied zwischen Transaktion und Prognosebchung ist.
 
 ## Grundsätzliches zu Buchungsarten (Types)
 Buchungstypen:
@@ -41,115 +36,173 @@ Das App Finwise besitzt 2 Typen von Buchungen.
 	- Bei Flag "forecastOnly=false" geschieht das gleiche im Plan- und Prognosebereich, jedoch wird hier eine reale Transaktion passend dazu angelegt.
 	- Planungs- und Prognosebuchungen werden jeweils im PlanningService abgewickelt und im PlanningStore gespeichert.
 
-Fragestellung: Unklar ist mir, welche Zuständigkeit der BudgetService genau hat?
+---
 
-## Salden  (Erklärung)
-Ein Konto- als auch Kategoriensaldo ist "immer die Summe aller Transaktionen (Balance) zuzüglich aller Prognosebuchungen (projectedBalance) (fällige oder nicht fällige)". Jedes Konto hat Salden und jede Kategorie hat Salden, die wir wie folgt genauer betrachten
-### Unterscheidung Salden
-- Alle Account Salden beziehen sich ausschließlich auf Date.
-- Alle Category Salden beziehen sich auf valueDate.
-- Innerhalb der beiden Saldengruppen gibt es jeweils den realen Saldo, der nur Transaktionen berücksichtigt (Balance), die erfolgt sind.
-- Parallel läuft noch ein prognostizierter Saldo (ProjectedBalance) mit, der erst  mal ebenfalls alle Transaktionen enthält, aber auch zusätzlich die Prognosen noch mit hochrechnet bis auf 24 Monate in Zukunft. Also die nun folgende Saldoberechnungsstruktur muss immer auf 2 Mal betrachtet werden. Tatsächliche Saldostruktur und tatsächliche plus Prognosestruktur.
-### Welche Salden werden in der App benötigt
-- **Aktueller Saldo** (todayBalance)
-	- Dies ist der Date.Now() Saldo
-	- Er wird also berechnet aus allen Transaktionen bis zum heutigen Datum.
-- **Laufender Saldo** (runningBalance)
-	- Ein laufender Saldo ist immer der Saldo, der bei einer Transaktion oder Prognosebuchung unter Aufsummierung aller vorangegangenen Buchungen inkl. dieser aktuellen nach Datum sortiert berechnet.
-- **Monatssaldo (dynamisch rekursiv berechnet)** (monthlyBalance)
-	- Der **Monatssaldo** ist der **prognostizierte Endsaldo eines Monats**. Er ergibt sich aus:
-	    - dem **End-Saldo des Vormonats**,
-	    - **plus** allen Transaktionen und Prognosebuchungen
+# Fehlersuche und erwartete Anpassung
+## Wie stellt sich das Fehlverhalten mir dar?
+Ich habe gerade versucht, eine Buchung – eine Planbuchung im `PlanningService` – anzulegen, die dem Typ *CategoryTransfer* angehört.
+Ich habe bei der Ausführung dieser Buchung bzw. in der Prognoseansicht festgestellt, dass offenbar nur eine Buchung angelegt wird, die aussieht wie eine *Income*-Buchung.
 
-	- Diese Berechnung ist **rekursiv**:
-	    Der Monatssaldo hängt **immer vom Vormonatssaldo ab**, der wiederum aus dessen Vormonatssaldo abgeleitet wird – und so weiter. Es wird also **monatlich aufaddiert**, ausgehend von einem Startpunkt (z. B. dem Erfassungsbeginn oder Startsaldo).
+## Todo
+Es gilt also im ersten Schritt zu prüfen:
+- Wenn eine Planbuchung des Typs *CategoryTransfer* angelegt wird:
+  → **Ist diese Buchung korrekt typisiert?**
+- Sie muss `transactionType = CategoryTransfer` haben.
+- Das muss bereits bei der Erstellung der Planbuchung korrekt gesetzt werden. (PlanningService oder src\components\planning\PlanningTransactionForm.vue)
 
-	- Die Salden „rollen“ über die Monate hinweg (speziell projectedBalance):
-	    Der **aktuelle Monat** ist im nächsten Rechenschritt der **Vormonat des Folgezeitpunkts**. Dadurch entstehen **kontinuierliche, gleitende Salden** ohne feste Grenzen – ideal für dynamische Monatsvergleiche. Die Prognoseinterpolation soll bei Appstart immer 24 Monate in die Zukunft durchrechnen.
+Achtung:
+- **Parallel prüfen in `src/components/planning/PlanningTransactionForm.vue`**, ob dort die Typisierung sauber an den `PlanningService` übergeben wird.
+- Falls in PlanningTransactionForm.vue etwas hinterlegt ist, das its Businesslogik und sollte in den PlanningService übertragen werden.
 
-### Wofür die Trennung von balance und projectedBalance?
-Je nach Anforderung benötigen wir in einer Ansich nur die Balance. In anderen Geschäftsbereichen wie Budget oder Kontoprognose benötigen wir die projectedBalance.
+Weiter:
+- Überprüfen, ob auch alle anderen Buchungstypen – Einnahmen und Ausgaben – entsprechend als `Income` oder `Expense` typisiert sind.
+- Dasselbe bei einem *AccountTransfer*: Dort muss der Typ `AccountTransfer` korrekt gesetzt werden, auch wenn es sich nur um eine Prognosebuchung handelt.
 
-## Eigentliche Berechnungen der Ausgabekategorien für die BudgetMonthCard (Umsetzung prüfen)
-Der Buchungstype ACCOUNTTRANSFER wird in folgender Berechnungsmethode in der BudgetMonthCard völlig ignoriert. Im Grunde genommen können alle ACCOUNTTRANSFERS weggefiltert werden, sofern es die unten aufgeführten Berechnungen erleichtert.
-### 1. Budget (linke Spalte)
-- Ausgangssituation (Anfangssaldo)
-	- Diese Spalte fängt in jedem Monat mit Saldo 0 an ohne Vormonatssaldo einzubeziehen.
-- Weitere Berechnung
-	- Summe aller Transaktionen, Plan- und Prognosebuchungen des Types **CATEGORYTRANSFER** im jeweils betroffenen Monat nach valueDate.
-	- ACCOUNTTRANSFER, EXPENSE und INCOME werden ignoriert und dürfen auf die Budgetspalte keinen Einfluss haben..
-- Beispiel
-	- Ausgangssituation betroffener Monat = immer 0
-	- **CATEGORYTRANSFER** von KatA → KatB: A = –20 €, B = +20 €.
-	- **CATEGORYTRANSFER** von KatC → KatB: C = –10 €, B = +10 €.
-	- Ergebnis:
-	    - A: 0+(-20) = **-20**
-	    - C: 0+(-10) = **-10**
-	    - B: 0+(+20)+(10) = **20**
 
-### 2. Prognose (2. Spalte)
-- Ausgangssituation (Anfangssaldo)
-	- Diese Spalte fängt in jedem Monat mit Saldo 0 an ohne Vormonatssaldo einzubeziehen.
-- Weitere Berechnung
-	- Summe aller Plan- und Prognosebuchungen des Types **EXPENSE & INCOME** im jeweils betroffenen Monat nach valueDate.
-	- ACCOUNTTRANSFER, CATEGORYTRANSFER werden ignoriert und dürfen auf die Prognosespalte keinen Einfluss haben..
-	- Vor allem dürfen keine Transaktionen hier angezeigt werden. Diese Spalte zeigt nur die Prognose
-- Beispiel (Monatsbetrachtung April 2025)
-	- Ausgangssituation betroffener Monat = immer 0
-	- **EXPENSE** KatA = –20 € valueDate 02.04.2025
-	- **INCOME** KatA = +50 € valueDate 19.04.2025
-	- **EXPENSE** KatA = –10 € valueDate 08.04.2025
-	- **EXPENSE** KatA = –30 € valueDate 02.05.2025
-	- Ergebnis für April 2025:
-			- anzuzeigender Monatssaldo KatA in dieser Spalte: 0+(-20)+(+50)+(-10) = **20**
-			- -30 werden ignoriert, da sie in in die Berechnung des Folgemonats gehören.
+Wenn der PlanningService korrekt arbeitet:
+- Prüfe, ob bei einer *Planbuchung* des Typs *CategoryTransfer* auch die **Gegenbuchung** richtig prognostiziert wird.
+  → **Vergleich als Vorlage:** Das Verhalten eines *CategoryTransfer* im echten `TransactionService`.
+  → Dieses Verhalten muss im Prognosebereich nachgebildet werden.
+  → Sonst stimmen die Berechnungen des *ProjectedSaldo* (BalanceService) nicht.
 
-### 3. Transaktionen (3. Spalte)#
-- Ausgangssituation (Anfangssaldo)
-	- Diese Spalte fängt in jedem Monat mit Saldo 0 an.
-	- Ausschlaggebendes Datum bei Kategoriesalden: valueDate
-- Weitere Berechnung
-	- Summe aus allen im jeweiligen Month(valueDate) gespeicherten **EXPENSE** und **INCOME** Transaktionen.
-	- Wichtig ist, dass hier ausschließlich Transaktionen einfließen
-	- Keine Prognosebuchungen!
-	- Hier dürfen keine CATEGORYTRANSFER oder ACCOUNTTRANSFER Buchungen erscheinen. Weder Transaktionen, noch Planbuchungen.
-- Beispiel (Monatsbetrachtung April 2025)
-	- Ausgangssituation betroffener Monat = immer 0
-	- **EXPENSE** KatA = –20 € valueDate 02.04.2025
-	- **INCOME** KatA = +50 € valueDate 19.04.2025
-	- **EXPENSE** KatA = –10 € valueDate 08.04.2025
-	- **EXPENSE** KatA = –30 € valueDate 02.05.2025
-	- Ergebnis für April 2025:
-	    - anzuzeigender Monatssaldo KatA in dieser Spalte: 0+(-20)+(+50)+(-10) = **20**
-	    - -30 werden ignoriert, da sie in in die Berechnung des Folgemonats gehören.
+Falls auch dort kein Fehler:
+- Weiter in den BudgetService gehen.
 
-### 4. Saldo (rechte Spalte)
-- Ausgangssituation (Anfangssaldo)
-	- Diese Spalte fängt in jedem Monat mit Saldo 0 an, muss aber automatisch den Vormonatssaldo aufsummieren.
-	- Ausschlaggebendes Datum bei Kategoriesalden: valueDate
-- Weitere Berechnung nach Ausgangssituation
-	- Hinzunahme der Summe aus allen im jeweiligen Month(valueDate) gespeicherten **EXPENSE** und **INCOME** Transaktionen und Prognosebuchungen (Siehe 2. Transaktionen)
-	- Hinzunahme der unter 1. Budget ermittelten Werte für den jeweilig betroffenen Monat
-- Beispiel (Monatsbetrachtung April 2025)
-	- Ausgangssituation betroffener Monat = 0
-	- Saldo Vormonat März2025 = 120
-	- **EXPENSE** KatA = –20 € valueDate 02.04.2025
-	- **INCOME** KatA = +50 € valueDate 19.04.2025
-	- **EXPENSE** KatA = –10 € valueDate 08.04.2025
-	- **EXPENSE** KatA = –30 € valueDate 02.05.2025
-	- **CATEGORYTRANSFER** von KatA → KatB: A = –20 €, B = +20 €.
-	- **CATEGORYTRANSFER** von KatC → KatB: C = –10 €, B = +10 €.
-	- Ergebnis für April 2025:
-		- KatA: Vormonat 120 + (–20 + 50 –10) + (–20) = 120 + 20 – 20 = **120**
+**Spezifikation beachten:**
+- *CategoryTransfers* → **Budget-Spalte** (erste Spalte).
+- *Income* und *Expense* → **Prognose-Spalte** (zweite Spalte).
 
-## Eltern- und Kind-Kategorien  (Umsetzung prüfen)
-In der BudgetMonthcard können Kategorien in Gruppen von Eltern- und Kindkategorien eingeteilt werden. Die Auflistung von 1-3 stellt immer die eigenen Berechnungen da. Bei Elternkategorien ist folgende zusätzliche Betrachtung notwendig.
-- **Eltern** summieren **alle** Werte ihrer Unterkategorien (Differenzen anteilig).
-- **Kind** zeigt nur eigene Transfers, Ausgaben, Planung und Saldo.
-- Beispiel:
-    - Kind K1 Saldo = 30 €
-    - Kind K2 Saldo = 70 €
-        → Eltern E.Saldo = 30 + 70 + E.eigeneSaldo.
+Wenn auch dort alles korrekt ist:
+- Abschließend noch den BalanceService prüfen.
 
-### Wichtiger Hinweis zur Berechnungsreihenfolge der Elternkategorie
-Erst soll jede Kategorie seine eigenen Werte berechnen, wie es nach oben genannter Specification ist. Danach soll jede Elternkategorie rekursiv alle fertig errechneten Werte pro einzelne Spalte aufrechnen. Also die Aufsummierung pro Spalte autark lassen. Dann passt das, da die eigentliche Verrechnung ohne die Kindskategorien bereits erledigt ist.
+---
+
+# Änderungsanforderung – **PlanningTransactionForm.vue**
+
+Vergleichsmodul: **TransactionForm.vue**
+Hinweis: Fokus liegt ausschließlich auf Planbuchungen!
+
+## Verhalten bei EXPENSE und INCOME
+
+- Der Dialog ist bereits korrekt formatiert im Template.
+- **Empfänger** (`payee`) soll **kein Pflichtfeld** mehr sein. Validation entfernen!
+- Beim Speichern müssen **toCategoryId** und **toAccountId** geleert werden, falls zuvor befüllt worden.
+  → Annahme: Konto wird in **accountId**, Kategorie in **categoryId** gespeichert. Bitte bestätigen!
+- Bei fehlerhaftem Payload laut Validierung: **Fehlermeldung** ausgeben.
+
+## Verhalten bei ACCOUNTTRANSFER
+
+- Der Dialog ist korrekt formatiert im Template.
+- Statt Kategorie wird **toAccountId** angezeigt (Zielkonto).
+- Beim Speichern müssen **toCategoryId** und **categoryId** geleert werden, falls zuvor befüllt worden.
+  → Annahme: Quelle und Ziel werden in **accountId** und **toAccountId** gespeichert. Bitte bestätigen!
+- Fehlerhaftes Payload → **Fehlermeldung** ausgeben.
+- Problem aktuell: **toAccountId wird beim ersten Speichern nicht gesetzt, sondern erst, wenn ich die Planbuchung erneut im Bearbeitungsmodus öffne (Unterschied Update/Create?)**.
+- Betrag darf **größer oder kleiner 0**, aber **nicht 0** sein.
+- Transferbetrag wird dem **accountId** zugeordnet (analog TransactionForm.vue).
+- Beim Speichern eines ACCOUNTTRANSFER:
+  - Es muss **zusätzlich eine Plangegenbuchung** erstellt und korrekt zugeordnet werden (analog zum Transactionservice).
+  - Annahme: **Derzeit wird keine Gegenbuchung erzeugt**.
+- Beim Löschen:
+  - **PlanningView**: Nur die zugehörige **Prognosebuchung** löschen (Vorkommnis, datumsbezogen).
+  - **AdminPlanningView**: Gesamte **Planung und Folgeprognosen** löschen.
+
+---
+
+## Verhalten bei CATEGORYTRANSFER
+
+- Der Dialog ist korrekt formatiert im Template.
+- Statt Konto wird **toCategoryId** angezeigt (Zielkategorie).
+- Beim Speichern müssen **toAccountId** und **accountId** geleert werden, falls zuvor befüllt worden.
+  → Annahme: Quell- und Zielkategorie werden in **categoryId** und **toCategoryId** gespeichert. Bitte bestätigen!
+- Fehlerhaftes Payload → **Fehlermeldung** ausgeben.
+- Problem aktuell: **toCategoryId wird beim ersten Speichern nicht gesetzt, sondern erst, wenn ich die Planbuchung erneut im Bearbeitungsmodus öffne (Unterschied Update/Create?)**.
+- Betrag darf **größer oder kleiner 0**, aber **nicht 0** sein.
+- Transferbetrag wird der **categoryId** zugeordnet.
+  Hinweis: Umsetzung in realen Buchungen erfolgt über **CategoryTransferModal.vue**, nicht über TransactionForm.vue.
+- Beim Speichern eines CATEGORYTRANSFER:
+  - Es muss **zusätzlich eine Plangegenbuchung** erstellt und korrekt zugeordnet werden.
+  - Annahme: **Derzeit wird keine Gegenbuchung erzeugt**.
+- Beim Löschen:
+  - **PlanningView**: Nur die zugehörige **Prognosebuchung** löschen (datumsbezogen).
+  - **AdminPlanningView**: Gesamte **Planung und Folgeprognosen** löschen.
+
+---
+
+# Offene Fragen zum Thema PlanningTransactionForm:
+
+1. Stimmt die Annahme, dass bei EXPENSE/INCOME **accountId/categoryId** genutzt und **toAccountId/toCategoryId** geleert werden müssen?
+2. Stimmt die Annahme, dass bei ACCOUNTTRANSFER und CATEGORYTRANSFER die **Quelle/Ziel** jeweils über **accountId/toAccountId** bzw. **categoryId/toCategoryId** gespeichert werden?
+3. Ist es korrekt, dass aktuell bei Planungen **keine Gegenbuchungen** erzeugt werden?
+
+---
+
+# Änderungsanforderung – **AdminPlanningView** und **PlanningView**
+
+---
+
+## Grundverhalten (bleibt bestehen)
+
+- **AdminPlanningView**: Alle Planbuchungen werden **unabhängig vom Planungsdatum** gelistet.
+- **PlanningView**: Nur das **Prognosevorkommnis** pro **gefiltertem Datum** wird angezeigt.
+
+---
+
+## Änderungen in der AdminPlanningView
+
+### Tabellenstruktur
+
+- Spalte **Name** bleibt erhalten.
+- **Neue Spalte:** **Buchungstyp** (zwischen Name und Empfänger).
+- Zusätzliche Spalten einfügen:
+  - **Empfänger** (Payee)
+  - **Quelle** (anstelle Konto)
+  - **Ziel** (anstelle Kategorie)
+  - **Intervall** (Wiederholungsfrequenz)
+  - **Startdatum** (StartDate)
+
+**Spaltenüberschriften Konto/Kategorie → umbenennen in Quelle/Ziel.**
+
+### Verhalten bei Transfers
+
+- **AccountTransfer**:
+  - **Quelle**: Quellkonto (**accountId**)
+  - **Ziel**: Zielkonto (**toAccountId**)
+- **CategoryTransfer**:
+  - **Quelle**: Quellkategorie (**categoryId**)
+  - **Ziel**: Zielkategorie (**toCategoryId**)
+
+### Behandlung von Gegenbuchungen
+
+- Nur die **Original-Planbuchung** anzeigen.
+- Beim **Löschen oder Bearbeiten** einer Transferbuchung: Immer auch die verknüpfte **Gegenbuchung** automatisch löschen bzw. aktualisieren.
+
+---
+
+## Änderungen in der PlanningView
+
+### Tabellenstruktur
+
+- Spalte **Name** bleibt erhalten.
+- **Neue Spalte:** **Buchungstyp** (zwischen Name und Empfänger).
+- Spalten **Konto** und **Kategorie** umbenennen in **Quelle** und **Ziel**.
+
+### Verhalten bei Transfers
+
+- Nur die **Original-Planbuchung** anzeigen.
+- Beim **Löschen oder Bearbeiten** einer Buchung: Immer auch die verknüpfte **Gegenbuchung** automatisch löschen bzw. aktualisieren.
+
+---
+
+## Darstellung der neuen Spalte "Buchungstyp"
+
+| Typ               | Icon                                    | Farbe    |
+|-------------------|-----------------------------------------|----------|
+| AccountTransfer    | `mdi:bank-transfer`                     | Warning  |
+| CategoryTransfer   | `mdi:briefcase-transfer-outline`        | Warning  |
+| Expense            | `mdi:bank-transfer-out`                 | Error    |
+| Income             | `mdi:bank-transfer-in`                  | Success  |
+
+- Icons in der Spalte "Buchungstyp" anzeigen, keine Textdarstellung.
+- Farbige Icons je nach Buchungstyp für bessere visuelle Trennung.
+- Icons mit Tooltip und den deutschen Typen Bezeichnungen ausstatten

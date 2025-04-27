@@ -43,15 +43,15 @@ $searchFiles = @(
     # ### components\budget
     # "src\components\budget\BudgetCard.vue",
     # "src\components\budget\BudgetCategoryColumn.vue",
-      "src\components\budget\BudgetMonthCard.vue",
+    #   "src\components\budget\BudgetMonthCard.vue",
     #  "src\components\budget\BudgetMonthHeaderCard.vue",
     #"src\components\budget\CategoryForm.vue",
-    #  "src\components\budget\CategoryTransferModal.vue",
+     "src\components\budget\CategoryTransferModal.vue",
 
     # ### components\planning
     # "src\components\planning\AccountForecastChart.vue",
     # "src\components\planning\CategoryForecastChart.vue",
-    # "src\components\planning\PlanningTransactionForm.vue",
+    "src\components\planning\PlanningTransactionForm.vue",
 
     # ### components\rules
     #"src\components\rules\RuleForm.vue",
@@ -139,7 +139,7 @@ $searchFiles = @(
     # "src\views\BudgetsView.vue",
     # "src\views\BudgetsView2.vue",
     #"src\views\DashboardView.vue",
-    # "src\views\PlanningView.vue"
+    "src\views\PlanningView.vue"
     #"src\views\SettingsView.vue",
     #"src\views\StatisticsView.vue",
     # "src\views\TransactionsView.vue",
@@ -147,7 +147,7 @@ $searchFiles = @(
     # ### views\admin
     # "src\views\admin\AdminAccountsView.vue",
     #"src\views\admin\AdminCategoriesView.vue",
-    # "src\views\admin\AdminPlanningView.vue",
+    "src\views\admin\AdminPlanningView.vue",
     #"src\views\admin\AdminRecipientsView.vue",
     #"src\views\admin\AdminRulesView.vue",
     #"src\views\admin\AdminTagsView.vue",
