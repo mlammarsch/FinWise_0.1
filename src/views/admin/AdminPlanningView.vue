@@ -292,14 +292,6 @@ function getTargetName(planning: PlanningTransaction): string {
               </td>
               <td class="text-right">
                 <div class="flex justify-end space-x-1">
-                  <!-- Play‑Button: nur diese Planung -->
-                  <button
-                    class="btn btn-ghost btn-xs border-none"
-                    @click="executeDueForPlanning(planning)"
-                    title="Fällige Buchungen ausführen"
-                  >
-                    <Icon icon="mdi:play" class="text-base text-success" />
-                  </button>
                   <button
                     class="btn btn-ghost btn-xs border-none"
                     @click="toggleActivation(planning)"
