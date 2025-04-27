@@ -31,11 +31,15 @@ const toggleExpand = (id: string) => {
   <div class="bg-base-100 p-1 rounded-lg z-10" :style="$attrs.style">
     <!-- Header-Ersatz: Leerzeile, da wir im BudgetMonthHeaderCard den Spaltenkopf haben -->
     <div class="sticky top-0 bg-base-100 z-20">
-      <div class="p-2 font-bold border-b border-base-300">Kategorie</div>
+      <div class="p-2 font-bold text-sm border-b border-base-300">
+        Kategorie
+      </div>
     </div>
 
     <!-- Ausgaben -->
-    <div class="p-2 font-bold border-b border-base-300 mt-2">Ausgaben</div>
+    <div class="p-2 font-bold text-sm border-b border-base-300 mt-2">
+      Ausgaben
+    </div>
     <div
       v-for="cat in rootCategories.filter((c) => !c.isIncomeCategory)"
       :key="cat.id"
@@ -72,7 +76,9 @@ const toggleExpand = (id: string) => {
     </div>
 
     <!-- Einnahmen -->
-    <div class="p-2 font-bold border-b border-base-300 mt-4">Einnahmen</div>
+    <div class="p-2 font-bold text-sm border-b border-base-300 mt-4">
+      Einnahmen
+    </div>
     <div
       v-for="cat in rootCategories.filter((c) => c.isIncomeCategory)"
       :key="cat.id"

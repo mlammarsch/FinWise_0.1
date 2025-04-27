@@ -2,17 +2,17 @@
 <script setup lang="ts">
 /**
  * Pfad zur Komponente: src/components/budget/BudgetMonthCard.vue
- * Zeigt pro Monat die Budget‑, Transaktions‑ und Saldo‑Werte an.
+ * Zeigt pro Monat die Budget-, Prognose-, Transaktions- und Saldo-Werte an.
  *
  * Props:
  * - month: { start: Date; end: Date; label: string }
  * - categories: Category[]
  *
- * Rechtsklick öffnet ein Context‑Dropdown.
+ * Rechtsklick öffnet ein Context-Dropdown.
  * Das Dropdown schließt bei Blur, ESC oder Klick außerhalb.
  * Über das Dropdown kann man entweder
- *  – „Transferiere zu …“ (Mode: transfer)
- *  – „Fülle auf von …“ (Mode: fill) aufrufen.
+ *  – „Transferiere zu …" (Mode: transfer)
+ *  – „Fülle auf von …" (Mode: fill) aufrufen.
  */
 import { computed, ref, nextTick } from "vue";
 import { useCategoryStore } from "../../stores/categoryStore";
@@ -45,7 +45,7 @@ const normalizedMonthEnd = computed(
   () => new Date(toDateOnlyString(props.month.end))
 );
 
-// Hilfsfunktionen für Budget‑Daten
+// Hilfsfunktionen für Budget-Daten
 function getAggregatedData(cat: Category) {
   return budgetService.getAggregatedMonthlyBudgetData(
     cat.id,
@@ -86,14 +86,14 @@ const sumIncomesSummary = computed(() =>
   )
 );
 
-// Context‑Dropdown
+// Context-Dropdown
 const showDropdown = ref(false);
 const dropdownX = ref(0);
 const dropdownY = ref(0);
 const containerRef = ref<HTMLElement | null>(null);
 const dropdownRef = ref<HTMLElement | null>(null);
 
-// Modal‑State
+// Modal-State
 const showTransferModal = ref(false);
 const modalData = ref<{
   mode: "fill" | "transfer";
@@ -139,7 +139,7 @@ function onDropdownBlur(e: FocusEvent) {
 }
 
 /**
- * Menüpunkt „Transferiere zu …“
+ * Menüpunkt „Transferiere zu …"
  */
 function optionTransfer() {
   if (!modalData.value?.clickedCategory) return;
@@ -151,7 +151,7 @@ function optionTransfer() {
 }
 
 /**
- * Menüpunkt „Fülle auf von …“
+ * Menüpunkt „Fülle auf von …"
  */
 function optionFill() {
   if (!modalData.value?.clickedCategory) return;
@@ -203,40 +203,76 @@ function executeTransfer(payload: {
       >
         <!-- Tabellen-Header -->
         <div class="sticky top-0 bg-base-100 z-20 p-2 border-b border-base-300">
-          <div class="grid grid-cols-3">
-            <div class="text-right font-bold">Budget</div>
-            <div class="text-right font-bold">Transakt.</div>
-            <div class="text-right font-bold">Saldo</div>
+          <div class="grid grid-cols-4">
+            <Icon
+              icon="mdi:envelope-outline"
+              width="21"
+              height="21"
+              class="justify-self-end"
+            />
+            <Icon
+              icon="mdi:target-arrow"
+              width="21"
+              height="21"
+              class="justify-self-end"
+            />
+            <Icon
+              icon="mdi:bank-transfer"
+              width="22"
+              height="22"
+              class="justify-self-end"
+            />
+            <Icon
+              icon="mdi:scale-balance"
+              width="20"
+              height="20"
+              class="justify-self-end"
+            />
           </div>
         </div>
 
-        <!-- Ausgaben‑Summary -->
+        <!-- Ausgaben-Summary -->
         <div class="p-2 font-bold border-b border-base-300 mt-2">
-          <div class="grid grid-cols-3">
-            <div class="text-right">
+          <div class="grid grid-cols-4">
+            <div class="text-right text-sm">
               <CurrencyDisplay
                 :amount="sumExpensesSummary.budgeted"
                 :as-integer="true"
+                class="text-sm"
               />
             </div>
-            <div class="text-right">
+            <div class="text-right text-sm">
+              <CurrencyDisplay
+                :amount="sumExpensesSummary.forecast"
+                :as-integer="true"
+                :class="[
+                  'text-sm',
+                  sumExpensesSummary.forecast >= 0 ? 'text-base' : 'text-error',
+                ]"
+              />
+            </div>
+            <div class="text-right text-sm">
               <CurrencyDisplay
                 :amount="sumExpensesSummary.spentMiddle"
                 :as-integer="true"
-                :class="
+                :class="[
+                  'text-sm',
                   sumExpensesSummary.spentMiddle >= 0
                     ? 'text-base'
-                    : 'text-error'
-                "
+                    : 'text-error',
+                ]"
               />
             </div>
-            <div class="text-right">
+            <div class="text-right text-sm">
               <CurrencyDisplay
                 :amount="sumExpensesSummary.saldoFull"
                 :as-integer="true"
-                :class="
-                  sumExpensesSummary.saldoFull >= 0 ? 'text-base' : 'text-error'
-                "
+                :class="[
+                  'text-sm',
+                  sumExpensesSummary.saldoFull >= 0
+                    ? 'text-base'
+                    : 'text-error',
+                ]"
               />
             </div>
           </div>
@@ -252,35 +288,50 @@ function executeTransfer(payload: {
             :key="cat.id"
           >
             <div
-              class="grid grid-cols-3 p-2 border-b border-base-200 cursor-context-menu hover:bg-base-200"
+              class="grid grid-cols-4 p-2 border-b border-base-200 cursor-context-menu hover:bg-base-200"
               @contextmenu="openDropdown($event, cat)"
             >
               <div class="text-right">
                 <CurrencyDisplay
                   :amount="getAggregatedData(cat).budgeted"
                   :as-integer="true"
+                  class="text-sm"
+                />
+              </div>
+              <div class="text-right">
+                <CurrencyDisplay
+                  :amount="getAggregatedData(cat).forecast"
+                  :as-integer="true"
+                  :class="[
+                    'text-sm',
+                    getAggregatedData(cat).forecast >= 0
+                      ? 'text-base'
+                      : 'text-error',
+                  ]"
                 />
               </div>
               <div class="text-right">
                 <CurrencyDisplay
                   :amount="getAggregatedData(cat).spent"
                   :as-integer="true"
-                  :class="
+                  :class="[
+                    'text-sm',
                     getAggregatedData(cat).spent >= 0
                       ? 'text-base'
-                      : 'text-error'
-                  "
+                      : 'text-error',
+                  ]"
                 />
               </div>
               <div class="text-right">
                 <CurrencyDisplay
                   :amount="getAggregatedData(cat).saldo"
                   :as-integer="true"
-                  :class="
+                  :class="[
+                    'text-sm',
                     getAggregatedData(cat).saldo >= 0
                       ? 'text-base'
-                      : 'text-error'
-                  "
+                      : 'text-error',
+                  ]"
                 />
               </div>
             </div>
@@ -291,35 +342,50 @@ function executeTransfer(payload: {
                   .getChildCategories(cat.id)
                   .filter((c) => c.isActive && !isVerfuegbareMittel(c))"
                 :key="child.id"
-                class="grid grid-cols-3 pl-6 text-sm p-2 border-b border-base-200 cursor-context-menu hover:bg-base-200/50"
+                class="grid grid-cols-4 pl-6 text-sm p-2 border-b border-base-200 cursor-context-menu hover:bg-base-200/50"
                 @contextmenu="openDropdown($event, child)"
               >
                 <div class="text-right">
                   <CurrencyDisplay
                     :amount="getSingleCategoryData(child.id).budgeted"
                     :as-integer="true"
+                    class="text-sm"
+                  />
+                </div>
+                <div class="text-right">
+                  <CurrencyDisplay
+                    :amount="getSingleCategoryData(child.id).forecast"
+                    :as-integer="true"
+                    :class="[
+                      'text-sm',
+                      getSingleCategoryData(child.id).forecast >= 0
+                        ? 'text-base'
+                        : 'text-error',
+                    ]"
                   />
                 </div>
                 <div class="text-right">
                   <CurrencyDisplay
                     :amount="getSingleCategoryData(child.id).spent"
                     :as-integer="true"
-                    :class="
+                    :class="[
+                      'text-sm',
                       getSingleCategoryData(child.id).spent >= 0
                         ? 'text-base'
-                        : 'text-error'
-                    "
+                        : 'text-error',
+                    ]"
                   />
                 </div>
                 <div class="text-right">
                   <CurrencyDisplay
                     :amount="getSingleCategoryData(child.id).saldo"
                     :as-integer="true"
-                    :class="
+                    :class="[
+                      'text-sm',
                       getSingleCategoryData(child.id).saldo >= 0
                         ? 'text-base'
-                        : 'text-error'
-                    "
+                        : 'text-error',
+                    ]"
                   />
                 </div>
               </div>
@@ -327,34 +393,41 @@ function executeTransfer(payload: {
           </template>
         </div>
 
-        <!-- Einnahmen‑Summary -->
-        <div class="p-2 font-bold border-b border-base-300 mt-4">
-          <div class="grid grid-cols-3">
-            <div class="text-right">
+        <!-- Einnahmen-Summary -->
+        <div class="p-2 font-bold border-b border-base-300 text-sm mt-4">
+          <div class="grid grid-cols-4">
+            <div class="text-right text-sm">
               <CurrencyDisplay
                 :amount="sumIncomesSummary.budgeted"
                 :as-integer="true"
-                class="text-success"
+                class="text-sm text-success"
               />
             </div>
-            <div class="text-right">
+            <div class="text-right text-sm">
+              <CurrencyDisplay
+                :amount="sumIncomesSummary.forecast"
+                :as-integer="true"
+                class="text-sm text-success"
+              />
+            </div>
+            <div class="text-right text-sm">
               <CurrencyDisplay
                 :amount="sumIncomesSummary.spentMiddle"
                 :as-integer="true"
-                class="text-base"
+                class="text-sm"
               />
             </div>
-            <div class="text-right">
+            <div class="text-right text-sm">
               <CurrencyDisplay
                 :amount="sumIncomesSummary.saldoFull"
                 :as-integer="true"
-                class="text-base"
+                class="text-sm"
               />
             </div>
           </div>
         </div>
 
-        <!-- Einnahmen‑Kategorien -->
+        <!-- Einnahmen-Kategorien -->
         <div class="grid grid-rows-auto">
           <template
             v-for="cat in props.categories.filter(
@@ -362,26 +435,33 @@ function executeTransfer(payload: {
             )"
             :key="cat.id"
           >
-            <div class="grid grid-cols-3 p-2 border-b border-base-200">
+            <div class="grid grid-cols-4 p-2 border-b border-base-200 text-sm">
               <div class="text-right">
                 <CurrencyDisplay
                   :amount="getAggregatedData(cat).budgeted"
                   :as-integer="true"
-                  class="text-success"
+                  class="text-sm text-success"
+                />
+              </div>
+              <div class="text-right">
+                <CurrencyDisplay
+                  :amount="getAggregatedData(cat).forecast"
+                  :as-integer="true"
+                  class="text-sm text-success"
                 />
               </div>
               <div class="text-right">
                 <CurrencyDisplay
                   :amount="getAggregatedData(cat).spent"
                   :as-integer="true"
-                  class="text-base"
+                  class="text-sm"
                 />
               </div>
               <div class="text-right">
                 <CurrencyDisplay
                   :amount="getAggregatedData(cat).saldo"
                   :as-integer="true"
-                  class="text-base"
+                  class="text-sm"
                 />
               </div>
             </div>
@@ -392,27 +472,34 @@ function executeTransfer(payload: {
                   .getChildCategories(cat.id)
                   .filter((c) => c.isActive && !isVerfuegbareMittel(c))"
                 :key="child.id"
-                class="grid grid-cols-3 pl-6 text-sm p-2 border-b border-base-200"
+                class="grid grid-cols-4 pl-6 text-sm p-2 border-b border-base-200"
               >
                 <div class="text-right">
                   <CurrencyDisplay
                     :amount="getSingleCategoryData(child.id).budgeted"
                     :as-integer="true"
-                    class="text-success"
+                    class="text-sm text-success"
+                  />
+                </div>
+                <div class="text-right">
+                  <CurrencyDisplay
+                    :amount="getSingleCategoryData(child.id).forecast"
+                    :as-integer="true"
+                    class="text-sm text-success"
                   />
                 </div>
                 <div class="text-right">
                   <CurrencyDisplay
                     :amount="getSingleCategoryData(child.id).spent"
                     :as-integer="true"
-                    class="text-base"
+                    class="text-sm"
                   />
                 </div>
                 <div class="text-right">
                   <CurrencyDisplay
                     :amount="getSingleCategoryData(child.id).saldo"
                     :as-integer="true"
-                    class="text-base"
+                    class="text-sm"
                   />
                 </div>
               </div>
@@ -420,7 +507,7 @@ function executeTransfer(payload: {
           </template>
         </div>
 
-        <!-- Kontext‑Dropdown -->
+        <!-- Kontext-Dropdown -->
         <div
           v-if="showDropdown"
           ref="dropdownRef"
@@ -452,7 +539,7 @@ function executeTransfer(payload: {
     </div>
   </div>
 
-  <!-- Transfer‑Modal -->
+  <!-- Transfer-Modal -->
   <CategoryTransferModal
     v-if="showTransferModal && modalData"
     :is-open="showTransferModal"

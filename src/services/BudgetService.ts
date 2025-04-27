@@ -10,11 +10,13 @@ import { BalanceService } from "./BalanceService";
 
 interface MonthlyBudgetData {
   budgeted: number;
+  forecast: number; // NEU: Prognose-Spalte für Plan- und Prognosebuchungen (EXPENSE & INCOME)
   spent: number;
   saldo: number;
 }
 interface MonthlySummary {
   budgeted: number;
+  forecast: number; // NEU: Prognose-Spalte
   spentMiddle: number;
   saldoFull: number;
 }
@@ -64,7 +66,7 @@ function computeExpenseCategoryData(
   const categoryStore = useCategoryStore();
   const transactionStore = useTransactionStore();
   const cat = categoryStore.getCategoryById(categoryId);
-  if (!cat) return { budgeted: 0, spent: 0, saldo: 0 };
+  if (!cat) return { budgeted: 0, forecast: 0, spent: 0, saldo: 0 };
 
   // Vormonats-Saldo
   const prev = new Date(monthStart);
@@ -87,11 +89,15 @@ function computeExpenseCategoryData(
     .filter(tx => tx.type === TransactionType.EXPENSE || tx.type === TransactionType.INCOME)
     .reduce((s, tx) => s + tx.amount, 0);
 
+  // Prognose - Summe aller Plan- und Prognosebuchungen des Types EXPENSE & INCOME
+  const forecastAmount = getPlannedAmountForCategory(categoryId, monthStart, monthEnd);
+
   const spent = expenseAmount;
-  const saldo = previousSaldo + budgetAmount + spent;
+  const saldo = previousSaldo + budgetAmount + spent + forecastAmount;
 
   // Kinder
   let totalBudget = budgetAmount;
+  let totalForecast = forecastAmount;
   let totalSpent = spent;
   let totalSaldo = saldo;
 
@@ -101,11 +107,17 @@ function computeExpenseCategoryData(
     .forEach(child => {
       const childData = computeExpenseCategoryData(child.id, monthStart, monthEnd);
       totalBudget += childData.budgeted;
+      totalForecast += childData.forecast;
       totalSpent += childData.spent;
       totalSaldo += childData.saldo;
     });
 
-  return { budgeted: totalBudget, spent: totalSpent, saldo: totalSaldo };
+  return {
+    budgeted: totalBudget,
+    forecast: totalForecast,
+    spent: totalSpent,
+    saldo: totalSaldo
+  };
 }
 
 /* ------------------------ Income-Kategorie-Berechnung ----------------------- */
@@ -118,28 +130,31 @@ function computeIncomeCategoryData(
   const categoryStore = useCategoryStore();
   const transactionStore = useTransactionStore();
   const cat = categoryStore.getCategoryById(categoryId);
-  if (!cat) return { budgeted: 0, spent: 0, saldo: 0 };
+  if (!cat) return { budgeted: 0, forecast: 0, spent: 0, saldo: 0 };
 
-  const plannedAmount = getPlannedAmountForCategory(
-    categoryId,
-    monthStart,
-    monthEnd
-  );
-
+  // Buchungen dieses Monats nach valueDate
   const txs = transactionStore.transactions.filter(tx => {
     const d = new Date(toDateOnlyString(tx.valueDate));
-    return (
-      tx.categoryId === categoryId &&
-      d >= monthStart &&
-      d <= monthEnd &&
-      tx.type === TransactionType.INCOME
-    );
+    return tx.categoryId === categoryId && d >= monthStart && d <= monthEnd;
   });
-  const incomeAmount = txs.reduce((s, tx) => s + tx.amount, 0);
 
-  let totalBudget = plannedAmount;
+  // Budget-Transfers (analog zu Expense)
+  const budgetAmount = txs
+    .filter(tx => tx.type === TransactionType.CATEGORYTRANSFER && tx.categoryId === categoryId)
+    .reduce((s, tx) => s + tx.amount, 0);
+
+  // Prognose - Plan- und Prognosebuchungen
+  const forecastAmount = getPlannedAmountForCategory(categoryId, monthStart, monthEnd);
+
+  // Einnahmen-Transaktionen
+  const incomeAmount = txs
+    .filter(tx => tx.type === TransactionType.INCOME)
+    .reduce((s, tx) => s + tx.amount, 0);
+
+  let totalBudget = budgetAmount;
+  let totalForecast = forecastAmount;
   let totalSpent = incomeAmount;
-  let totalSaldo = incomeAmount - plannedAmount;
+  let totalSaldo = budgetAmount + incomeAmount + forecastAmount;
 
   categoryStore
     .getChildCategories(categoryId)
@@ -147,11 +162,17 @@ function computeIncomeCategoryData(
     .forEach(child => {
       const childData = computeIncomeCategoryData(child.id, monthStart, monthEnd);
       totalBudget += childData.budgeted;
+      totalForecast += childData.forecast;
       totalSpent += childData.spent;
       totalSaldo += childData.saldo;
     });
 
-  return { budgeted: totalBudget, spent: totalSpent, saldo: totalSaldo };
+  return {
+    budgeted: totalBudget,
+    forecast: totalForecast,
+    spent: totalSpent,
+    saldo: totalSaldo
+  };
 }
 
 /* ------------------------------ Public API ---------------------------------- */
@@ -165,7 +186,7 @@ export const BudgetService = {
     const cat = useCategoryStore().getCategoryById(categoryId);
     if (!cat) {
       debugLog("[BudgetService] Category not found", categoryId);
-      return { budgeted: 0, spent: 0, saldo: 0 };
+      return { budgeted: 0, forecast: 0, spent: 0, saldo: 0 };
     }
 
     return cat.isIncomeCategory
@@ -188,7 +209,7 @@ export const BudgetService = {
         c.name !== "Verfügbare Mittel"
     );
 
-    const sum: MonthlySummary = { budgeted: 0, spentMiddle: 0, saldoFull: 0 };
+    const sum: MonthlySummary = { budgeted: 0, forecast: 0, spentMiddle: 0, saldoFull: 0 };
     roots.forEach(cat => {
       const d = this.getAggregatedMonthlyBudgetData(
         cat.id,
@@ -196,6 +217,7 @@ export const BudgetService = {
         monthEnd
       );
       sum.budgeted += d.budgeted;
+      sum.forecast += d.forecast;
       sum.spentMiddle += d.spent;
       sum.saldoFull += d.saldo;
     });
