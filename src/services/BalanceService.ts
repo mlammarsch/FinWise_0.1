@@ -147,7 +147,7 @@ export const BalanceService = {
     if (prevMonthBalance) {
       // 6. Für jede Kategorie Vormonats-Projektionen + aktuelle Werte + Planungen
       categoryStore.categories.forEach(cat => {
-        // Geplante Beträge in diesem Monat berechnen
+        // Geplante Beträge in diesem Monat berechnen - NUR AKTIVE PLANBUCHUNGEN
         const plannedAmount = planningStore.planningTransactions
           .filter(pt => pt.isActive && pt.categoryId === cat.id)
           .reduce((sum, pt) => {
@@ -170,6 +170,7 @@ export const BalanceService = {
       // 7. Für jedes Konto Vormonats-Projektionen + aktuelle Werte + Planungen
       Object.entries(prevMonthBalance.projectedAccountBalances).forEach(([accountId, prevValue]) => {
         if (projectedAccountBalances[accountId] !== undefined) {
+          // Nur aktive Planungstransaktionen berücksichtigen
           const plannedAmount = planningStore.planningTransactions
             .filter(pt => pt.isActive &&
                     pt.accountId === accountId &&
@@ -345,7 +346,7 @@ export const BalanceService = {
       if (options.includeProjection) {
         projected = runningBalance;
 
-        // Prognosetransaktionen für diesen Tag ermitteln
+        // Prognosetransaktionen für diesen Tag ermitteln - NUR AKTIVE PLANBUCHUNGEN
         const planTxs = planStore.planningTransactions.filter(plan => {
           if (!plan.isActive) return false;
 
