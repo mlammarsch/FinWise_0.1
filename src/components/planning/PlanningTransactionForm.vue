@@ -446,6 +446,32 @@ function validateForm(): boolean {
 function savePlanningTransaction() {
   if (!validateForm()) return;
 
+  const weekendHandlingValue = moveScheduleEnabled.value
+    ? weekendHandlingDirection.value === "before"
+      ? WeekendHandlingType.BEFORE
+      : WeekendHandlingType.AFTER
+    : WeekendHandlingType.NONE;
+
+  const effectiveRecurrencePattern = repeatsEnabled.value
+    ? recurrencePattern.value
+    : RecurrencePattern.ONCE;
+
+  const effectiveRecurrenceEndType = repeatsEnabled.value
+    ? recurrenceEndType.value
+    : RecurrenceEndType.NEVER;
+
+  const effectiveRecurrenceCount =
+    repeatsEnabled.value &&
+    effectiveRecurrenceEndType === RecurrenceEndType.COUNT
+      ? recurrenceCount.value
+      : null;
+
+  const effectiveEndDate =
+    repeatsEnabled.value &&
+    effectiveRecurrenceEndType === RecurrenceEndType.DATE
+      ? endDate.value
+      : null;
+
   // Basis-Daten für alle Transaktionstypen
   let finalData = {
     name: name.value,

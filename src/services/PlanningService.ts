@@ -1,27 +1,30 @@
-// Datei: src/services/PlanningService.ts
-import { usePlanningStore } from '@/stores/planningStore';
+import { usePlanningStore } from "@/stores/planningStore";
 import {
   PlanningTransaction,
   RecurrencePattern,
   TransactionType,
   WeekendHandlingType,
   RecurrenceEndType,
-} from '@/types';
-import dayjs from 'dayjs';
-import { debugLog, infoLog } from '@/utils/logger';
-import { TransactionService } from '@/services/TransactionService';
-import { useRuleStore } from '@/stores/ruleStore';
-import { toDateOnlyString } from '@/utils/formatters';
-import { BalanceService } from './BalanceService';
-import { useAccountStore } from '@/stores/accountStore';
-import { useCategoryStore } from '@/stores/categoryStore';
+} from "@/types";
+import dayjs from "dayjs";
+import { debugLog, infoLog } from "@/utils/logger";
+import { TransactionService } from "@/services/TransactionService";
+import { useRuleStore } from "@/stores/ruleStore";
+import { toDateOnlyString } from "@/utils/formatters";
+import { BalanceService } from "./BalanceService";
+import { useAccountStore } from "@/stores/accountStore";
+import { useCategoryStore } from "@/stores/categoryStore";
 
 /**
  * Erstellt eine Gegenbuchung für eine Transfer-Planungstransaktion
  */
-function createCounterPlanning(planning: PlanningTransaction): Partial<PlanningTransaction> {
-  if (planning.transactionType !== TransactionType.ACCOUNTTRANSFER &&
-      planning.transactionType !== TransactionType.CATEGORYTRANSFER) {
+function createCounterPlanning(
+  planning: PlanningTransaction
+): Partial<PlanningTransaction> {
+  if (
+    planning.transactionType !== TransactionType.ACCOUNTTRANSFER &&
+    planning.transactionType !== TransactionType.CATEGORYTRANSFER
+  ) {
     throw new Error("Nur für Transfers möglich");
   }
 
@@ -40,6 +43,7 @@ function createCounterPlanning(planning: PlanningTransaction): Partial<PlanningT
     recurrenceCount: planning.recurrenceCount,
     executionDay: planning.executionDay,
     weekendHandling: planning.weekendHandling,
+    repeatsEnabled: planning.repeatsEnabled,
     isActive: planning.isActive,
     forecastOnly: planning.forecastOnly,
     amountType: planning.amountType,
@@ -47,20 +51,17 @@ function createCounterPlanning(planning: PlanningTransaction): Partial<PlanningT
     minAmount: planning.minAmount,
     maxAmount: planning.maxAmount,
     tagIds: planning.tagIds || [],
-    counterPlanningTransactionId: planning.id, // Verknüpfung zur Originalbuchung
-    amount: -planning.amount // Betrag invertieren
+    counterPlanningTransactionId: planning.id,
+    amount: -planning.amount,
   };
 
   if (planning.transactionType === TransactionType.ACCOUNTTRANSFER) {
-    // Gegenbuchung: Eingang auf Zielkonto
-    counterPlanning.accountId = planning.transferToAccountId || '';
+    counterPlanning.accountId = planning.transferToAccountId || "";
     counterPlanning.transferToAccountId = planning.accountId;
     counterPlanning.categoryId = null;
     counterPlanning.transferToCategoryId = null;
     counterPlanning.recipientId = null;
-  }
-  else if (planning.transactionType === TransactionType.CATEGORYTRANSFER) {
-    // Gegenbuchung: Gutschrift auf Zielkategorie
+  } else if (planning.transactionType === TransactionType.CATEGORYTRANSFER) {
     counterPlanning.categoryId = planning.transferToCategoryId;
     counterPlanning.transferToCategoryId = planning.categoryId;
     counterPlanning.accountId = null;
@@ -83,29 +84,44 @@ export const PlanningService = {
     // Sicherstellen, dass Transaktionstyp korrekt gesetzt wird
     if (planning.transferToCategoryId && !planning.transactionType) {
       planning.transactionType = TransactionType.CATEGORYTRANSFER;
-    }
-    else if (planning.transferToAccountId && !planning.transactionType) {
+    } else if (planning.transferToAccountId && !planning.transactionType) {
       planning.transactionType = TransactionType.ACCOUNTTRANSFER;
-    }
-    else if (planning.amount !== undefined && !planning.transactionType) {
-      planning.transactionType = planning.amount < 0 ?
-        TransactionType.EXPENSE : TransactionType.INCOME;
+    } else if (planning.amount !== undefined && !planning.transactionType) {
+      planning.transactionType =
+        planning.amount < 0 ? TransactionType.EXPENSE : TransactionType.INCOME;
     }
 
     // Bei Transfers den Betrag ggf. anpassen
-    if ((planning.transactionType === TransactionType.ACCOUNTTRANSFER ||
-         planning.transactionType === TransactionType.CATEGORYTRANSFER) &&
-         planning.amount !== undefined) {
-      // Buchungsseite immer negativ (Abgang)
+    if (
+      (planning.transactionType === TransactionType.ACCOUNTTRANSFER ||
+        planning.transactionType === TransactionType.CATEGORYTRANSFER) &&
+      planning.amount !== undefined
+    ) {
       planning.amount = -Math.abs(planning.amount);
     }
 
+    // Flag repeatsEnabled nachpflegen, wenn nicht gesetzt
+    if (planning.repeatsEnabled === undefined) {
+      planning.repeatsEnabled =
+        planning.recurrencePattern !== RecurrencePattern.ONCE;
+    }
+
     // Namen für Transfers automatisch setzen, falls nicht angegeben
-    if (planning.transactionType === TransactionType.ACCOUNTTRANSFER && planning.transferToAccountId && !planning.name) {
-      const toName = accountStore.getAccountById(planning.transferToAccountId)?.name || '';
+    if (
+      planning.transactionType === TransactionType.ACCOUNTTRANSFER &&
+      planning.transferToAccountId &&
+      !planning.name
+    ) {
+      const toName =
+        accountStore.getAccountById(planning.transferToAccountId)?.name || "";
       planning.name = `Transfer zu ${toName}`;
-    } else if (planning.transactionType === TransactionType.CATEGORYTRANSFER && planning.transferToCategoryId && !planning.name) {
-      const toName = categoryStore.getCategoryById(planning.transferToCategoryId)?.name || '';
+    } else if (
+      planning.transactionType === TransactionType.CATEGORYTRANSFER &&
+      planning.transferToCategoryId &&
+      !planning.name
+    ) {
+      const toName =
+        categoryStore.getCategoryById(planning.transferToCategoryId)?.name || "";
       planning.name = `Transfer zu ${toName}`;
     }
 
@@ -113,32 +129,37 @@ export const PlanningService = {
     debugLog("[PlanningService] addPlanningTransaction - Übergebene Daten:", {
       name: planning.name,
       transactionType: planning.transactionType,
+      repeatsEnabled: planning.repeatsEnabled,
       transferToAccountId: planning.transferToAccountId,
-      transferToCategoryId: planning.transferToCategoryId
+      transferToCategoryId: planning.transferToCategoryId,
     });
 
-    // Original-Buchung speichern
+    // Hauptbuchung speichern
     const newPlanning = planningStore.addPlanningTransaction(planning);
-    debugLog("[PlanningService] addPlanningTransaction - Hauptbuchung erstellt:", newPlanning);
+    debugLog(
+      "[PlanningService] addPlanningTransaction - Hauptbuchung erstellt:",
+      newPlanning
+    );
 
-    // Bei Transfers: Gegenbuchung erstellen
-    if ((planning.transactionType === TransactionType.ACCOUNTTRANSFER && planning.transferToAccountId) ||
-        (planning.transactionType === TransactionType.CATEGORYTRANSFER && planning.transferToCategoryId)) {
-
+    // Bei Transfers: Gegenbuchung
+    if (
+      (planning.transactionType === TransactionType.ACCOUNTTRANSFER &&
+        planning.transferToAccountId) ||
+      (planning.transactionType === TransactionType.CATEGORYTRANSFER &&
+        planning.transferToCategoryId)
+    ) {
       const counterPlanning = createCounterPlanning(newPlanning);
-      const counterTransaction = planningStore.addPlanningTransaction(counterPlanning);
+      const counterTransaction =
+        planningStore.addPlanningTransaction(counterPlanning);
 
-      // Original-Buchung mit Gegenbuchung verknüpfen
       planningStore.updatePlanningTransaction(newPlanning.id, {
-        counterPlanningTransactionId: counterTransaction.id
+        counterPlanningTransactionId: counterTransaction.id,
       });
 
       debugLog("[PlanningService] addPlanningTransaction - Gegenbuchung erstellt:", {
         id: counterTransaction.id,
         name: counterTransaction.name,
         amount: counterTransaction.amount,
-        transferToAccountId: counterTransaction.transferToAccountId,
-        transferToCategoryId: counterTransaction.transferToCategoryId
       });
     }
 
@@ -146,186 +167,151 @@ export const PlanningService = {
     return newPlanning;
   },
 
-  /**
-   * Aktualisiert eine Planungstransaktion (CRUD).
-   */
-  updatePlanningTransaction(id: string, planning: Partial<PlanningTransaction>) {
-    const planningStore = usePlanningStore();
-    const existingPlanning = planningStore.getPlanningTransactionById(id);
-
-    if (!existingPlanning) {
-      debugLog("[PlanningService] updatePlanningTransaction - Planung nicht gefunden", id);
-      return false;
-    }
-
-    // Debug-Log vor dem Update
-    debugLog("[PlanningService] updatePlanningTransaction - Übergebene Daten:", {
-      id,
-      transferToAccountId: planning.transferToAccountId,
-      transferToCategoryId: planning.transferToCategoryId,
-      transactionType: planning.transactionType
-    });
-
-    // Hauptbuchung aktualisieren
-    const success = planningStore.updatePlanningTransaction(id, planning);
-
-    if (!success) {
-      debugLog("[PlanningService] updatePlanningTransaction - Update fehlgeschlagen", id);
-      return false;
-    }
-
-    // Bei Transfers: Auch Gegenbuchung aktualisieren
-    if (existingPlanning.counterPlanningTransactionId &&
-       (existingPlanning.transactionType === TransactionType.ACCOUNTTRANSFER ||
-        existingPlanning.transactionType === TransactionType.CATEGORYTRANSFER)) {
-
-      // Aktualisierte Planungsdaten laden
-      const updatedPlanning = planningStore.getPlanningTransactionById(id);
-
-      if (!updatedPlanning) {
-        debugLog("[PlanningService] updatePlanningTransaction - Aktualisierte Planung nicht gefunden", id);
-        return false;
-      }
-
-      // Gegenbuchung aktualisieren
-      const counterPlanning = createCounterPlanning(updatedPlanning);
-      planningStore.updatePlanningTransaction(existingPlanning.counterPlanningTransactionId, counterPlanning);
-
-      debugLog("[PlanningService] updatePlanningTransaction - Gegenbuchung aktualisiert", existingPlanning.counterPlanningTransactionId);
-    }
-
-    BalanceService.calculateMonthlyBalances();
-    return true;
-  },
-
-  /**
-   * Löscht eine Planungstransaktion (CRUD).
-   */
-  deletePlanningTransaction(id: string) {
-    const planningStore = usePlanningStore();
-    const planning = planningStore.getPlanningTransactionById(id);
-
-    if (!planning) {
-      debugLog("[PlanningService] deletePlanningTransaction - Planung nicht gefunden", id);
-      return false;
-    }
-
-    // Gegenbuchung finden und löschen, wenn vorhanden und noch nicht bearbeitet
-    if (planning.counterPlanningTransactionId) {
-      const counterPlanning = planningStore.getPlanningTransactionById(planning.counterPlanningTransactionId);
-
-      // Prüfen, ob wir nicht schon in der Gegenbuchungslöschung sind (Rekursionsschutz)
-      if (counterPlanning && counterPlanning.counterPlanningTransactionId === id) {
-        planningStore.deletePlanningTransaction(planning.counterPlanningTransactionId);
-        debugLog("[PlanningService] deletePlanningTransaction - Gegenbuchung gelöscht", planning.counterPlanningTransactionId);
-      }
-    }
-
-    // Hauptbuchung löschen
-    planningStore.deletePlanningTransaction(id);
-    debugLog("[PlanningService] deletePlanningTransaction - Hauptbuchung gelöscht", id);
-
-    BalanceService.calculateMonthlyBalances();
-    return true;
-  },
-
-  /**
+    /**
    * Berechnet zukünftige Ausführungstermine einer Planungstransaktion.
-   * Berücksichtigt dabei Wochenenden.
    */
-  calculateNextOccurrences(planTx: PlanningTransaction, startDate: string, endDate: string): string[] {
-    if (!planTx.isActive) return [];
-    const occurrences: string[] = [];
-    const start = dayjs(startDate);
-    const end = dayjs(endDate);
-    const txStart = dayjs(toDateOnlyString(planTx.startDate));
+    calculateNextOccurrences(
+      planTx: PlanningTransaction,
+      startDate: string,
+      endDate: string
+    ): string[] {
+      if (!planTx.isActive) return [];
 
-    if (txStart.isAfter(end)) return [];
-    if (planTx.endDate && dayjs(toDateOnlyString(planTx.endDate)).isBefore(start))
-      return [];
+      const repeatsEnabled =
+        planTx.repeatsEnabled ??
+        (planTx.recurrencePattern !== RecurrencePattern.ONCE);
 
-    let currentDate = txStart;
-    let count = 0;
-    const maxIterations = 1000;
+      const occurrences: string[] = [];
+      const start = dayjs(startDate);
+      const end = dayjs(endDate);
+      const txStart = dayjs(toDateOnlyString(planTx.startDate));
 
-    // Ohne Wiederholung oder bei ONCE: nur eine Buchung, wenn im Zeitraum
-    if (!planTx.repeatsEnabled || planTx.recurrencePattern === RecurrencePattern.ONCE) {
-      let adjustedDate = PlanningService.applyWeekendHandling(currentDate, planTx.weekendHandling);
-      if (adjustedDate.isSameOrAfter(start) && adjustedDate.isSameOrBefore(end)) {
-        occurrences.push(toDateOnlyString(adjustedDate.toDate()));
+      if (txStart.isAfter(end)) return [];
+      if (planTx.endDate && dayjs(toDateOnlyString(planTx.endDate)).isBefore(start))
+        return [];
+
+      let currentDate = txStart;
+      // Zähler beginnt bei 1, damit die erste Instanz bereits mitgezählt wird
+      let count = 1;
+      const maxIterations = 1000;
+
+      // Einmalige Buchung
+      if (!repeatsEnabled || planTx.recurrencePattern === RecurrencePattern.ONCE) {
+        let adjustedDate = PlanningService.applyWeekendHandling(
+          currentDate,
+          planTx.weekendHandling
+        );
+        if (
+          adjustedDate.isSameOrAfter(start) &&
+          adjustedDate.isSameOrBefore(end)
+        ) {
+          occurrences.push(toDateOnlyString(adjustedDate.toDate()));
+        }
+        return occurrences;
       }
-      return occurrences;
-    }
 
-    while (currentDate.isSameOrBefore(end) && count < maxIterations) {
-      let adjustedDate = PlanningService.applyWeekendHandling(currentDate, planTx.weekendHandling);
+      debugLog("[PlanningService] calculateNextOccurrences - Parameter", {
+        planId: planTx.id,
+        name: planTx.name,
+        recurrenceEndType: planTx.recurrenceEndType,
+        recurrenceCount: planTx.recurrenceCount,
+        startDate,
+        endDate
+      });
 
-      if (adjustedDate.isSameOrAfter(start) && adjustedDate.isSameOrBefore(end)) {
-        occurrences.push(toDateOnlyString(adjustedDate.toDate()));
-      }
+      while (currentDate.isSameOrBefore(end) && count < maxIterations) {
+        let adjustedDate = PlanningService.applyWeekendHandling(
+          currentDate,
+          planTx.weekendHandling
+        );
 
-      // Begrenzung der maximalen Prognosebuchungen bei "nie endet" auf 24 Monate
-      if (planTx.recurrenceEndType === RecurrenceEndType.NEVER) {
-        const maxEndDate = dayjs(start).add(24, 'months');
-        if (adjustedDate.isAfter(maxEndDate)) {
+        if (
+          adjustedDate.isSameOrAfter(start) &&
+          adjustedDate.isSameOrBefore(end)
+        ) {
+          occurrences.push(toDateOnlyString(adjustedDate.toDate()));
+
+          debugLog("[PlanningService] calculateNextOccurrences - Occurrence added", {
+            date: toDateOnlyString(adjustedDate.toDate()),
+            currentCount: count,
+            recurrenceEndType: planTx.recurrenceEndType,
+            recurrenceCount: planTx.recurrenceCount
+          });
+        }
+
+        if (planTx.recurrenceEndType === RecurrenceEndType.NEVER) {
+          const maxEndDate = dayjs(start).add(24, "months");
+          if (adjustedDate.isAfter(maxEndDate)) break;
+        }
+
+        // Geänderte Break-Bedingung: Wir brechen ab, wenn wir die gewünschte Anzahl erreicht haben
+        if (
+          planTx.recurrenceEndType === RecurrenceEndType.COUNT &&
+          planTx.recurrenceCount !== null &&
+          count >= planTx.recurrenceCount
+        ) {
+          debugLog("[PlanningService] calculateNextOccurrences - Breaking after count limit", {
+            currentCount: count,
+            maxCount: planTx.recurrenceCount
+          });
           break;
         }
+
+        count++;
+
+        switch (planTx.recurrencePattern) {
+          case RecurrencePattern.DAILY:
+            currentDate = currentDate.add(1, "day");
+            break;
+          case RecurrencePattern.WEEKLY:
+            currentDate = currentDate.add(1, "week");
+            break;
+          case RecurrencePattern.BIWEEKLY:
+            currentDate = currentDate.add(2, "weeks");
+            break;
+          case RecurrencePattern.MONTHLY:
+            if (
+              planTx.executionDay &&
+              planTx.executionDay > 0 &&
+              planTx.executionDay <= 31
+            ) {
+              const nextMonth = currentDate.add(1, "month");
+              const year = nextMonth.year();
+              const month = nextMonth.month() + 1;
+              const maxDay = new Date(year, month, 0).getDate();
+              const day = Math.min(planTx.executionDay, maxDay);
+              currentDate = dayjs(new Date(year, month - 1, day));
+            } else {
+              currentDate = currentDate.add(1, "month");
+            }
+            break;
+          case RecurrencePattern.QUARTERLY:
+            currentDate = currentDate.add(3, "months");
+            break;
+          case RecurrencePattern.YEARLY:
+            currentDate = currentDate.add(1, "year");
+            break;
+          default:
+            return occurrences;
+        }
+
+        if (
+          planTx.recurrenceEndType === RecurrenceEndType.DATE &&
+          planTx.endDate &&
+          currentDate.isAfter(dayjs(toDateOnlyString(planTx.endDate)))
+        )
+          break;
       }
 
-      // Korrekte Zählung bei RecurrenceEndType.COUNT (Zählung beginnt bei 0)
-      if (
-        planTx.recurrenceEndType === RecurrenceEndType.COUNT &&
-        planTx.recurrenceCount !== null &&
-        count >= (planTx.recurrenceCount)
-      ) {
-        break;
-      }
+      debugLog("[PlanningService] calculateNextOccurrences - Result", {
+        planId: planTx.id,
+        name: planTx.name,
+        totalOccurrences: occurrences.length,
+        dates: occurrences
+      });
 
-      count++;
-
-      switch (planTx.recurrencePattern) {
-        case RecurrencePattern.DAILY:
-          currentDate = currentDate.add(1, 'day');
-          break;
-        case RecurrencePattern.WEEKLY:
-          currentDate = currentDate.add(1, 'week');
-          break;
-        case RecurrencePattern.BIWEEKLY:
-          currentDate = currentDate.add(2, 'weeks');
-          break;
-        case RecurrencePattern.MONTHLY:
-          if (planTx.executionDay && planTx.executionDay > 0 && planTx.executionDay <= 31) {
-            const nextMonth = currentDate.add(1, 'month');
-            const year = nextMonth.year();
-            const month = nextMonth.month() + 1; // Monatsanzeige 1-indexiert
-            const maxDay = new Date(year, month, 0).getDate();
-            const day = Math.min(planTx.executionDay, maxDay);
-            currentDate = dayjs(new Date(year, month - 1, day));
-          } else {
-            currentDate = currentDate.add(1, 'month');
-          }
-          break;
-        case RecurrencePattern.QUARTERLY:
-          currentDate = currentDate.add(3, 'months');
-          break;
-        case RecurrencePattern.YEARLY:
-          currentDate = currentDate.add(1, 'year');
-          break;
-        case RecurrencePattern.ONCE:
-          return occurrences;
-      }
-
-      if (
-        planTx.recurrenceEndType === RecurrenceEndType.DATE &&
-        planTx.endDate &&
-        currentDate.isAfter(dayjs(toDateOnlyString(planTx.endDate)))
-      ) {
-        break;
-      }
-    }
-
-    return occurrences;
-  },
+      return occurrences;
+    },
 
   /**
    * Verschiebt das Datum, falls es auf ein Wochenende fällt.
@@ -536,6 +522,37 @@ export const PlanningService = {
       transactionsCreated
     });
 
+    return true;
+  },
+
+  /**
+   * Löscht eine Planungstransaktion (CRUD).
+   */
+  deletePlanningTransaction(id: string) {
+    const planningStore = usePlanningStore();
+    const planning = planningStore.getPlanningTransactionById(id);
+
+    if (!planning) {
+      debugLog("[PlanningService] deletePlanningTransaction - Planung nicht gefunden", id);
+      return false;
+    }
+
+    // Gegenbuchung finden und löschen, wenn vorhanden und noch nicht bearbeitet
+    if (planning.counterPlanningTransactionId) {
+      const counterPlanning = planningStore.getPlanningTransactionById(planning.counterPlanningTransactionId);
+
+      // Prüfen, ob wir nicht schon in der Gegenbuchungslöschung sind (Rekursionsschutz)
+      if (counterPlanning && counterPlanning.counterPlanningTransactionId === id) {
+        planningStore.deletePlanningTransaction(planning.counterPlanningTransactionId);
+        debugLog("[PlanningService] deletePlanningTransaction - Gegenbuchung gelöscht", planning.counterPlanningTransactionId);
+      }
+    }
+
+    // Hauptbuchung löschen
+    planningStore.deletePlanningTransaction(id);
+    debugLog("[PlanningService] deletePlanningTransaction - Hauptbuchung gelöscht", id);
+
+    BalanceService.calculateMonthlyBalances();
     return true;
   },
 

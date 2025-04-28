@@ -1,13 +1,2 @@
-# Änderungsanforderungen
-## Anzahl wiederholungsbuchungen
-Es muss hier irgendwo ein Fehler vorliegen.
- // Korrekte Zählung bei RecurrenceEndType.COUNT (Zählung beginnt bei 0)
-      if (
-        planTx.recurrenceEndType === RecurrenceEndType.COUNT &&
-        planTx.recurrenceCount !== null &&
-        count >= (planTx.recurrenceCount)
-      ) {
-        break;
-      }
-
-Nach der Korrektur wird mir bei leeren Stores irgendwie die Anlage der Plan und Prognosebuchungen nicht korrekt berechnte. Hauptsächlich  bei der Radio Option "nach x Wiederholungen". Es wird trotz angabe, dass drei Buchungen erstellt werden sollen, wird jetzt nur eine Buchung erstellt. Hängt das mit den noch leeren Stores zusammen? Kannst Du das irgendwie sicherstellen, dass bei Einrichtung einer Planbuchung mit x Wiederholungen so viele PrognoseBuchungen angelegt werden, wie ich als Zahl in der Anzahl hinterlegt habe? Inklusive dieser Instanz der Planbuchung. Lege ich also am 28.4. eine Buchung mit der Anzahl 3 Wiederholungen an, so sollen 3 Prognosen 28.4., 28.5. und 28.6. angelegt werden. Nicht mehr und nicht weniger.
+# Fehler
+ich habe eben eine neue planbuchung erstellt. diese planbuchung habe ich auf eine bestimmte kategorie gestellt. habe gesagt minus zehn euro. habe dieser geplanten transaktion oder planungsbuchung einen namen gegeben und habe dann auf wiederholung wiederholt sich nach anzahl drei eingegeben. das endergebnis war leider, dass vier buchungen angelegt wurden. ich bin jetzt im april, 28. april. da hat er die erste instanz angelegt. das ist soweit richtig. er hat aber auch für mai, juni und juli jeweils eine buchung angelegt. also insgesamt vier buchungen. das ist falsch. wenn ich in der planung als anzahl wiederholungen den wert 3 eingebe, möchte ich inklusive der instanz, mit der ich diese planbuchung bearbeite, noch zwei weitere prognosenbuchungen haben und keine drei weiteren buchungen. bitte um fehlerbehebung.

@@ -113,7 +113,7 @@ $searchFiles = @(
     # "src\stores\accountStore.ts",
     # "src\stores\categoryStore.ts",
     # "src\stores\monthlyBalanceStore.ts",
-    # "src\stores\planningStore.ts",
+    "src\stores\planningStore.ts",
     #"src\stores\recipientStore.ts",
     #"src\stores\reconciliationStore.ts",
     #"src\stores\ruleStore.ts",
