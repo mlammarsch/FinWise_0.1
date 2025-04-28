@@ -1,5 +1,13 @@
 # Änderungsanforderungen
-## Transaktionserstellungen aus Planbuchungen
-1.) Prüfe, ob sichergestellt, dass nur im Falle von forecastOnly=false eine Planbuchung in eine Transaktion übergehnt bei Ausführung. Andernfals wird nur die Instans der Planbuchung gelöscht und bei existierenden Folgebuchungen wäre das neue Datum der Planbuchung das der nächsten Instanz. Gibt es keine Folgebuchung, verschwindet die abgearbeitete Planbuchung ganz aus dem System.
-2.) Prüfe, ob sichergestellt ist, dass bei Ausführung der Planbuchungen auch nur aktivierte Planbuchungen berücksichtigt sind. Deaktivierte sollen ignoriert werden, auch wenn es dafür fällige Buchungen gäbe.
-3.) Deaktivierte Buchungen dürfen auch nicht saldiert werden im Balance Service. Bei Aktivierung und deaktivierung muss die Kalkulierung der Balance durchgestartet werden, um das System konsistent zu halten.
+## Anzahl wiederholungsbuchungen
+Es muss hier irgendwo ein Fehler vorliegen.
+ // Korrekte Zählung bei RecurrenceEndType.COUNT (Zählung beginnt bei 0)
+      if (
+        planTx.recurrenceEndType === RecurrenceEndType.COUNT &&
+        planTx.recurrenceCount !== null &&
+        count >= (planTx.recurrenceCount)
+      ) {
+        break;
+      }
+
+Nach der Korrektur wird mir bei leeren Stores irgendwie die Anlage der Plan und Prognosebuchungen nicht korrekt berechnte. Hauptsächlich  bei der Radio Option "nach x Wiederholungen". Es wird trotz angabe, dass drei Buchungen erstellt werden sollen, wird jetzt nur eine Buchung erstellt. Hängt das mit den noch leeren Stores zusammen? Kannst Du das irgendwie sicherstellen, dass bei Einrichtung einer Planbuchung mit x Wiederholungen so viele PrognoseBuchungen angelegt werden, wie ich als Zahl in der Anzahl hinterlegt habe? Inklusive dieser Instanz der Planbuchung. Lege ich also am 28.4. eine Buchung mit der Anzahl 3 Wiederholungen an, so sollen 3 Prognosen 28.4., 28.5. und 28.6. angelegt werden. Nicht mehr und nicht weniger.

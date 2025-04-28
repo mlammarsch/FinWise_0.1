@@ -107,7 +107,7 @@ $searchFiles = @(
     "src\services\PlanningService.ts",
     # "src\services\ReconciliationService.ts",
     # "src\services\TransactionService.ts",
-    "src\services\BalanceService.ts",
+    # "src\services\BalanceService.ts",
 
     # ### stores
     # "src\stores\accountStore.ts",
@@ -130,7 +130,7 @@ $searchFiles = @(
 
     # ### utils
     # "src\utils\formatters.ts",
-    # "src\utils\dateUtils.ts",
+    "src\utils\dateUtils.ts",
     "src\utils\planningTransactionUtils.ts"
     # "src\utils\logger.ts",
 

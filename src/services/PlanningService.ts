@@ -276,7 +276,7 @@ export const PlanningService = {
       if (
         planTx.recurrenceEndType === RecurrenceEndType.COUNT &&
         planTx.recurrenceCount !== null &&
-        count >= (planTx.recurrenceCount - 1)
+        count >= (planTx.recurrenceCount)
       ) {
         break;
       }
