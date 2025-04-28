@@ -1,167 +1,161 @@
+// src/stores/planningStore.ts
 /**
  * Pfad: src/stores/planningStore.ts
- * Store für geplante Transaktionen, sorgt für CRUD und Aktualisierung der Monatsbilanzen über BalanceService.
+ * Store für geplante Transaktionen – tenant-spezifisch persistiert.
  */
 
-import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
-import { v4 as uuidv4 } from 'uuid'
-import dayjs from 'dayjs'
-import isSameOrBefore from 'dayjs/plugin/isSameOrBefore'
-import weekday from 'dayjs/plugin/weekday'
-import isSameOrAfter from 'dayjs/plugin/isSameOrAfter'
-dayjs.extend(isSameOrBefore)
-dayjs.extend(weekday)
-dayjs.extend(isSameOrAfter)
-
+import { defineStore } from 'pinia';
+import { ref, computed } from 'vue';
+import { v4 as uuidv4 } from 'uuid';
+import dayjs from 'dayjs';
+import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
+import weekday from 'dayjs/plugin/weekday';
+import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
+import { toDateOnlyString } from '@/utils/formatters';
+import { debugLog } from '@/utils/logger';
+import { storageKey } from '@/utils/storageKey';
+import { BalanceService } from '@/services/BalanceService';
+import { TransactionService } from '@/services/TransactionService';
+import { useTransactionStore } from './transactionStore';
+import { useRuleStore } from './ruleStore';
 import {
   PlanningTransaction,
   RecurrencePattern,
-  TransactionType,
   AmountType,
   RecurrenceEndType,
-  WeekendHandlingType
-} from '../types'
-import { useTransactionStore } from './transactionStore'
-import { useRuleStore } from './ruleStore'
-import { toDateOnlyString } from '@/utils/formatters'
-import { debugLog } from '@/utils/logger'
-import { BalanceService } from '@/services/BalanceService'
-import { TransactionService } from '@/services/TransactionService'
+  WeekendHandlingType,
+} from '@/types';
+
+dayjs.extend(isSameOrBefore);
+dayjs.extend(weekday);
+dayjs.extend(isSameOrAfter);
 
 export const usePlanningStore = defineStore('planning', () => {
-  const planningTransactions = ref<PlanningTransaction[]>([])
-  const transactionStore = useTransactionStore()
+  /* ------------------------------------------------ State */
+  const planningTransactions = ref<PlanningTransaction[]>([]);
+  const transactionStore    = useTransactionStore();
+  const ruleStore           = useRuleStore();
 
-  const getPlanningTransactionById = computed(() => {
-    return (id: string) => planningTransactions.value.find(tx => tx.id === id)
-  })
+  /* ---------------------------------------------- Getters */
+  const getPlanningTransactionById = computed(() => (id: string) =>
+    planningTransactions.value.find(tx => tx.id === id),
+  );
 
-  const getUpcomingTransactions = computed(() => {
-    return (days: number = 30) => {
-      return planningTransactions.value
-        .filter(tx => tx.isActive)
-        .sort((a, b) => a.startDate.localeCompare(b.startDate))
-    }
-  })
+  const getUpcomingTransactions = computed(() => (days = 30) =>
+    planningTransactions.value
+      .filter(tx => tx.isActive)
+      .sort((a, b) => a.startDate.localeCompare(b.startDate)),
+  );
 
-  function addPlanningTransaction(planning: Partial<PlanningTransaction>) {
-    const txId = uuidv4()
-    const newPlanning: PlanningTransaction = {
-      id: txId,
-      name: planning.name || '',
-      accountId: planning.accountId || '',
-      categoryId: planning.categoryId || null,
-      tagIds: planning.tagIds || [],
-      recipientId: planning.recipientId || null,
-      amount: planning.amount || 0,
-      amountType: planning.amountType || AmountType.EXACT,
-      approximateAmount: planning.approximateAmount,
-      minAmount: planning.minAmount,
-      maxAmount: planning.maxAmount,
-      note: planning.note || '',
-      startDate: planning.startDate || new Date().toISOString(),
-      valueDate: planning.valueDate || planning.startDate || new Date().toISOString(),
-      endDate: planning.endDate || null,
-      recurrencePattern: planning.recurrencePattern || RecurrencePattern.ONCE,
-      recurrenceEndType: planning.recurrenceEndType || RecurrenceEndType.NEVER,
-      recurrenceCount: planning.recurrenceCount || null,
-      executionDay: planning.executionDay || null,
-      weekendHandling: planning.weekendHandling || WeekendHandlingType.NONE,
-      isActive: planning.isActive !== undefined ? planning.isActive : true,
-      forecastOnly: planning.forecastOnly !== undefined ? planning.forecastOnly : false,
-      transactionType: planning.transactionType || TransactionType.EXPENSE,
-      // Wichtig: Übernehme explizit die Transfer-Felder
-      transferToAccountId: planning.transferToAccountId,
-      transferToCategoryId: planning.transferToCategoryId,
-      counterPlanningTransactionId: planning.counterPlanningTransactionId || null,
-      autoExecute: planning.autoExecute || false
-    }
-    planningTransactions.value.push(newPlanning)
-    savePlanningTransactions()
-    debugLog('[planningStore] addPlanningTransaction', {
-      id: newPlanning.id,
-      name: newPlanning.name,
-      amount: newPlanning.amount,
-      transactionType: newPlanning.transactionType,
-      transferToAccountId: newPlanning.transferToAccountId,
-      transferToCategoryId: newPlanning.transferToCategoryId
-    })
-    BalanceService.calculateMonthlyBalances()
-    return newPlanning
+  /* ---------------------------------------------- Actions */
+  function addPlanningTransaction(p: Partial<PlanningTransaction>) {
+    const id = uuidv4();
+    const tx: PlanningTransaction = {
+      id,
+      name: p.name || '',
+      accountId: p.accountId || '',
+      categoryId: p.categoryId ?? null,
+      tagIds: p.tagIds || [],
+      recipientId: p.recipientId ?? null,
+      amount: p.amount || 0,
+      amountType: p.amountType || AmountType.EXACT,
+      approximateAmount: p.approximateAmount,
+      minAmount: p.minAmount,
+      maxAmount: p.maxAmount,
+      note: p.note || '',
+      startDate: p.startDate || new Date().toISOString(),
+      valueDate: p.valueDate || p.startDate || new Date().toISOString(),
+      endDate: p.endDate ?? null,
+      recurrencePattern: p.recurrencePattern || RecurrencePattern.ONCE,
+      recurrenceEndType: p.recurrenceEndType || RecurrenceEndType.NEVER,
+      recurrenceCount: p.recurrenceCount ?? null,
+      executionDay: p.executionDay ?? null,
+      weekendHandling: p.weekendHandling || WeekendHandlingType.NONE,
+      isActive: p.isActive !== undefined ? p.isActive : true,
+      forecastOnly: p.forecastOnly !== undefined ? p.forecastOnly : false,
+      transactionType: p.transactionType!,
+      transferToAccountId: p.transferToAccountId,
+      transferToCategoryId: p.transferToCategoryId,
+      counterPlanningTransactionId: p.counterPlanningTransactionId || null,
+      autoExecute: p.autoExecute || false,
+    };
+
+    planningTransactions.value.push(tx);
+    savePlanningTransactions();
+    BalanceService.calculateMonthlyBalances();
+    TransactionService.schedule(tx);
+    ruleStore.evaluateRules();
+    debugLog('[planningStore] add', { id });
+
+    return tx;
   }
 
-  function updatePlanningTransaction(id: string, planning: Partial<PlanningTransaction>) {
-    const index = planningTransactions.value.findIndex(p => p.id === id)
-    if (index !== -1) {
-      planningTransactions.value[index] = {
-        ...planningTransactions.value[index],
-        ...planning
-      }
-      savePlanningTransactions()
-      debugLog('[planningStore] updatePlanningTransaction', {
-        id,
-        name: planningTransactions.value[index].name,
-        updates: Object.keys(planning).join(', '),
-        transferToAccountId: planningTransactions.value[index].transferToAccountId,
-        transferToCategoryId: planningTransactions.value[index].transferToCategoryId
-      })
-      BalanceService.calculateMonthlyBalances()
-      return true
-    }
-    return false
+  function updatePlanningTransaction(id: string, upd: Partial<PlanningTransaction>) {
+    const idx = planningTransactions.value.findIndex(p => p.id === id);
+    if (idx === -1) return false;
+
+    planningTransactions.value[idx] = {
+      ...planningTransactions.value[idx],
+      ...upd,
+    };
+    savePlanningTransactions();
+    BalanceService.calculateMonthlyBalances();
+    TransactionService.reschedule(planningTransactions.value[idx]);
+    debugLog('[planningStore] update', { id, updates: Object.keys(upd) });
+    return true;
   }
 
   function deletePlanningTransaction(id: string) {
-    const planToDelete = planningTransactions.value.find(p => p.id === id)
-    if (planToDelete) {
-      debugLog('[planningStore] deletePlanningTransaction', {
-        id,
-        name: planToDelete.name
-      })
-    }
-    planningTransactions.value = planningTransactions.value.filter(p => p.id !== id)
-    savePlanningTransactions()
-    BalanceService.calculateMonthlyBalances()
+    const tx = planningTransactions.value.find(p => p.id === id);
+    planningTransactions.value = planningTransactions.value.filter(p => p.id !== id);
+    savePlanningTransactions();
+    BalanceService.calculateMonthlyBalances();
+    TransactionService.cancel(id);
+    debugLog('[planningStore] delete', { id, name: tx?.name });
   }
 
-  function savePlanningTransactions() {
-    localStorage.setItem('finwise_planning_transactions', JSON.stringify(planningTransactions.value))
-    debugLog('[planningStore] savePlanningTransactions - Saved', planningTransactions.value.length, 'transactions')
-  }
-
+  /* ------------------------------------------- Persistence */
   function loadPlanningTransactions() {
-    const saved = localStorage.getItem('finwise_planning_transactions')
-    if (saved) {
+    const raw = localStorage.getItem(storageKey('planning_transactions'));
+    if (raw) {
       try {
-        const parsed = JSON.parse(saved)
-        planningTransactions.value = parsed.map((tx: any) => ({
+        planningTransactions.value = JSON.parse(raw).map((tx: any) => ({
           ...tx,
+          name: tx.name || tx.payee || '',
+          date: toDateOnlyString(tx.startDate),
+          valueDate: toDateOnlyString(tx.valueDate || tx.startDate),
           amountType: tx.amountType || AmountType.EXACT,
           weekendHandling: tx.weekendHandling || WeekendHandlingType.NONE,
           recurrenceEndType: tx.recurrenceEndType || RecurrenceEndType.NEVER,
           isActive: tx.isActive !== undefined ? tx.isActive : true,
           forecastOnly: tx.forecastOnly !== undefined ? tx.forecastOnly : false,
-          name: tx.name || tx.payee || '',
-          valueDate: tx.valueDate || tx.date
-        }))
-        debugLog('[planningStore] loadPlanningTransactions - Loaded', planningTransactions.value.length, 'transactions')
-      } catch (error) {
-        debugLog('[planningStore] loadPlanningTransactions - Error parsing data', error)
-        planningTransactions.value = []
+        }));
+      } catch (e) {
+        planningTransactions.value = [];
+        debugLog('[planningStore] load - parse error', e);
       }
     }
+    debugLog('[planningStore] load', { cnt: planningTransactions.value.length });
+  }
+
+  function savePlanningTransactions() {
+    localStorage.setItem(
+      storageKey('planning_transactions'),
+      JSON.stringify(planningTransactions.value),
+    );
+    debugLog('[planningStore] save', { cnt: planningTransactions.value.length });
   }
 
   function reset() {
-    planningTransactions.value = []
-    localStorage.removeItem('finwise_last_forecast_update')
-    loadPlanningTransactions()
-    debugLog('[planningStore] reset')
+    planningTransactions.value = [];
+    localStorage.removeItem(storageKey('last_forecast_update'));
+    loadPlanningTransactions();
+    debugLog('[planningStore] reset');
   }
 
-  loadPlanningTransactions()
+  loadPlanningTransactions();
 
+  /* ----------------------------------------------- Exports */
   return {
     planningTransactions,
     getPlanningTransactionById,
@@ -170,6 +164,7 @@ export const usePlanningStore = defineStore('planning', () => {
     updatePlanningTransaction,
     deletePlanningTransaction,
     loadPlanningTransactions,
-    reset
-  }
-})
+    savePlanningTransactions,
+    reset,
+  };
+});

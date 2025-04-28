@@ -6,6 +6,7 @@ import { useThemeStore } from "../stores/themeStore";
 import MainNavigation from "../components/ui/MainNavigation.vue";
 import ThemeToggle from "../components/ui/ThemeToggle.vue";
 import { Icon } from "@iconify/vue";
+import TenantSwitch from "@/components/ui/TenantSwitch.vue";
 
 const router = useRouter();
 const themeStore = useThemeStore();
@@ -71,6 +72,7 @@ const toggleMobileMenu = () => {
         </div>
 
         <div class="navbar-end p-3">
+          <TenantSwitch />
           <ThemeToggle />
         </div>
       </div>

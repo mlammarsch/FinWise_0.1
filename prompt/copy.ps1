@@ -35,18 +35,18 @@ $searchFiles = @(
 
     # ### components\account
     # "src\components\account\AccountCard.vue",
-    #"src\components\account\AccountForm.vue",
+    # "src\components\account\AccountForm.vue",
     # "src\components\account\AccountGroupCard.vue",
-    #"src\components\account\AccountGroupForm.vue",
+    # "src\components\account\AccountGroupForm.vue",
     # "src\components\account\AccountReconcileModal.vue",
 
     # ### components\budget
     # "src\components\budget\BudgetCard.vue",
     # "src\components\budget\BudgetCategoryColumn.vue",
-    #   "src\components\budget\BudgetMonthCard.vue",
-    #  "src\components\budget\BudgetMonthHeaderCard.vue",
-    #"src\components\budget\CategoryForm.vue",
-    #  "src\components\budget\CategoryTransferModal.vue",
+    # "src\components\budget\BudgetMonthCard.vue",
+    # "src\components\budget\BudgetMonthHeaderCard.vue",
+    # "src\components\budget\CategoryForm.vue",
+    # "src\components\budget\CategoryTransferModal.vue",
 
     # ### components\planning
     # "src\components\planning\AccountForecastChart.vue",
@@ -54,54 +54,58 @@ $searchFiles = @(
     # "src\components\planning\PlanningTransactionForm.vue",
 
     # ### components\rules
-    #"src\components\rules\RuleForm.vue",
+    # "src\components\rules\RuleForm.vue",
 
     # ### components\transaction
-    #  "src\components\transaction\CategoryTransactionList.vue",
+    # "src\components\transaction\CategoryTransactionList.vue",
     # "src\components\transaction\TransactionCard.vue",
-    #"src\components\transaction\TransactionDetailModal.vue",
+    # "src\components\transaction\TransactionDetailModal.vue",
     # "src\components\transaction\TransactionForm.vue",
     # "src\components\transaction\TransactionList.vue",
 
     # ### components\ui
-    #"src\components\ui\BadgeSoft.vue",
-    #"src\components\ui\ButtonGroup.vue",
-    #"src\components\ui\ColorPicker.vue",
+    # "src\components\ui\BadgeSoft.vue",
+    # "src\components\ui\ButtonGroup.vue",
+    # "src\components\ui\ColorPicker.vue",
     "src\components\ui\ConfirmationModal.vue",
-    #"src\components\ui\CurrencyDisplay.vue",
-    #"src\components\ui\CurrencyInput.vue",
-    #"src\components\ui\DatePicker.vue",
-    #"src\components\ui\DateRangePicker.vue",
+    # "src\components\ui\CurrencyDisplay.vue",
+    # "src\components\ui\CurrencyInput.vue",
+    # "src\components\ui\DatePicker.vue",
+    # "src\components\ui\DateRangePicker.vue",
     "src\components\ui\MainNavigation.vue",
-    #"src\components\ui\MonthSelector.vue",
-    #"src\components\ui\PagingComponent.vue",
-    #"src\components\ui\PagingYearComponent.vue",
-    #"src\components\ui\SearchableSelect.vue",
-    #"src\components\ui\SearchableSelectLite.vue",
-    #"src\components\ui\SearchGroup.vue",
-    #"src\components\ui\SelectAccount.vue",
+    # "src\components\ui\MonthSelector.vue",
+    # "src\components\ui\PagingComponent.vue",
+    # "src\components\ui\PagingYearComponent.vue",
+    # "src\components\ui\SearchableSelect.vue",
+    # "src\components\ui\SearchableSelectLite.vue",
+    # "src\components\ui\SearchGroup.vue",
+    # "src\components\ui\SelectAccount.vue",
     # "src\components\ui\SelectCategory.vue",
     "src\components\ui\SelectRecipient.vue",
-    #"src\components\ui\TagSearchableDropdown.vue",
-    #"src\components\ui\ThemeToggle.vue",
+    # "src\components\ui\TagSearchableDropdown.vue",
+    # "src\components\ui\ThemeToggle.vue",
+    "src\components\ui\TenantSwitch.vue",
 
     # ### layouts
-    #"src\layouts\AppLayout-prod.vue",
+    # "src\layouts\AppLayout-prod.vue",
     "src\layouts\AppLayout.vue",
-    #"src\layouts\test_flex.vue",
-    #"src\layouts\tpl-2rows.vue",
+    "src\layouts\test_flex.vue",
+    "src\layouts\tpl-2rows.vue",
+
+    # ### root
     "src\App.vue",
 
     # ### mock
-    #"src\mock\seed-copy.ts",
-    #"src\mock\seed.ts",
+    # "src\mock\seed-copy.ts",
+    # "src\mock\seed.ts",
+    "src\mock\seed-bck2025-04-28.ts",
 
     # ### router
     "src\router\index.ts",
 
     # ### services
     "src\services\AccountService.ts",
-     "src\services\BudgetService.ts",
+    "src\services\BudgetService.ts",
     "src\services\CategoryService.ts",
     # "src\services\DataService.ts",
     # "src\services\index.ts",
@@ -109,6 +113,9 @@ $searchFiles = @(
     "src\services\ReconciliationService.ts",
     "src\services\TransactionService.ts",
     "src\services\BalanceService.ts",
+    "src\services\SessionService.ts",
+    "src\services\TenantService.ts",
+    "src\services\UserService.ts",
 
     # ### stores
     "src\stores\accountStore.ts",
@@ -125,24 +132,29 @@ $searchFiles = @(
     "src\stores\themeStore.ts",
     "src\stores\transactionFilterStore.ts",
     "src\stores\transactionStore.ts",
+    "src\stores\sessionStore.ts",
+    "src\stores\tenantStore.ts",
+    "src\stores\userStore.ts",
 
     # ### types
-    "src\types\index.ts"
+    "src\types\index.ts",
 
     # ### utils
     # "src\utils\formatters.ts",
     # "src\utils\dateUtils.ts",
-    # "src\utils\planningTransactionUtils.ts"
+    # "src\utils\planningTransactionUtils.ts",
     # "src\utils\logger.ts",
+    "src\utils\readMe.md",
+    "src\utils\storageKey.ts",
 
     # ### views
     # "src\views\AccountsView.vue",
     # "src\views\BudgetsView.vue",
     # "src\views\BudgetsView2.vue",
-    #"src\views\DashboardView.vue",
-    # "src\views\PlanningView.vue"
-    #"src\views\SettingsView.vue",
-    #"src\views\StatisticsView.vue",
+    # "src\views\DashboardView.vue",
+    # "src\views\PlanningView.vue",
+    # "src\views\SettingsView.vue",
+    # "src\views\StatisticsView.vue",
     # "src\views\TransactionsView.vue",
 
     # ### views\admin
@@ -150,10 +162,17 @@ $searchFiles = @(
     # "src\views\admin\AdminCategoriesView.vue",
     # "src\views\admin\AdminPlanningView.vue",
     "src\views\admin\AdminRecipientsView.vue",
-    #"src\views\admin\AdminRulesView.vue",
-    #"src\views\admin\AdminTagsView.vue",
+    # "src\views\admin\AdminRulesView.vue",
+    # "src\views\admin\AdminTagsView.vue",
+
+    # ### views\auth
+    "src\views\auth\LoginView.vue",
+    "src\views\auth\RegisterView.vue",
+    "src\views\auth\TenantSelectView.vue",
+
     "*.ts"
 )
+
 
 $output = @()
 

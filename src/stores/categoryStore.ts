@@ -1,269 +1,257 @@
-// Datei: src/stores/categoryStore.ts
-import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
-import { v4 as uuidv4 } from 'uuid'
-import { Category } from '../types'
-import { debugLog } from '@/utils/logger'
+// src/stores/categoryStore.ts
+
+/**
+ * Pfad: src/stores/categoryStore.ts
+ * Kategorie-Store mandantenspezifisch.
+ */
+
+import { defineStore } from 'pinia';
+import { ref, computed } from 'vue';
+import { v4 as uuidv4 } from 'uuid';
+import { Category } from '@/types';
+import { debugLog } from '@/utils/logger';
+import { storageKey } from '@/utils/storageKey';
 
 type CategoryGroup = {
-  id: string
-  name: string
-  sortOrder: number
-  isIncomeGroup: boolean
-}
+  id: string;
+  name: string;
+  sortOrder: number;
+  isIncomeGroup: boolean;
+};
 
 export const useCategoryStore = defineStore('category', () => {
-  const categories = ref<Category[]>([])
-  const categoryGroups = ref<CategoryGroup[]>([])
+  /* ----------------------------------------------- State */
+  const categories = ref<Category[]>([]);
+  const categoryGroups = ref<CategoryGroup[]>([]);
+  const expandedCategories = ref<Set<string>>(new Set());
 
-  const initialState = {
-    categories: [],
-    categoryGroups: []
-  }
+  /* ----------------------------------------------- Getters */
+  const getCategoryById = computed(() => (id: string) =>
+    categories.value.find(c => c.id === id),
+  );
 
-  const getCategoryById = computed(() => {
-    return (id: string) => categories.value.find(category => category.id === id)
-  })
+  const rootCategories = computed(() =>
+    categories.value
+      .filter(c => c.parentCategoryId === null)
+      .sort((a, b) => a.sortOrder - b.sortOrder),
+  );
 
-  function findCategoryById(id: string) {
-    return categories.value.find(category => category.id === id)
-  }
+  const getCategoriesByParentId = computed(() => (parentId: string | null) =>
+    categories.value
+      .filter(c => c.parentCategoryId === parentId)
+      .sort((a, b) => a.sortOrder - b.sortOrder),
+  );
 
-  const getCategoriesByParentId = computed(() => {
-    return (parentId: string | null) => categories.value
-      .filter(category => category.parentCategoryId === parentId)
-      .sort((a, b) => a.sortOrder - b.sortOrder)
-  })
-
-  const getChildCategories = (parentId: string) => {
-    return categories.value
-      .filter(category => category.parentCategoryId === parentId)
-      .sort((a, b) => a.sortOrder - b.sortOrder)
-  }
-
-  const rootCategories = computed(() => {
-    return categories.value
-      .filter(category => category.parentCategoryId === null)
-      .sort((a, b) => a.sortOrder - b.sortOrder)
-  })
-
-  const savingsGoals = computed(() => {
-    return categories.value
-      .filter(category => category.isSavingsGoal)
-      .sort((a, b) => a.sortOrder - b.sortOrder)
-  })
+  const savingsGoals = computed(() =>
+    categories.value
+      .filter(c => c.isSavingsGoal)
+      .sort((a, b) => a.sortOrder - b.sortOrder),
+  );
 
   const categoriesByGroup = computed(() => {
-    const grouped: Record<string, Category[]> = {}
+    const grouped: Record<string, Category[]> = {};
     for (const group of categoryGroups.value) {
       grouped[group.id] = categories.value
-        .filter(cat => cat.categoryGroupId === group.id && !cat.parentCategoryId)
-        .sort((a, b) => a.sortOrder - b.sortOrder)
+        .filter(c => c.categoryGroupId === group.id && !c.parentCategoryId)
+        .sort((a, b) => a.sortOrder - b.sortOrder);
     }
-    return grouped
-  })
+    return grouped;
+  });
+
+  /* ----------------------------------------------- Actions */
+  function findCategoryById(id: string) {
+    return categories.value.find(c => c.id === id);
+  }
+
+  function getChildCategories(parentId: string) {
+    return categories.value
+      .filter(c => c.parentCategoryId === parentId)
+      .sort((a, b) => a.sortOrder - b.sortOrder);
+  }
 
   function addCategory(category: Omit<Category, 'id' | 'balance' | 'startBalance' | 'transactionCount' | 'averageTransactionValue'>) {
-    const newCategory: Category = {
+    const c: Category = {
       ...category,
       id: uuidv4(),
       balance: 0,
       startBalance: 0,
       transactionCount: 0,
-      averageTransactionValue: 0
-    }
-    categories.value.push(newCategory)
-    debugLog("[categoryStore] addCategory:", newCategory)
-    saveCategories()
-    return newCategory
+      averageTransactionValue: 0,
+    };
+    categories.value.push(c);
+    saveCategories();
+    debugLog('[categoryStore] addCategory', c);
+    return c;
   }
 
   function updateCategory(id: string, updates: Partial<Category>) {
-    const index = categories.value.findIndex(category => category.id === id)
-    if (index !== -1) {
-      categories.value[index] = { ...categories.value[index], ...updates }
-      debugLog("[categoryStore] updateCategory - Updated:", categories.value[index])
-      saveCategories()
-      return true
-    }
-    return false
+    const idx = categories.value.findIndex(c => c.id === id);
+    if (idx === -1) return false;
+    categories.value[idx] = { ...categories.value[idx], ...updates };
+    saveCategories();
+    debugLog('[categoryStore] updateCategory', { id, updates });
+    return true;
   }
 
   function deleteCategory(id: string) {
-    categories.value = categories.value.filter(category => category.id !== id)
-    debugLog("[categoryStore] deleteCategory - Deleted category id:", id)
-    saveCategories()
+    categories.value = categories.value.filter(c => c.id !== id);
+    saveCategories();
+    debugLog('[categoryStore] deleteCategory', id);
   }
 
   function updateCategoryBalance(id: string, amount: number) {
-    const category = categories.value.find(category => category.id === id)
-    if (category) {
-      category.balance += amount
-      category.transactionCount = (category.transactionCount || 0) + 1
-      category.averageTransactionValue = category.balance / category.transactionCount || 0
-      debugLog("[categoryStore] updateCategoryBalance", {
-        id: category.id,
-        balance: category.balance,
-        transactionCount: category.transactionCount,
-        averageTransactionValue: category.averageTransactionValue
-      })
-      saveCategories()
-      return true
-    }
-    return false
+    const category = categories.value.find(c => c.id === id);
+    if (!category) return false;
+    category.balance += amount;
+    category.transactionCount = (category.transactionCount || 0) + 1;
+    category.averageTransactionValue = category.balance / category.transactionCount || 0;
+    saveCategories();
+    debugLog('[categoryStore] updateCategoryBalance', {
+      id: category.id,
+      balance: category.balance,
+      transactionCount: category.transactionCount,
+      averageTransactionValue: category.averageTransactionValue,
+    });
+    return true;
   }
 
-  function addCategoryGroup(group: Omit<CategoryGroup, 'id'>): CategoryGroup {
-    const newGroup: CategoryGroup = {
-      id: uuidv4(),
-      ...group
-    }
-    categoryGroups.value.push(newGroup)
-    debugLog("[categoryStore] addCategoryGroup:", newGroup)
-    saveCategoryGroups()
-    return categoryGroups.value.find(g => g.id === newGroup.id)!
+  function addCategoryGroup(group: Omit<CategoryGroup, 'id'>) {
+    const g: CategoryGroup = { ...group, id: uuidv4() };
+    categoryGroups.value.push(g);
+    saveCategoryGroups();
+    debugLog('[categoryStore] addCategoryGroup', g);
+    return g;
   }
 
   function deleteCategoryGroup(id: string) {
-    const hasCategories = categories.value.some(cat => cat.categoryGroupId === id)
-    debugLog("[categoryStore] deleteCategoryGroup", { id, result: hasCategories ? "Failed" : "Success" })
-    if (hasCategories) return false
-    categoryGroups.value = categoryGroups.value.filter(group => group.id !== id)
-    saveCategoryGroups()
-    return true
-  }
-
-  function loadCategories() {
-    const savedCategories = localStorage.getItem('finwise_categories')
-    if (savedCategories) {
-      categories.value = JSON.parse(savedCategories)
+    if (categories.value.some(c => c.categoryGroupId === id)) {
+      debugLog('[categoryStore] deleteCategoryGroup', { id, result: 'Failed' });
+      return false;
     }
-
-    const savedGroups = localStorage.getItem('finwise_categoryGroups')
-    if (savedGroups) {
-      categoryGroups.value = JSON.parse(savedGroups)
-    }
-    debugLog("[categoryStore] loadCategories - Loaded categories:", categories.value)
-
-    // Sicherstellen, dass zentrale Kategorie "Verfügbare Mittel" existiert
-    if (!categories.value.find(c => c.name === "Verfügbare Mittel")) {
-      addCategory({
-        name: "Verfügbare Mittel",
-        parentCategoryId: null,
-        sortOrder: 9999,
-        isActive: true,
-        isIncomeCategory: true,
-        isSavingsGoal: false,
-        categoryGroupId: null
-      });
-      debugLog("[categoryStore] loadCategories - 'Verfügbare Mittel' Kategorie angelegt.");
-    }
-    loadExpandedCategories()
-  }
-
-  function saveCategories() {
-    localStorage.setItem('finwise_categories', JSON.stringify(categories.value))
-    debugLog("[categoryStore] saveCategories - Saved categories.")
-  }
-
-  function saveCategoryGroups() {
-    localStorage.setItem('finwise_categoryGroups', JSON.stringify(categoryGroups.value))
-    debugLog("[categoryStore] saveCategoryGroups - Saved category groups.")
-  }
-
-  function reset() {
-    categories.value = initialState.categories
-    categoryGroups.value = initialState.categoryGroups
-    debugLog("[categoryStore] reset - Reset to initial state.")
-    loadCategories()
+    categoryGroups.value = categoryGroups.value.filter(g => g.id !== id);
+    saveCategoryGroups();
+    debugLog('[categoryStore] deleteCategoryGroup', { id, result: 'Success' });
+    return true;
   }
 
   function setMonthlySnapshot() {
-    categories.value.forEach(category => {
-      category.startBalance = category.balance
-      debugLog("[categoryStore] setMonthlySnapshot - Category:", {
-        id: category.id,
-        newStartBalance: category.startBalance
-      })
-    })
-    saveCategories()
+    categories.value.forEach(c => {
+      c.startBalance = c.balance;
+      debugLog('[categoryStore] setMonthlySnapshot', { id: c.id, newStartBalance: c.startBalance });
+    });
+    saveCategories();
   }
 
-  function getAvailableFundsCategory(): Category | undefined {
-    return categories.value.find(c => c.name === "Verfügbare Mittel");
+  function getAvailableFundsCategory() {
+    return categories.value.find(c => c.name === 'Verfügbare Mittel');
   }
 
-  // Neuer Expanded-State mit Persistierung
-  const expandedCategories = ref<Set<string>>(new Set())
-
+  /* -------------------------- Expanded-Handling (tenant-spezifisch) */
   function loadExpandedCategories() {
-    const stored = localStorage.getItem('finwise_expanded_categories')
-    if (stored) {
+    const raw = localStorage.getItem(storageKey('expanded_categories'));
+    if (raw) {
       try {
-        const ids = JSON.parse(stored)
-        expandedCategories.value = new Set(ids)
-        debugLog("[categoryStore] loadExpandedCategories - Loaded expanded categories:", [...expandedCategories.value])
+        const ids = JSON.parse(raw);
+        expandedCategories.value = new Set(ids);
+        debugLog('[categoryStore] loadExpandedCategories', [...expandedCategories.value]);
       } catch (error) {
-        debugLog("[categoryStore] loadExpandedCategories - Error parsing expanded state:", error)
+        debugLog('[categoryStore] loadExpandedCategories - parse error', error);
       }
     }
   }
 
   function saveExpandedCategories() {
-    localStorage.setItem('finwise_expanded_categories', JSON.stringify([...expandedCategories.value]))
-    debugLog("[categoryStore] saveExpandedCategories - Saved expanded categories:", [...expandedCategories.value])
+    localStorage.setItem(
+      storageKey('expanded_categories'),
+      JSON.stringify([...expandedCategories.value]),
+    );
+    debugLog('[categoryStore] saveExpandedCategories', [...expandedCategories.value]);
   }
 
   function toggleCategoryExpanded(id: string) {
     if (expandedCategories.value.has(id)) {
-      expandedCategories.value.delete(id)
-      debugLog("[categoryStore] toggleCategoryExpanded - Collapsed:", id)
+      expandedCategories.value.delete(id);
     } else {
-      expandedCategories.value.add(id)
-      debugLog("[categoryStore] toggleCategoryExpanded - Expanded:", id)
+      expandedCategories.value.add(id);
     }
-    saveExpandedCategories()
+    saveExpandedCategories();
+    debugLog('[categoryStore] toggleCategoryExpanded', id);
   }
 
   function expandAllCategories() {
-    const parentIds = categories.value.filter(c => !c.parentCategoryId).map(c => c.id)
-    expandedCategories.value = new Set(parentIds)
-    debugLog("[categoryStore] expandAllCategories", [...expandedCategories.value])
-    saveExpandedCategories()
+    const parentIds = categories.value.filter(c => !c.parentCategoryId).map(c => c.id);
+    expandedCategories.value = new Set(parentIds);
+    saveExpandedCategories();
+    debugLog('[categoryStore] expandAllCategories', [...expandedCategories.value]);
   }
 
   function collapseAllCategories() {
-    expandedCategories.value.clear()
-    debugLog("[categoryStore] collapseAllCategories")
-    saveExpandedCategories()
+    expandedCategories.value.clear();
+    saveExpandedCategories();
+    debugLog('[categoryStore] collapseAllCategories');
   }
 
-  loadCategories()
+  /* ----------------------------------------------- Persistence */
+  function loadCategories() {
+    const raw = localStorage.getItem(storageKey('categories'));
+    categories.value = raw ? JSON.parse(raw) : [];
 
+    const rawGrp = localStorage.getItem(storageKey('categoryGroups'));
+    categoryGroups.value = rawGrp ? JSON.parse(rawGrp) : [];
+
+    if (!categories.value.find(c => c.name === 'Verfügbare Mittel')) {
+      addCategory({
+        name: 'Verfügbare Mittel',
+        parentCategoryId: null,
+        sortOrder: 9999,
+        isActive: true,
+        isIncomeCategory: true,
+        isSavingsGoal: false,
+        categoryGroupId: null,
+      });
+      debugLog('[categoryStore] loadCategories - created AvailableFundsCategory');
+    }
+
+    loadExpandedCategories();
+
+    debugLog('[categoryStore] loadCategories', {
+      cats: categories.value.length,
+      groups: categoryGroups.value.length,
+    });
+  }
+
+  function saveCategories() {
+    localStorage.setItem(
+      storageKey('categories'),
+      JSON.stringify(categories.value),
+    );
+  }
+
+  function saveCategoryGroups() {
+    localStorage.setItem(
+      storageKey('categoryGroups'),
+      JSON.stringify(categoryGroups.value),
+    );
+  }
+
+  function reset() {
+    categories.value = [];
+    categoryGroups.value = [];
+    loadCategories();
+  }
+
+  loadCategories();
+
+  /* ----------------------------------------------- Exports */
   return {
-    getAvailableFundsCategory,
-    categories,
-    categoryGroups,
-    getCategoryById,
-    findCategoryById,
-    getCategoriesByParentId,
-    getChildCategories,
-    rootCategories,
-    savingsGoals,
-    categoriesByGroup,
-    addCategory,
-    updateCategory,
-    deleteCategory,
-    updateCategoryBalance,
-    addCategoryGroup,
-    deleteCategoryGroup,
-    loadCategories,
-    reset,
-    setMonthlySnapshot,
-    // Exportierter Expanded-State und zugehörige Funktionen
-    expandedCategories,
-    toggleCategoryExpanded,
-    expandAllCategories,
-    collapseAllCategories
-  }
-})
+    categories, categoryGroups, expandedCategories,
+    getCategoryById, findCategoryById,
+    getCategoriesByParentId, getChildCategories,
+    rootCategories, savingsGoals, categoriesByGroup,
+    addCategory, updateCategory, deleteCategory, updateCategoryBalance,
+    addCategoryGroup, deleteCategoryGroup,
+    setMonthlySnapshot, getAvailableFundsCategory,
+    toggleCategoryExpanded, expandAllCategories, collapseAllCategories,
+    loadCategories, reset,
+  };
+});

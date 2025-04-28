@@ -2,8 +2,6 @@
 import { ref } from "vue";
 import { useRouter } from "vue-router";
 import { Icon } from "@iconify/vue";
-import { seedData, clearData } from "../../mock/seed";
-
 import { useAccountStore } from "../../stores/accountStore";
 import { useCategoryStore } from "../../stores/categoryStore";
 import { useRecipientStore } from "../../stores/recipientStore";

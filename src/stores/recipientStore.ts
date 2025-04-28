@@ -1,61 +1,71 @@
-import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
-import { v4 as uuidv4 } from 'uuid'
-import { Recipient } from '../types'
+// src/stores/recipientStore.ts
+/**
+ * Pfad: src/stores/recipientStore.ts
+ * Empfänger-/Auftraggeber-Store – tenant-spezifisch.
+ */
+
+import { defineStore } from 'pinia';
+import { ref, computed } from 'vue';
+import { v4 as uuidv4 } from 'uuid';
+import { Recipient } from '@/types';
+import { storageKey } from '@/utils/storageKey';
+import { debugLog } from '@/utils/logger';
 
 export const useRecipientStore = defineStore('recipient', () => {
-  // State
-  const recipients = ref<Recipient[]>([]) // Initialize as empty array
+  /* ----------------------------------------------------- State */
+  const recipients = ref<Recipient[]>([]);
 
-  // Getters
-  const getRecipientById = computed(() => {
-    return (id: string) => recipients.value.find(recipient => recipient.id === id)
-  })
+  /* --------------------------------------------------- Getters */
+  const getRecipientById = computed(() => (id: string) =>
+    recipients.value.find(r => r.id === id),
+  );
 
-  // Actions
+  /* --------------------------------------------------- Actions */
   function addRecipient(recipient: Omit<Recipient, 'id'>) {
-    const newRecipient: Recipient = { id: uuidv4(), ...recipient }
-    recipients.value.push(newRecipient)
-    saveRecipients()
-    return newRecipient
+    const r: Recipient = { id: uuidv4(), ...recipient };
+    recipients.value.push(r);
+    saveRecipients();
+    debugLog('[recipientStore] addRecipient', { id: r.id });
+    return r;
   }
 
   function updateRecipient(id: string, updates: Partial<Recipient>) {
-    const index = recipients.value.findIndex(recipient => recipient.id === id)
-    if (index !== -1) {
-      recipients.value[index] = { ...recipients.value[index], ...updates }
-      saveRecipients()
-      return true
-    }
-    return false
+    const idx = recipients.value.findIndex(r => r.id === id);
+    if (idx === -1) return false;
+    recipients.value[idx] = { ...recipients.value[idx], ...updates };
+    saveRecipients();
+    debugLog('[recipientStore] updateRecipient', { id });
+    return true;
   }
 
   function deleteRecipient(id: string) {
-    recipients.value = recipients.value.filter(recipient => recipient.id !== id)
-    saveRecipients()
-    return true
+    recipients.value = recipients.value.filter(r => r.id !== id);
+    saveRecipients();
+    debugLog('[recipientStore] deleteRecipient', { id });
+    return true;
   }
 
-  // Persistenz
+  /* ------------------------------------------------ Persistence */
   function loadRecipients() {
-    const savedRecipients = localStorage.getItem('finwise_recipients')
-    if (savedRecipients) {
-      recipients.value = JSON.parse(savedRecipients)
-    }
+    const raw = localStorage.getItem(storageKey('recipients'));
+    recipients.value = raw ? JSON.parse(raw) : [];
+    debugLog('[recipientStore] loadRecipients', { cnt: recipients.value.length });
   }
 
   function saveRecipients() {
-    localStorage.setItem('finwise_recipients', JSON.stringify(recipients.value))
+    localStorage.setItem(storageKey('recipients'), JSON.stringify(recipients.value));
+    debugLog('[recipientStore] saveRecipients', { cnt: recipients.value.length });
   }
-
-  // Initialisierung beim Laden
-  loadRecipients()
 
   function reset() {
-    recipients.value = []
-    loadRecipients()
+    recipients.value = [];
+    loadRecipients();
+    debugLog('[recipientStore] reset');
   }
-  
+
+  loadRecipients();
+
+  /* ----------------------------------------------- Exports */
   return {
     recipients,
     getRecipientById,
@@ -63,6 +73,6 @@ export const useRecipientStore = defineStore('recipient', () => {
     updateRecipient,
     deleteRecipient,
     loadRecipients,
-    reset
-  }
-})
+    reset,
+  };
+});
