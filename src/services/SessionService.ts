@@ -19,12 +19,13 @@ export const SessionService = {
       // Lade Session aus LocalStorage beim ersten Guard-Aufruf
       if (!session.currentUserId) session.loadSession();
 
-      const isAuthRoute = ['/login', '/register'].includes(to.path);
-      const isTenantRoute = to.path === '/tenant-select';
+      const isAuthRoute    = ['/login', '/register'].includes(to.path);
+      const isTenantRoute  = to.path === '/tenant-select';
 
       /* ---------- Kein User eingeloggt ---------- */
       if (!session.currentUserId) {
         if (isAuthRoute) return next();
+        debugLog('[SessionService] redirect → /login', { target: to.path });
         return next({ path: '/login' });
       }
 
@@ -33,21 +34,37 @@ export const SessionService = {
         // Versuche automatisch einen Tenant zu setzen
         const ok = TenantService.ensureTenantSelected();
         if (!ok) {
-          if (!isTenantRoute) return next({ path: '/tenant-select' });
+          if (!isTenantRoute) {
+            debugLog('[SessionService] redirect → /tenant-select', { target: to.path });
+            return next({ path: '/tenant-select' });
+          }
         }
       }
 
-      /* ---------- Auth + Tenant OK ---------- */
-      if (isAuthRoute || isTenantRoute) {
-        // Schon eingeloggt → zum Dashboard
+      /* ---------- Auth-Routen ---------- */
+      if (isAuthRoute) {
+        // Bereits eingeloggt → Dashboard (Tenant vorausgesetzt)
+        if (session.currentTenantId) {
+          debugLog('[SessionService] redirect (Auth) → /');
+          return next({ path: '/' });
+        }
+        // Kein Tenant → zuerst Tenant wählen
+        debugLog('[SessionService] redirect (Auth) → /tenant-select');
+        return next({ path: '/tenant-select' });
+      }
+
+      /* ---------- Tenant-Route ---------- */
+      if (isTenantRoute && session.currentTenantId) {
+        // Tenant bereits gewählt → Dashboard
+        debugLog('[SessionService] redirect (Tenant chosen) → /');
         return next({ path: '/' });
       }
 
+      /* ---------- Alles OK ---------- */
       return next();
     });
 
     // Logging erst NACH vollständigem Setup
-    // Sicherer Weg (wenn infoLog benötigt wird)
     setTimeout(() => {
       infoLog('[SessionService]', 'Router-Guards aktiviert');
     }, 0);
