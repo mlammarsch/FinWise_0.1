@@ -8,7 +8,7 @@ import {
   RecurrenceEndType,
 } from '@/types';
 import dayjs from 'dayjs';
-import { debugLog } from '@/utils/logger';
+import { debugLog, infoLog } from '@/utils/logger';
 import { TransactionService } from '@/services/TransactionService';
 import { useRuleStore } from '@/stores/ruleStore';
 import { toDateOnlyString } from '@/utils/formatters';
@@ -239,24 +239,50 @@ export const PlanningService = {
     const start = dayjs(startDate);
     const end = dayjs(endDate);
     const txStart = dayjs(toDateOnlyString(planTx.startDate));
+
     if (txStart.isAfter(end)) return [];
     if (planTx.endDate && dayjs(toDateOnlyString(planTx.endDate)).isBefore(start))
       return [];
+
     let currentDate = txStart;
     let count = 0;
     const maxIterations = 1000;
-    while (currentDate.isSameOrBefore(end) && count < maxIterations) {
+
+    // Ohne Wiederholung oder bei ONCE: nur eine Buchung, wenn im Zeitraum
+    if (!planTx.repeatsEnabled || planTx.recurrencePattern === RecurrencePattern.ONCE) {
       let adjustedDate = PlanningService.applyWeekendHandling(currentDate, planTx.weekendHandling);
       if (adjustedDate.isSameOrAfter(start) && adjustedDate.isSameOrBefore(end)) {
         occurrences.push(toDateOnlyString(adjustedDate.toDate()));
       }
+      return occurrences;
+    }
+
+    while (currentDate.isSameOrBefore(end) && count < maxIterations) {
+      let adjustedDate = PlanningService.applyWeekendHandling(currentDate, planTx.weekendHandling);
+
+      if (adjustedDate.isSameOrAfter(start) && adjustedDate.isSameOrBefore(end)) {
+        occurrences.push(toDateOnlyString(adjustedDate.toDate()));
+      }
+
+      // Begrenzung der maximalen Prognosebuchungen bei "nie endet" auf 24 Monate
+      if (planTx.recurrenceEndType === RecurrenceEndType.NEVER) {
+        const maxEndDate = dayjs(start).add(24, 'months');
+        if (adjustedDate.isAfter(maxEndDate)) {
+          break;
+        }
+      }
+
+      // Korrekte Zählung bei RecurrenceEndType.COUNT (Zählung beginnt bei 0)
       if (
         planTx.recurrenceEndType === RecurrenceEndType.COUNT &&
         planTx.recurrenceCount !== null &&
-        ++count >= planTx.recurrenceCount
+        count >= (planTx.recurrenceCount - 1)
       ) {
         break;
       }
+
+      count++;
+
       switch (planTx.recurrencePattern) {
         case RecurrencePattern.DAILY:
           currentDate = currentDate.add(1, 'day');
@@ -288,6 +314,7 @@ export const PlanningService = {
         case RecurrencePattern.ONCE:
           return occurrences;
       }
+
       if (
         planTx.recurrenceEndType === RecurrenceEndType.DATE &&
         planTx.endDate &&
@@ -296,6 +323,7 @@ export const PlanningService = {
         break;
       }
     }
+
     return occurrences;
   },
 
@@ -614,5 +642,79 @@ export const PlanningService = {
     localStorage.setItem('finwise_last_forecast_update', Date.now().toString());
     debugLog("[PlanningService] updateForecasts - Monatsbilanzen aktualisiert");
     return true;
+  },
+
+  /**
+   * Überprüft und ergänzt Prognosebuchungen für aktive Planungstransaktionen bis 24 Monate in die Zukunft
+   */
+  refreshForecastsForFuturePeriod() {
+    const planningStore = usePlanningStore();
+    const today = dayjs();
+    const endDate = today.add(24, 'months').format('YYYY-MM-DD');
+    let updatedForecastsCount = 0;
+
+    infoLog("[PlanningService]", "Überprüfe Prognosebuchungen für die nächsten 24 Monate");
+
+    planningStore.planningTransactions.forEach(plan => {
+      if (!plan.isActive || plan.recurrencePattern === RecurrencePattern.ONCE) return;
+
+      // Bei Gegenbuchungen: Überprüfung überspringen, wird mit Hauptbuchung behandelt
+      if (plan.counterPlanningTransactionId &&
+          (plan.transactionType === TransactionType.ACCOUNTTRANSFER ||
+           plan.transactionType === TransactionType.CATEGORYTRANSFER)) {
+        return;
+      }
+
+      // Nur Planungen prüfen, die nicht enden oder deren Enddatum in der Zukunft liegt
+      if (plan.recurrenceEndType === RecurrenceEndType.DATE &&
+          plan.endDate &&
+          dayjs(plan.endDate).isBefore(today)) {
+        return;
+      }
+
+      // Alle zukünftigen Ausführungsdaten berechnen
+      const occurrences = this.calculateNextOccurrences(
+        plan,
+        today.format('YYYY-MM-DD'),
+        endDate
+      );
+
+      // Wenn Termine vorhanden: Startdatum aktualisieren falls nötig
+      if (occurrences.length > 0) {
+        const firstOccurrence = occurrences[0];
+
+        // Wenn das nächste berechnete Datum nach dem aktuellen Startdatum liegt
+        if (dayjs(firstOccurrence).isAfter(dayjs(plan.startDate))) {
+          debugLog("[PlanningService] refreshForecastsForFuturePeriod - Aktualisiere Startdatum", {
+            planId: plan.id,
+            name: plan.name,
+            oldStartDate: plan.startDate,
+            newStartDate: firstOccurrence,
+            occurrencesCount: occurrences.length
+          });
+
+          // Startdatum aktualisieren
+          planningStore.updatePlanningTransaction(plan.id, { startDate: firstOccurrence });
+          updatedForecastsCount++;
+
+          // Auch Gegenbuchung aktualisieren, wenn vorhanden
+          if (plan.counterPlanningTransactionId) {
+            planningStore.updatePlanningTransaction(plan.counterPlanningTransactionId, {
+              startDate: firstOccurrence
+            });
+          }
+        }
+      }
+    });
+
+    // Monatsbilanzen neu berechnen, wenn Änderungen vorgenommen wurden
+    if (updatedForecastsCount > 0) {
+      BalanceService.calculateMonthlyBalances();
+      infoLog("[PlanningService]", `${updatedForecastsCount} Prognosebuchungen für zukünftige Perioden aktualisiert`);
+    } else {
+      infoLog("[PlanningService]", "Keine Aktualisierung der Prognosebuchungen erforderlich");
+    }
+
+    return updatedForecastsCount;
   }
 };

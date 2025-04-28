@@ -7,6 +7,31 @@ Falls Dir die bereitgestellten Dateien nicht ausreichen um die Implementierung v
 - Arbeite in Cleancode
 - Ändere oder lösche keinerlei Funktionen, die mit der direkten Aufgabenstellung im ersten Blick nichts zu tun haben. Beware die Konsistenz bestehender Codebereiche.
 
+## Logging
+Es gibt diese 4 Typen von Logs:
+/**
+ * Shortcuts für verschiedene Log-Typen
+ */
+export const debugLog = (category: string, message: string, ...args: any[]) =>
+    log(LogLevel.DEBUG, category, message, ...args);
+
+export const infoLog = (category: string, message: string, ...args: any[]) =>
+    log(LogLevel.INFO, category, message, ...args);
+
+export const warnLog = (category: string, message: string, ...args: any[]) =>
+    log(LogLevel.WARN, category, message, ...args);
+
+export const errorLog = (category: string, message: string, ...args: any[]) =>
+    log(LogLevel.ERROR, category, message, ...args);
+
+- Achte bei Debuglogsetzungen darauf, dass Obejekte flach als String ausgegeben werden müssen. Sonst kann man sie nicht in der Konsole nachverfolgen.
+- Wichtig ist dabei, dass neben betroffener Ids auch immer Klarnamen der Datensätze mit ausgegeben werden.
+- Setze Debuglogs in komplexen Bereichen. CalculateMonthlyBalance, Unterprozesse zu den End2End Prozessen
+- Nutze infolog für End2End Prozesse. Beispiel: "[Servicename] Planbuchung xy mit Betrag z" erstellt, "[Servicename] Transaktion xy von a nach b in höhe von c ausgeführt". "[Store] Buchung von ... nach ... über ... persistiert". Und so weiter. Also nennenswerte Gesamtprozesse, bei denen nicht 1000 Instanzen in einem Rutsch geloggt werden (Beispiel: Betragsausgaben in einer Pivottabelle, bei der jede einzelne Ausgabe geloggt wird. Übrigens: Solche Mammutausgaben können aus dem Code nach und nach entfernt werden.)
+- Nutze warningLogs, wenn es zu Ausgaben käme, die beachtenswert sind.
+- Nutze Errorlogs, wenn auch die Software Errors erzeugen würde.
+- Wenn Du auf eine Datei stößt, deren Logeinträge noch nicht vollständig in dieser Struktur erscheinen, führe selbständig Korrekturen durch.
+
 
 ### Kommentare in den Dateien:
 - Setze Kommentare nur für die Funktionen oder im HTML auf die Hauptelemente jeweils in deutsch. Vermeide zu viel Kommentare in einzelnen Zeilen innerhalb der Funktionen oder Änderungskommentare gegenüber der letzten Version. Immer nur die jeweilige Hauptfunktion, oder-Methode kommentieren.
@@ -29,11 +54,21 @@ Falls Dir die bereitgestellten Dateien nicht ausreichen um die Implementierung v
 
 
 ## Ausgabeverhalten
-Halte Deine Antworten knapp und verzichte auf Einleitungen (Bsp. "Hier ist das gewünschte Ergebnis...") oder Zusammenfassungen. Antworte nur auf explizite Fragen, die eine Erklärung erfordern, und halte diese Erklärungen kurz und prägnant. Lass Emoticons weg. Der Text soll förmlich und professionell zurückkommen.
-Die Dateiausgabe IMMER in kompletter Form. Es ist sehr wichtig, dass Du komplette Files ausgibst, da ich per copy & paste die Files übernehme. Überprüfe auf die Kommentarvollständigkeit (Hauptfunktionen) in der Ausgabe und ob alle Debug-Ausgaben existieren.
+-Zuerst prüfe meine Anforderung genauestens. Fasse mir alle Punkte zusammen, die ich angefordert habe und Du jetzt umsetzen möchtest. Damit will ich vor Codeausgabe erkennen können, dass Du meine Anforderung korrekt verstanden hast.
+-Stelle Fragen, sofern Dir Informationen fehlen. Wenn Dir bestimmte Dateien fehlen, sag bescheid, bevor Du mit der Codeausgabe beginnst.
+- Warte mit erster Codeausgabe, bis ich Dir ein "Go" gebe. Ich will erst erkennen können, dass Du meine Aufgabenstellung vollständig erfasst hast.
 
-Als Einleitung der Ausgabe immer ganz kurz die Änderungen auflisten, die gegenüber letzter Version vorgenommen wurden:
+### weitere Codeausgabe
+Verzichte auf Einleitungen (Bsp. "Hier ist das gewünschte Ergebnis...") oder Zusammenfassungen. Antworte nur auf explizite Fragen, die eine Erklärung erfordern, und halte diese Erklärungen kurz und prägnant. Lass Emoticons weg.
 
+Code-Datei Ausgaben IMMER in kompletter Form (ganzes File). Eine Ausnahme sind *.vue Dateien, bei denen nur geänderte Teilbereiche (template oder script) ausgegeben werden müssen, wenn nur Teile bearbeitet wurden. Bitte dann aber deutlich darauf hinweisen, dass nur Script- oder nur Templatebereich betroffen! Es ist sehr wichtig, dass Du komplette Files ausgibst, da ich per copy & paste die Files übernehme. Überprüfe auf die Kommentarvollständigkeit (Kommentare in Hauptmethoden) in der Ausgabe und ob alle Debug-Ausgaben, wie oben spezifiziert, existieren.
+
+Als Einleitung der Code-Ausgabe immer ganz kurz die Änderungen auflisten, die gegenüber letzter Version vorgenommen wurden:
+
+## Filename
+- Vollständige Ausgabe oder Teilausgebe (Bei Teilausgabe nähere Hinweise)
+- Falls Teilausgabe auf Methodenebene, immer die ganze Hauptmethode ohne fehlende Zwischenmethoden ausgeben
 ### Änderung gegenüber letzter Variante:
-- Erste Änderung (Zeige Code Schnipsel der Änderung)
-- ... weitere Änderungen (Zeige Code Schnipsel der Änderung)
+- Erste Änderung
+- zweite Änderungen
+- usw.

@@ -259,6 +259,9 @@ function updateForecasts() {
 onMounted(() => {
   BalanceService.calculateMonthlyBalances();
 
+  // Prognosebuchungen für zukünftige Zeiträume aktualisieren
+  PlanningService.refreshForecastsForFuturePeriod();
+
   const today = dayjs().format("YYYY-MM-DD");
   let autoCount = 0;
 

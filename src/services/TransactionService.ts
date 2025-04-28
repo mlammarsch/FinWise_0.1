@@ -332,23 +332,26 @@ updateTransaction(
       const available = catStore.getAvailableFundsCategory();
       if (!available) throw new Error("Kategorie 'Verfügbare Mittel' fehlt");
 
-      // Rücktransfer (alte Buchung rückgängig machen)
-      this.addCategoryTransfer(
-        available.id,
-        original.categoryId,
-        original.amount,
-        original.date,
-        'Automatischer Rücktransfer wegen Datumsänderung'
-      );
+      const cat = catStore.getCategoryById(original.categoryId);
+      if (cat?.isIncomeCategory) {
+        // Rücktransfer (alte Buchung rückgängig machen)
+        this.addCategoryTransfer(
+          available.id,
+          original.categoryId,
+          original.amount,
+          original.date,
+          'Automatischer Rücktransfer wegen Datumsänderung'
+        );
 
-      // Neuer Transfer am neuen Datum
-      this.addCategoryTransfer(
-        original.categoryId,
-        available.id,
-        original.amount,
-        newDateAfterUpdate,
-        'Automatischer Transfer wegen Datumsänderung'
-      );
+        // Neuer Transfer am neuen Datum
+        this.addCategoryTransfer(
+          original.categoryId,
+          available.id,
+          original.amount,
+          newDateAfterUpdate,
+          'Automatischer Transfer wegen Datumsänderung'
+        );
+      }
     }
 
     const ok = txStore.updateTransaction(id, updates);
@@ -365,13 +368,16 @@ updateTransaction(
         const available = catStore.getAvailableFundsCategory();
         if (!available) throw new Error("Kategorie 'Verfügbare Mittel' fehlt");
 
-        this.addCategoryTransfer(
-          diff > 0 ? original.categoryId : available.id,
-          diff > 0 ? available.id : original.categoryId,
-          Math.abs(diff),
-          updates.date ?? original.date,
-          'Automatischer Transfer bei Betragsanpassung'
-        );
+        const cat = catStore.getCategoryById(original.categoryId);
+        if (cat?.isIncomeCategory) {
+          this.addCategoryTransfer(
+            diff > 0 ? original.categoryId : available.id,
+            diff > 0 ? available.id : original.categoryId,
+            Math.abs(diff),
+            updates.date ?? original.date,
+            'Automatischer Transfer bei Betragsanpassung'
+          );
+        }
       }
     }
 
@@ -395,13 +401,17 @@ updateTransaction(
     ) {
       const available = catStore.getAvailableFundsCategory();
       if (!available) throw new Error("Kategorie 'Verfügbare Mittel' fehlt");
-      this.addCategoryTransfer(
-        available.id,
-        tx.categoryId,
-        tx.amount,
-        tx.date,
-        'Automatischer Transfer bei Löschung der Einnahme'
-      );
+
+      const cat = catStore.getCategoryById(tx.categoryId);
+      if (cat?.isIncomeCategory) {
+        this.addCategoryTransfer(
+          available.id,
+          tx.categoryId,
+          tx.amount,
+          tx.date,
+          'Automatischer Transfer bei Löschung der Einnahme'
+        );
+      }
     }
 
     const okPrimary = txStore.deleteTransaction(id);
