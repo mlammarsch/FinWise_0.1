@@ -2,22 +2,22 @@
 <script setup lang="ts">
 /**
  * Pfad: src/components/ui/TenantSwitch.vue
- * Kleine Select-Box im Header zum schnellen Tenant-Wechsel.
+ * Kleine Select-Box im Header zum schnellen Tenant-Wechsel & Logout.
  *
- * Props:
- * - Keine
- *
- * Emits:
- * - Keine (intern via TenantService)
+ * Props:  –
+ * Emits: – (intern via Stores/Services)
  */
 
 import { ref, computed } from "vue";
+import { useRouter } from "vue-router";
 import { Icon } from "@iconify/vue";
 import { TenantService } from "@/services/TenantService";
 import { useSessionStore } from "@/stores/sessionStore";
+import { debugLog } from "@/utils/logger";
 
 const dropdown = ref(false);
 const session = useSessionStore();
+const router = useRouter();
 
 const tenants = computed(() => TenantService.getOwnTenants());
 
@@ -28,6 +28,20 @@ function toggle() {
 function switchTenant(id: string) {
   TenantService.switchTenant(id);
   dropdown.value = false;
+}
+
+function logoutFromTenant() {
+  session.logoutTenant();
+  dropdown.value = false;
+  debugLog("[TenantSwitch] logoutTenant");
+  router.push("/tenant-select");
+}
+
+function fullLogout() {
+  session.logout();
+  dropdown.value = false;
+  debugLog("[TenantSwitch] fullLogout");
+  router.push("/login");
 }
 </script>
 
@@ -52,6 +66,15 @@ function switchTenant(id: string) {
         <a :class="{ active: t.id === session.currentTenantId }">
           {{ t.tenantName }}
         </a>
+      </li>
+
+      <li class="divider my-1"></li>
+
+      <li @click="logoutFromTenant" class="rounded-box hover:bg-base-200">
+        <a class="text-base-content">Mandant abmelden</a>
+      </li>
+      <li @click="fullLogout" class="rounded-box hover:bg-base-200">
+        <a class="text-base-content">Logout</a>
       </li>
     </ul>
   </div>

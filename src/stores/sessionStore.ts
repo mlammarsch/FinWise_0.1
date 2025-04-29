@@ -25,7 +25,9 @@ export const useSessionStore = defineStore('session', () => {
   );
 
   const currentTenant = computed<Tenant | null>(() =>
-    currentTenantId.value ? tenantStore.tenants.find(t => t.id === currentTenantId.value) || null : null,
+    currentTenantId.value
+      ? tenantStore.tenants.find(t => t.id === currentTenantId.value) || null
+      : null,
   );
 
   /* ------------------------------------------------------------- Actions */
@@ -35,6 +37,7 @@ export const useSessionStore = defineStore('session', () => {
     debugLog('[sessionStore] login', { userId });
   }
 
+  /** Vollständiges Logout – User & Tenant */
   function logout(): void {
     currentUserId.value   = null;
     currentTenantId.value = null;
@@ -42,6 +45,14 @@ export const useSessionStore = defineStore('session', () => {
     localStorage.removeItem('finwise_activeTenant');
     tenantStore.activeTenantId = null;
     debugLog('[sessionStore] logout');
+  }
+
+  /** Nur den aktiven Mandanten abmelden (User bleibt eingeloggt) */
+  function logoutTenant(): void {
+    currentTenantId.value        = null;
+    tenantStore.activeTenantId   = null;
+    localStorage.removeItem('finwise_activeTenant');
+    debugLog('[sessionStore] logoutTenant');
   }
 
   function switchTenant(tenantId: string): boolean {
@@ -75,6 +86,7 @@ export const useSessionStore = defineStore('session', () => {
     currentTenant,
     login,
     logout,
+    logoutTenant,           //  <-- neu
     switchTenant,
     loadSession,
   };

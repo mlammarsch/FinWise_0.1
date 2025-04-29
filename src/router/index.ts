@@ -23,6 +23,7 @@ import AdminTagsView from '@/views/admin/AdminTagsView.vue';
 import AdminPlanningView from '@/views/admin/AdminPlanningView.vue';
 import AdminRecipientsView from '@/views/admin/AdminRecipientsView.vue';
 import AdminRulesView from '@/views/admin/AdminRulesView.vue';
+import AdminTenantsView from '@/views/admin/AdminTenantsView.vue';          // <-- neu
 
 /* --------------------------------------------------------------------- */
 
@@ -42,12 +43,13 @@ const routes: RouteRecordRaw[] = [
   { path: '/settings',       name: 'settings',       component: SettingsView,  meta: { title: 'Einstellungen', breadcrumb: 'Einstellungen' } },
 
   /* ---------- Admin ---------- */
-  { path: '/admin/accounts',     name: 'admin-accounts',    component: AdminAccountsView, meta: { title: 'Konten verwalten' } },
+  { path: '/admin/accounts',     name: 'admin-accounts',    component: AdminAccountsView,   meta: { title: 'Konten verwalten' } },
   { path: '/admin/categories',   name: 'admin-categories',  component: AdminCategoriesView, meta: { title: 'Kategorien verwalten' } },
-  { path: '/admin/tags',         name: 'admin-tags',        component: AdminTagsView, meta: { title: 'Tags verwalten' } },
-  { path: '/admin/planning',     name: 'admin-planning',    component: AdminPlanningView, meta: { title: 'Planungen verwalten' } },
+  { path: '/admin/tags',         name: 'admin-tags',        component: AdminTagsView,       meta: { title: 'Tags verwalten' } },
+  { path: '/admin/planning',     name: 'admin-planning',    component: AdminPlanningView,   meta: { title: 'Planungen verwalten' } },
   { path: '/admin/recipients',   name: 'admin-recipients',  component: AdminRecipientsView, meta: { title: 'Empfänger verwalten' } },
-  { path: '/admin/rules',        name: 'admin-rules',       component: AdminRulesView, meta: { title: 'Regeln verwalten' } },
+  { path: '/admin/rules',        name: 'admin-rules',       component: AdminRulesView,      meta: { title: 'Regeln verwalten' } },
+  { path: '/admin/tenants',      name: 'admin-tenants',     component: AdminTenantsView,    meta: { title: 'Mandanten verwalten' } },  // <-- neu
 
   /* ---------- Fallback ---------- */
   { path: '/:pathMatch(.*)*', redirect: '/' },

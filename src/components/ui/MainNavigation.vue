@@ -25,6 +25,7 @@ const routes = [
   { path: "/planning", name: "Planung", icon: "mdi:calendar" },
 ];
 
+/* --------------------------- Admin-Routen --------------------------- */
 const adminRoutes = [
   { path: "/admin/accounts", name: "Konten verwalten", icon: "mdi:cash-edit" },
   {
@@ -44,6 +45,11 @@ const adminRoutes = [
     name: "Regeln verwalten",
     icon: "mdi:lightning-bolt",
   },
+  {
+    path: "/admin/tenants",
+    name: "Mandanten",
+    icon: "mdi:office-building-cog",
+  }, // <-- neu
   { path: "/settings", name: "Einstellungen", icon: "mdi:cog" },
 ];
 

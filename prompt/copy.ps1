@@ -84,7 +84,7 @@ $searchFiles = @(
     # "src\components\ui\SelectRecipient.vue",
     # "src\components\ui\TagSearchableDropdown.vue",
     # "src\components\ui\ThemeToggle.vue",
-    # "src\components\ui\TenantSwitch.vue",
+    "src\components\ui\TenantSwitch.vue",
 
     # ### layouts
     # "src\layouts\AppLayout-prod.vue",
@@ -161,7 +161,7 @@ $searchFiles = @(
     # "src\views\admin\AdminAccountsView.vue",
     # "src\views\admin\AdminCategoriesView.vue",
     # "src\views\admin\AdminPlanningView.vue",
-    # "src\views\admin\AdminRecipientsView.vue",
+    "src\views\admin\AdminRecipientsView.vue",
     # "src\views\admin\AdminRulesView.vue",
     # "src\views\admin\AdminTagsView.vue",
 

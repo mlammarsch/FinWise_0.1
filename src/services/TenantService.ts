@@ -16,6 +16,7 @@ export const TenantService = {
     if (!session.currentUserId) throw new Error('Kein eingeloggter User');
 
     const tenant = useTenantStore().addTenant(tenantName, session.currentUserId);
+
     // Basis-Kategorie sicherstellen
     const catStore = useCategoryStore();
     if (!catStore.categories.find(c => c.name === 'Verfügbare Mittel')) {
@@ -60,18 +61,10 @@ export const TenantService = {
 
   /* ------------- Ensure tenant selected after login (helper) */
   ensureTenantSelected(): boolean {
+    // Ein Tenant MUSS aktiv sein, automatische Auswahl ist nicht erwünscht.
     const session = useSessionStore();
-    const tenantStore = useTenantStore();
-
-    if (!session.currentUserId) return false;
-    if (session.currentTenantId) return true;
-
-    const own = tenantStore.getTenantsByUser(session.currentUserId);
-    if (own.length) {
-      session.switchTenant(own[0].id);
-      return true;
-    }
-    debugLog('[TenantService] Kein Tenant vorhanden – Auswahl erforderlich');
-    return false;
+    const ok = !!session.currentTenantId;
+    if (!ok) debugLog('[TenantService] Kein Tenant aktiv – Auswahl erforderlich');
+    return ok;
   },
 };
