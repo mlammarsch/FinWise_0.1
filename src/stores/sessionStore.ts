@@ -1,7 +1,6 @@
 // src/stores/sessionStore.ts
 /**
- * Session-Store – hält aktiven User und aktiven Tenant.
- * Dient Router-Guards und Services als zentrale Quelle.
+ * Session-Store – hält aktiven User und Tenant.
  */
 
 import { defineStore } from 'pinia';
@@ -9,14 +8,15 @@ import { ref, computed } from 'vue';
 import { useUserStore, LocalUser } from './userStore';
 import { useTenantStore, Tenant } from './tenantStore';
 import { debugLog } from '@/utils/logger';
+import { DataService } from '@/services/DataService'; // <-- NEU
 
 export const useSessionStore = defineStore('session', () => {
   /* ---------------------------------------------------------------- State */
-  const currentUserId   = ref<string | null>(null);
+  const currentUserId = ref<string | null>(null);
   const currentTenantId = ref<string | null>(null);
 
   /* ----------------------------------------------------------- Sub-Stores */
-  const userStore   = useUserStore();
+  const userStore = useUserStore();
   const tenantStore = useTenantStore();
 
   /* ------------------------------------------------------------- Getters */
@@ -37,9 +37,8 @@ export const useSessionStore = defineStore('session', () => {
     debugLog('[sessionStore] login', { userId });
   }
 
-  /** Vollständiges Logout – User & Tenant */
   function logout(): void {
-    currentUserId.value   = null;
+    currentUserId.value = null;
     currentTenantId.value = null;
     localStorage.removeItem('finwise_currentUser');
     localStorage.removeItem('finwise_activeTenant');
@@ -47,10 +46,9 @@ export const useSessionStore = defineStore('session', () => {
     debugLog('[sessionStore] logout');
   }
 
-  /** Nur den aktiven Mandanten abmelden (User bleibt eingeloggt) */
   function logoutTenant(): void {
-    currentTenantId.value        = null;
-    tenantStore.activeTenantId   = null;
+    currentTenantId.value = null;
+    tenantStore.activeTenantId = null;
     localStorage.removeItem('finwise_activeTenant');
     debugLog('[sessionStore] logoutTenant');
   }
@@ -74,7 +72,14 @@ export const useSessionStore = defineStore('session', () => {
       currentTenantId.value = tid;
       tenantStore.activeTenantId = tid;
     }
+
     debugLog('[sessionStore] loadSession', { uid, tid });
+
+    // ----------- NEU: nach Initial-Login Tenant-Daten laden -----------
+    if (currentTenantId.value) {
+      DataService.reloadTenantData();
+    }
+    // ------------------------------------------------------------------
   }
 
   loadSession();
@@ -86,7 +91,7 @@ export const useSessionStore = defineStore('session', () => {
     currentTenant,
     login,
     logout,
-    logoutTenant,           //  <-- neu
+    logoutTenant,
     switchTenant,
     loadSession,
   };

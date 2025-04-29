@@ -8,6 +8,7 @@ import { useCategoryStore } from '@/stores/categoryStore';
 import { CategoryService } from '@/services/CategoryService';
 import { useSessionStore } from '@/stores/sessionStore';
 import { infoLog, debugLog } from '@/utils/logger';
+import { DataService } from './DataService'; // <-- NEU
 
 export const TenantService = {
   /* ---------------------------------------------- Create Tenant */
@@ -15,7 +16,10 @@ export const TenantService = {
     const session = useSessionStore();
     if (!session.currentUserId) throw new Error('Kein eingeloggter User');
 
-    const tenant = useTenantStore().addTenant(tenantName, session.currentUserId);
+    const tenant = useTenantStore().addTenant(
+      tenantName,
+      session.currentUserId,
+    );
 
     // Basis-Kategorie sicherstellen
     const catStore = useCategoryStore();
@@ -49,7 +53,11 @@ export const TenantService = {
 
   /* ---------------------------------------------- Switch Tenant */
   switchTenant(tenantId: string): boolean {
-    return useSessionStore().switchTenant(tenantId);
+    const ok = useSessionStore().switchTenant(tenantId);
+    if (ok) {
+      DataService.reloadTenantData(); // <-- NEU
+    }
+    return ok;
   },
 
   /* ---------------------------------- List Tenants of current User */
@@ -61,7 +69,6 @@ export const TenantService = {
 
   /* ------------- Ensure tenant selected after login (helper) */
   ensureTenantSelected(): boolean {
-    // Ein Tenant MUSS aktiv sein, automatische Auswahl ist nicht erwünscht.
     const session = useSessionStore();
     const ok = !!session.currentTenantId;
     if (!ok) debugLog('[TenantService] Kein Tenant aktiv – Auswahl erforderlich');
