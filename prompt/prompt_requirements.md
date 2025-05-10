@@ -1,126 +1,77 @@
-Absolut! Hier ist ein umfassender KI-Prompt, der auf Ihre Anforderungen zugeschnitten ist:
 
-**Prompt:**
+Entwickle einen CSV-Importer für die FinWise-Anwendung, der es Benutzern ermöglicht, Transaktionsdaten aus CSV-Dateien in das System zu importieren. Der Importer soll über einen neuen Menüpunkt "Import" im Dropdown-Menü der Account Card in der Account View zugänglich sein. Durch Auswahl dieses Menüpunkts soll ein Modal-Dialog geöffnet werden, der den Importprozess steuert.
 
-**Ziel:**
+**FUNKTIONALITÄT:**
 
-Optimierung und Erweiterung eines bestehenden System-Prompts für eine Vue.js-Anwendung, um eine umfassende Wissensbasis für die Entwicklung neuer Features, unter Berücksichtigung einer geplanten FastAPI-Backend-Integration und Offline-Fähigkeit zu schaffen.
+1.  **Datei-Upload:**
+    *   Der Modal-Dialog soll eine Möglichkeit bieten, eine CSV-Datei vom lokalen Dateisystem über ein Explorer-Fenster auszuwählen und hochzuladen.
 
-**Kontext:**
+2.  **CSV-Konfiguration:**
+    *   Der Dialog soll ein Formular enthalten, um die CSV-Datei zu konfigurieren:
+        *   **Delimiter:** Ein Feld zur Auswahl des Delimiters (Trennzeichen). Es soll die Möglichkeit geben, einen benutzerdefinierten, einstelligen Delimiter anzugeben.
+        *   **Datumsformat:** Ein Feld zur Auswahl des Datumsformats. Der Importer soll in der Lage sein, verschiedene Datumsformate zu erkennen und in das interne FinWise-Format zu konvertieren. Nutze und erweitere ggf. die bestehenden `Formatters` oder `DateUtils` (prüfe beide auf Relevanz) für die Datumsformatierung.
+        *   **Titelzeile:** Eine Checkbox, um anzugeben, ob die CSV-Datei eine Titelzeile enthält.
+        *   **Merge mit bestehenden Transaktionen:** Eine Checkbox, um anzugeben, ob Transaktionen, die bereits im System vorhanden sind und mit den importierten Daten übereinstimmen (gleiches Datum, Betrag und ähnlicher Empfänger), gemerged werden sollen (siehe Punkt 6).
 
-*   Die Vue.js-Applikation ist modular aufgebaut und umfasst:
-    *   **Stores (Data Layer):** Verwaltet Daten und Zustände.
-    *   **Services (Business Logic Layer):** Implementiert Hauptfunktionen.
-    *   **Vue-Komponenten (UI Layer):** Proprietäre UI-Elemente.
-    *   **Architektur-relevante Dateien/Verzeichnisse:** Account Budget Planning, Rules, Transactions, Components, Layouts, Router, Utils.
-*   Aktuell kein Backend vorhanden.
-*   Geplante FastAPI-Backend-Integration zur Bereitstellung von Funktionen und zur geräteübergreifenden Synchronisation.
-*   Offline-Fähigkeit ist erforderlich: Daten sollen auch ohne Backend-Verbindung lokal gespeichert und bearbeitet werden können (Local Storage).
-*   Konfliktlösung bei der Synchronisation: Der letzte Eintrag (Timestamp) gewinnt.
+3.  **Datenvorschau und Bearbeitung:**
+    *   Nach dem Hochladen und Konfigurieren der CSV-Datei soll eine Tabelle angezeigt werden, die die erkannten Daten aus der CSV-Datei darstellt.
+    *   Die Tabelle soll folgende Spalten enthalten:
+        *   **Buchungsdatum:** (entspricht Wertstellungsdatum)
+        *   **Betrag:** (positiv für Einnahmen, negativ für Ausgaben)
+        *   **Notizen:**
+        *   **Empfänger (CSV):** (Zeigt den Empfänger, wie er in der CSV-Datei steht)
+        *   **Empfänger (FinWise):** (Dropdown-Menü für die Zuordnung, siehe Punkt 4)
+        *   **Kategorie (CSV):** (Zeigt die Kategorie, wie sie in der CSV-Datei steht)
+        *   **Kategorie (FinWise):** (Dropdown-Menü für die Zuordnung, siehe Punkt 4)
+        *   **Importieren/Merge:** Eine Checkbox für jede Zeile. Standardmäßig sollen alle Checkboxen aktiviert sein (Import). Bei potenziellen Merges ändert sich die Bedeutung je nach Fall.
+            *   Wenn die Option "Merge mit bestehenden Transaktionen" aktiv ist *und* eine passende Transaktion gefunden wurde, verwandelt sich die Checkbox in:
+                *   **Tooltip/Erklärung bei Hover:** Eine Beschreibung, dass eine ähnliche Transaktion gefunden wurde und durch Aktivieren der Checkbox die neue Transaktion mit der bereits vorhandenen Transaktion gemerged wird. Hier ist es wichtig, deutlich zu machen, dass durch das Mergen eine neue Transaktion angelegt wird, die die Daten der CSV Datei übernimmt, aber die "alte" Transaktion weiterhin existiert.
+                *   **Anzeige der potenziell zu mergenden Transaktion:** Unterhalb der Zeile mit der CSV-Transaktion soll die entsprechende Zeile aus dem Transaction Store (also die bereits existierende Transaktion) angezeigt werden, sodass der Benutzer die beiden Transaktionen vergleichen kann. Die angezeigte Transaktion soll (z.B. durch unterschiedliche Hintergrundfarbe) als "bereits vorhanden" gekennzeichnet werden.
+            *   Wenn die Option "Merge mit bestehenden Transaktionen" aktiv ist *und keine* passende Transaktion gefunden wurde, soll die Checkbox wie gewohnt als "Importieren" behandelt werden.
+            * Checkbox deaktiviert = Transaktion wird NICHT importiert und NICHT gemerged.
+    *   Die UI-Komponenten des Modals sollen sich designtechnisch am Form "PlanningTransactionForm" orientieren. Zusätzlich kann die "RuleForm" (src\components\rules\RuleForm.vue) und die "Rule Admin View" als Designvorlage dienen.
 
-**Aufgaben:**
+4.  **Empfänger- und Kategorie-Mapping und Ähnlichkeitssuche:**
+    *   **Bedingte Anzeige der Dropdowns:** Die Spalten "Empfänger (FinWise)" und "Kategorie (FinWise)" werden *nur* angezeigt, wenn in der CSV-Konfiguration ein entsprechendes Mapping für Auftraggeber (Empfänger) oder Kategorie aktiviert wurde.
+    *   **Empfänger (FinWise) - Spalte:**
+        *  Für jede Zeile wird ein Dropdown angezeigt, dessen Inhalt die bereits vorhandenen Empfänger sind.
+        *  **Automatischer Vorschlag:** Direkt nach dem Laden der Daten wird *für jede Zeile* eine Ähnlichkeitssuche durchgeführt. Wenn ein ähnlicher Empfänger gefunden wird, wird dieser Empfänger *automatisch im Dropdown vorausgewählt*.
+        *  **"Neu erstellen"-Option:** Das Dropdown-Menü soll auch einen Eintrag "Neu erstellen" enthalten. Wenn KEIN ähnlicher Empfänger gefunden wird (oder die Ähnlichkeit zu gering ist), soll die Option "Neu erstellen" *automatisch vorausgewählt* sein.  Der Prozess für "Neu erstellen" soll dem in der `SelectRecipient.vue` Komponente entsprechen.
+        *   **Manuelle Merge-Option:** Unterhalb des Dropdown-Menüs sollen die restlichen Ergebnisse der Ähnlichkeitssuche (falls vorhanden) angezeigt werden, mit der Option, den neuen Empfänger mit einem der vorgeschlagenen, ähnlichen Einträge zusammenzuführen ("Merge"). Eine Checkbox neben jedem Suchergebnis könnte die Merge-Option aktivieren.
+    *   **Kategorie (FinWise) - Spalte:** (Funktioniert analog zur Empfänger (FinWise) - Spalte, nur für Kategorien)
+        *  Für jede Zeile wird ein Dropdown angezeigt, dessen Inhalt die bereits vorhandenen Kategorien sind.
+        *  **Automatischer Vorschlag:** Direkt nach dem Laden der Daten wird *für jede Zeile* eine Ähnlichkeitssuche durchgeführt. Wenn eine ähnliche Kategorie gefunden wird, wird diese Kategorie *automatisch im Dropdown vorausgewählt*.
+        *  **"Neu erstellen"-Option:** Das Dropdown-Menü soll auch einen Eintrag "Neu erstellen" enthalten. Wenn KEINE ähnliche Kategorie gefunden wird (oder die Ähnlichkeit zu gering ist), soll die Option "Neu erstellen" *automatisch vorausgewählt* sein. Siehe auch hier: src\components\ui\SelectCategory.vue.
+        *   **Manuelle Merge-Option:** Unterhalb des Dropdown-Menüs sollen die restlichen Ergebnisse der Ähnlichkeitssuche (falls vorhanden) angezeigt werden, mit der Option, die neue Kategorie mit einer der vorgeschlagenen, ähnlichen Einträge zusammenzuführen ("Merge"). Eine Checkbox neben jedem Suchergebnis könnte die Merge-Option aktivieren.
 
-1.  **Analyse des bestehenden System-Prompts und des Anwendungscodes:**
-    *   Vergleichen Sie den vorhandenen System-Prompt mit dem mitgelieferten Code der Anwendung.
-    *   Identifizieren Sie Inkonsistenzen, fehlende Informationen und Bereiche, die verbessert werden müssen.
-    *   Analysieren Sie die Architektur, die Abhängigkeiten zwischen den Modulen (Stores, Services, Komponenten, Layouts, Router, Utils) und die Implementierung von Account Budget Planning, Rules und Transactions.
-2.  **Erstellung eines erweiterten System-Prompts:**
-    *   Der erweiterte System-Prompt soll die Struktur der Anwendung, die Verantwortlichkeiten der einzelnen Module und die Datenflüsse klar und präzise beschreiben.
-    *   Er soll detaillierte Informationen über die Architektur, die Verarbeitung, die Zugehörigkeit der einzelnen Bereiche (Account Budget Planning, Rules, Transactions, etc.) und die Komponenten (Layouts, Router, Services, Stores, Utils, Vues) enthalten.
-    *   Der erweiterte System-Prompt muss so strukturiert sein, dass das System, das den Prompt erhält, anhand der bereitgestellten Informationen erkennen kann, welche Dateibereiche für die Erstellung eines neuen Features relevant sind.
-3.  **Bewertung der Mandanten- und Benutzerfähigkeit und der Architektur:**
-    *   Untersuchen Sie den Code auf eine korrekte Implementierung von Mandanten- und Benutzerfähigkeit.
-    *   Beurteilen Sie, ob die aktuelle Architektur die Integration eines FastAPI-Backends unterstützt.
-4.  **Backend-Architektur-Vorschlag (FastAPI):**
-    *   Entwerfen Sie einen Vorschlag für eine FastAPI-API-Architektur, die die Funktionalität der bestehenden Vue.js-Anwendung ohne Backend vollständig abbildet.
-    *   Der Vorschlag muss die Persistierung der Daten, die Authentifizierung und Autorisierung von Benutzern, die Handhabung von Mandantenfähigkeit und die Bereitstellung der benötigten Endpunkte umfassen.
-    *   Berücksichtigen Sie insbesondere die Anforderungen für die geräteübergreifende Synchronisation und Offline-Fähigkeit.
-5.  **Lokales Change Tracking und Synchronisationsstrategie:**
-    *   Entwickeln Sie eine Strategie für das Change Tracking in der Vue.js-Anwendung, um Änderungen lokal zu protokollieren, bevor sie mit dem Backend synchronisiert werden (z.B. mit Hilfe einer Logdatei oder einer anderen geeigneten Methode).
-    *   Stellen Sie sicher, dass das System eine eindeutige Identifikation von Änderungen (z. B. durch Timestamps) ermöglicht und Konflikte durch die Anwendung der "Last-Write-Wins"-Regel (SIG-Datei-Prinzip) auflösen kann.
-    *   Schlagen Sie vor, wie die Synchronisation mit dem FastAPI-Backend implementiert werden kann, um Datenverluste zu vermeiden und eine konsistente Datenbasis zu gewährleisten.
+5.  **Import-Prozess:**
+    *   Nachdem der Benutzer die zu importierenden Transaktionen ausgewählt, die Konfiguration überprüft und ggf. neue Empfänger/Kategorien erstellt oder mit bestehenden zusammengeführt hat, soll ein "Importieren"-Button den Import-Prozess starten.
+    *   Während des Imports soll ein visueller Indikator (z.B. eine "Eieruhr") angezeigt werden, um den Benutzer über den Fortschritt zu informieren.
+    *   Der Import soll *synchron* ablaufen.
+    *   **Nach Abschluss des Imports:**
+        *   Soll nicht nur ein Informationsbanner angezeigt werden, sondern eine Tabelle, die alle importierten Transaktionen und ihre Zuordnungen (Konto, Empfänger, Kategorie) anzeigt. Diese Tabelle soll sich am Design der Tabelle in `src\components\rules\RuleForm.vue` orientieren, die anzeigt, welche Regeln auf welche Transaktionen angewendet wurden. Oder auch src\components\transaction\TransactionList.vue bspw.
 
-**Zusätzliche Informationen:**
+6.  **Merge-Logik:**
+    *   Die Merge-Logik ist nun in Punkt 3 (Datenvorschau und Bearbeitung) beschrieben.
 
-*   Stellen Sie sicher, dass der erweiterte System-Prompt klar, präzise und gut strukturiert ist.
-*   Verwenden Sie Beispiele, um die Architektur und die Datenflüsse zu veranschaulichen.
-*   Erklären Sie die Vor- und Nachteile verschiedener Backend-Architektur-Optionen.
-*   Berücksichtigen Sie bei der Entwicklung der Synchronisationsstrategie die Anforderungen an die Performance, die Sicherheit und die Skalierbarkeit des Systems.
+7.  **Fehlerbehandlung:**
+    *   Das Buchungsdatum und der Betrag sind Pflichtfelder. Wenn diese Felder fehlen oder ungültig sind, soll eine Fehlermeldung angezeigt und der Import der betreffenden Zeile verhindert werden. Nutze einen Validator für diese Felder.
+    *   Bei anderen Fehlern während des Imports (z.B. ungültiges Datumsformat) soll der Import der betreffenden Zeile ebenfalls verhindert und eine entsprechende Fehlermeldung angezeigt werden.
 
+8.  **Datenbank-Interaktion:**
+    *   Alle importierten Transaktionen müssen dem Konto zugeordnet werden, von dem aus der Importer gestartet wurde.
+    *   Der Import und die damit verbundenen Aktionen (z.B. Merging, Erstellen neuer Empfänger/Kategorien) müssen über den Service Layer abgewickelt werden.
+    *   **Nach dem Import MÜSSEN die Rules ausgeführt werden.** Dies sollte bereits im Transaction-Service implementiert sein/werden.
+    *   Nach dem Import müssen die Balance Services (Account und Monthly Balance) entsprechend neu berechnet werden.
+    *   **Alle Seiten und Dialoge, die Transaktionsdaten anzeigen (insbesondere Monthly-, Daily-Seiten und Kontoübersicht), müssen nach dem Import aktualisiert werden, um die aktuellen Daten anzuzeigen.**
 
-# Bisheriger Systemprompt war:
+9.  **Mandantenfähigkeit:**
+    *   Stelle sicher, dass bei jeder Buchung der Mandant und der User korrekt berücksichtigt werden. Die Mandantenzugehörigkeit ergibt sich aus dem Konto, dem die Transaktion zugeordnet wird.
 
-Du bist ein Assistent für Code-Modifikationen in JavaScript, TypeScript, HTML, Tailwind CSS 4.0 und daisyui 5.0. Der Benutzer stellt Dir Code und eine Änderungsanforderung zur Verfügung. Deine Aufgabe ist es, die Änderungen direkt vorzunehmen und den vollständigen, aktualisierten Code als Markdown-Codeblock zurückzugeben. Falls der Benutzer eine ganze Datei übermittelt, gib die komplette Datei zurück.
+**ZUSÄTZLICHE HINWEISE:**
 
-Falls Dir die bereitgestellten Dateien nicht ausreichen um die Implementierung vorzunehmen, sag mir genau, welche Dateien Du zusätzlich benötigst, bevor Du mit irgendwelchen Ausgaben beginnst. Gib mir alle geänderten Dateien "immer und jederzeit" vollständig aus.
-
-## Code Regeln
-- Setze den Scriptblock bei vue Dateien immer oben, in der Mitte das html-Template und falls vorhanden, den Style nach unten.
-- Arbeite in Cleancode
-- Ändere oder lösche keinerlei Funktionen, die mit der direkten Aufgabenstellung im ersten Blick nichts zu tun haben. Beware die Konsistenz bestehender Codebereiche.
-
-## Logging
-Es gibt diese 4 Typen von Logs:
-/**
- * Shortcuts für verschiedene Log-Typen
- */
-export const debugLog = (category: string, message: string, ...args: any[]) =>
-    log(LogLevel.DEBUG, category, message, ...args);
-
-export const infoLog = (category: string, message: string, ...args: any[]) =>
-    log(LogLevel.INFO, category, message, ...args);
-
-export const warnLog = (category: string, message: string, ...args: any[]) =>
-    log(LogLevel.WARN, category, message, ...args);
-
-export const errorLog = (category: string, message: string, ...args: any[]) =>
-    log(LogLevel.ERROR, category, message, ...args);
-
-- Achte bei Debuglogsetzungen darauf, dass Obejekte flach als String ausgegeben werden müssen. Sonst kann man sie nicht in der Konsole nachverfolgen.
-- Wichtig ist dabei, dass neben betroffener Ids auch immer Klarnamen der Datensätze mit ausgegeben werden.
-- Setze Debuglogs in komplexen Bereichen. CalculateMonthlyBalance, Unterprozesse zu den End2End Prozessen
-- Nutze infolog für End2End Prozesse. Beispiel: "[Servicename] Planbuchung xy mit Betrag z" erstellt, "[Servicename] Transaktion xy von a nach b in höhe von c ausgeführt". "[Store] Buchung von ... nach ... über ... persistiert". Und so weiter. Also nennenswerte Gesamtprozesse, bei denen nicht 1000 Instanzen in einem Rutsch geloggt werden (Beispiel: Betragsausgaben in einer Pivottabelle, bei der jede einzelne Ausgabe geloggt wird. Übrigens: Solche Mammutausgaben können aus dem Code nach und nach entfernt werden.)
-- Nutze warningLogs, wenn es zu Ausgaben käme, die beachtenswert sind.
-- Nutze Errorlogs, wenn auch die Software Errors erzeugen würde.
-- Wenn Du auf eine Datei stößt, deren Logeinträge noch nicht vollständig in dieser Struktur erscheinen, führe selbständig Korrekturen durch.
-
-
-### Kommentare in den Dateien:
-- Setze Kommentare nur für die Funktionen oder im HTML auf die Hauptelemente jeweils in deutsch. Vermeide zu viel Kommentare in einzelnen Zeilen innerhalb der Funktionen oder Änderungskommentare gegenüber der letzten Version. Immer nur die jeweilige Hauptfunktion, oder-Methode kommentieren.
-- Bei Komponenten, die Props und Emits besitzen, erzeuge (falls nicht schon vorhanden) einen Beschreibungskommentar wie das folgende Beispiel hier. Ergänze und ändere, wenn das Format nicht schon existiert. Wenn keine Props und Emits existieren, überspringe dies:
-  /**
- * Pfad zur Komponente: Pfad
- * Kurze Beschreibung der Komponente.
- * Komponenten-Props:
- * - amount: number - Die anzuzeigende Zahl (Betrag)
- * - showSign?: boolean - Optional: Vorzeichen anzeigen (+ für positive Werte)
- * - showZero?: boolean - Optional: 0-Werte anzeigen oder nicht
- * - asInteger?: boolean - Optional: Betrag als Ganzzahl ausgeben
- *
- * Emits:
- * - Keine Emits vorhanden
- */
- - Setze einen Kommentar ganz oben in der Datei, die den relativen Pfad mit Dateinamen beschreibt
-
----
-
-
-## Ausgabeverhalten
--Zuerst prüfe meine Anforderung genauestens. Fasse mir alle Punkte zusammen, die ich angefordert habe und Du jetzt umsetzen möchtest. Damit will ich vor Codeausgabe erkennen können, dass Du meine Anforderung korrekt verstanden hast.
--Stelle Fragen, sofern Dir Informationen fehlen. Wenn Dir bestimmte Dateien fehlen, sag bescheid, bevor Du mit der Codeausgabe beginnst.
-- Warte mit erster Codeausgabe, bis ich Dir ein "Go" gebe. Ich will erst erkennen können, dass Du meine Aufgabenstellung vollständig erfasst hast.
-
-### weitere Codeausgabe
-Verzichte auf Einleitungen (Bsp. "Hier ist das gewünschte Ergebnis...") oder Zusammenfassungen. Antworte nur auf explizite Fragen, die eine Erklärung erfordern, und halte diese Erklärungen kurz und prägnant. Lass Emoticons weg.
-
-Code-Datei Ausgaben IMMER in kompletter Form (ganzes File). Eine Ausnahme sind *.vue Dateien, bei denen nur geänderte Teilbereiche (template oder script) ausgegeben werden müssen, wenn nur Teile bearbeitet wurden. Bitte dann aber deutlich darauf hinweisen, dass nur Script- oder nur Templatebereich betroffen! Es ist sehr wichtig, dass Du komplette Files ausgibst, da ich per copy & paste die Files übernehme. Überprüfe auf die Kommentarvollständigkeit (Kommentare in Hauptmethoden) in der Ausgabe und ob alle Debug-Ausgaben, wie oben spezifiziert, existieren.
-
-Als Einleitung der Code-Ausgabe immer ganz kurz die Änderungen auflisten, die gegenüber letzter Version vorgenommen wurden:
-
-## Filename
-- Vollständige Ausgabe oder Teilausgebe (Bei Teilausgabe nähere Hinweise)
-- Falls Teilausgabe auf Methodenebene, immer die ganze Hauptmethode ohne fehlende Zwischenmethoden ausgeben
-### Änderung gegenüber letzter Variante:
-- Erste Änderung
-- zweite Änderungen
-- usw.
+*   Berücksichtige bei der Entwicklung die bestehenden UI-Komponenten und Designrichtlinien der existierenden Dialoge (Farben, Rahmen, Schriftgrößen, Feldlabels aka Fieldset (siehe src\components\planning\PlanningTransactionForm.vue), Validater, etc.).
+*   Achte auf eine klare und intuitive Benutzerführung.
+*   Der Dialog soll vollständig in deutsch sein.
+*   Erstausgabe: Wiederhole zuerst die Anforderung und erkläre bei jedem Punkt, was das für Dich an Veränderungenen bedeutet und welche Dateien Du dafür veränderst oder neu anlegst. Erst nach meinem Go erfolgen dann die Dateiausgaben Deinerseits.
+*   Den Importdialog hinterlege am besten in den transaction Ordner.
