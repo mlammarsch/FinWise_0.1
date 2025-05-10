@@ -34,7 +34,7 @@ $searchFiles = @(
      "prompt\sytemprompt.md",
 
     # ### components\account
-    "src\components\account\AccountCard.vue",
+    # "src\components\account\AccountCard.vue",
     # "src\components\account\AccountForm.vue",
     # "src\components\account\AccountGroupCard.vue",
     # "src\components\account\AccountGroupForm.vue",
@@ -51,7 +51,7 @@ $searchFiles = @(
     # ### components\planning
     # "src\components\planning\AccountForecastChart.vue",
     # "src\components\planning\CategoryForecastChart.vue",
-    "src\components\planning\PlanningTransactionForm.vue",
+    # "src\components\planning\PlanningTransactionForm.vue",
 
     # ### components\rules
     # "src\components\rules\RuleForm.vue",
@@ -60,35 +60,36 @@ $searchFiles = @(
     "src\components\transaction\CategoryTransactionList.vue",
     # "src\components\transaction\TransactionCard.vue",
     # "src\components\transaction\TransactionDetailModal.vue",
-    "src\components\transaction\TransactionForm.vue",
-    "src\components\transaction\TransactionList.vue",
+    # "src\components\transaction\TransactionForm.vue",
+    # "src\components\transaction\TransactionList.vue",
+    "src\components\transaction\TransactionImportModal.vue",
 
     # ### components\ui
     # "src\components\ui\BadgeSoft.vue",
-    # "src\components\ui\ButtonGroup.vue",
+    "src\components\ui\ButtonGroup.vue",
     # "src\components\ui\ColorPicker.vue",
     # "src\components\ui\ConfirmationModal.vue",
-    "src\components\ui\CurrencyDisplay.vue",
-    "src\components\ui\CurrencyInput.vue",
+    # "src\components\ui\CurrencyDisplay.vue",
+    # "src\components\ui\CurrencyInput.vue",
     # "src\components\ui\DatePicker.vue",
     # "src\components\ui\DateRangePicker.vue",
     # "src\components\ui\MainNavigation.vue",
     # "src\components\ui\MonthSelector.vue",
-    # "src\components\ui\PagingComponent.vue",
+    "src\components\ui\PagingComponent.vue",
     # "src\components\ui\PagingYearComponent.vue",
     # "src\components\ui\SearchableSelect.vue",
     # "src\components\ui\SearchableSelectLite.vue",
-    "src\components\ui\SearchGroup.vue",
+    # "src\components\ui\SearchGroup.vue",
     # "src\components\ui\SelectAccount.vue",
-    "src\components\ui\SelectCategory.vue",
-    "src\components\ui\SelectRecipient.vue",
+    # "src\components\ui\SelectCategory.vue",
+    # "src\components\ui\SelectRecipient.vue",
     # "src\components\ui\TagSearchableDropdown.vue",
     # "src\components\ui\ThemeToggle.vue",
     # "src\components\ui\TenantSwitch.vue",
 
     # ### layouts
     # "src\layouts\AppLayout-prod.vue",
-    "src\layouts\AppLayout.vue",
+    # "src\layouts\AppLayout.vue",
     # "src\layouts\test_flex.vue",
     # "src\layouts\tpl-2rows.vue",
 
@@ -101,28 +102,28 @@ $searchFiles = @(
     # "src\mock\seed-bck2025-04-28.ts",
 
     # ### router
-    "src\router\index.ts",
+    # "src\router\index.ts",
 
     # ### services
-    "src\services\AccountService.ts",
-    "src\services\BudgetService.ts",
+    # "src\services\AccountService.ts",
+    # "src\services\BudgetService.ts",
     # "src\services\CategoryService.ts",
     # "src\services\DataService.ts",
     # "src\services\index.ts",
     # "src\services\PlanningService.ts",
     # "src\services\ReconciliationService.ts",
-    "src\services\TransactionService.ts",
-    "src\services\BalanceService.ts",
+    # "src\services\TransactionService.ts",
+    # "src\services\BalanceService.ts",
     # "src\services\SessionService.ts",
     # "src\services\TenantService.ts",
     # "src\services\UserService.ts",
 
     # ### stores
     # "src\stores\accountStore.ts",
-    "src\stores\categoryStore.ts",
-    "src\stores\monthlyBalanceStore.ts",
+    # "src\stores\categoryStore.ts",
+    # "src\stores\monthlyBalanceStore.ts",
     # "src\stores\planningStore.ts",
-    "src\stores\recipientStore.ts",
+    # "src\stores\recipientStore.ts",
     # "src\stores\reconciliationStore.ts",
     # "src\stores\ruleStore.ts",
     # "src\stores\searchStore.ts",
@@ -137,15 +138,16 @@ $searchFiles = @(
     # "src\stores\userStore.ts",
 
     # ### types
-    "src\types\index.ts",
+    # "src\types\index.ts",
 
     # ### utils
-    "src\utils\formatters.ts",
-    "src\utils\dateUtils.ts",
-    "src\utils\planningTransactionUtils.ts",
-    "src\utils\logger.ts",
+    # "src\utils\formatters.ts",
+    # "src\utils\dateUtils.ts",
+    # "src\utils\planningTransactionUtils.ts",
+    # "src\utils\logger.ts",
     # "src\utils\readMe.md",
-    "src\utils\storageKey.ts",
+    # "src\utils\storageKey.ts",
+    "src\utils\csvUtils.ts",
 
     # ### views
     # "src\views\AccountsView.vue",

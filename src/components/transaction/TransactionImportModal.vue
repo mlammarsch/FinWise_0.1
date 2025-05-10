@@ -19,9 +19,11 @@ import { useTransactionStore } from "@/stores/transactionStore";
 import CurrencyDisplay from "@/components/ui/CurrencyDisplay.vue";
 import SelectCategory from "@/components/ui/SelectCategory.vue";
 import SelectRecipient from "@/components/ui/SelectRecipient.vue";
+import PagingComponent from "@/components/ui/PagingComponent.vue";
 import { debugLog, infoLog } from "@/utils/logger";
 import { TransactionService } from "@/services/TransactionService";
 import { formatDate } from "@/utils/formatters";
+import { calculateStringSimilarity } from "@/utils/csvUtils";
 
 const props = defineProps<{
   isOpen: boolean;
@@ -52,6 +54,17 @@ const csvPreviewData = ref<any[]>([]);
 const csvHeaders = ref<string[]>([]);
 const error = ref<string>("");
 
+// Paginierung für Vorschau
+const currentPage = ref(1);
+const itemsPerPage = ref<number>(10);
+const totalPages = computed(() =>
+  Math.ceil(csvPreviewData.value.length / itemsPerPage.value)
+);
+const paginatedPreviewData = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage.value;
+  return csvPreviewData.value.slice(start, start + itemsPerPage.value);
+});
+
 // Mappings
 const mappedColumns = ref<{ [key: string]: string }>({});
 const possibleMappings = ref<{ [key: string]: string[] }>({
@@ -62,11 +75,16 @@ const possibleMappings = ref<{ [key: string]: string[] }>({
   category: [],
 });
 
+// Mehrfachauswahl mit Shift-Taste
+const lastSelectedIndex = ref<number | null>(null);
+
 // Import-Ergebnisse
 const importedTransactions = ref<any[]>([]);
 const importStatus = ref<"idle" | "importing" | "error" | "success">("idle");
 
-// Suchfunktionalität
+/**
+ * Sucht nach ähnlichen Entitäten basierend auf einem Namen
+ */
 function findSimilarEntities(
   name: string,
   type: "recipient" | "category"
@@ -81,38 +99,8 @@ function findSimilarEntities(
   return entities
     .map((entity) => {
       const entityName = entity.name.toLowerCase();
-      // Einfache Ähnlichkeitsbewertung (könnte durch Levenshtein-Distanz oder andere Algorithmen ersetzt werden)
-      let similarity = 0;
-
-      // Exakte Übereinstimmung
-      if (entityName === targetName) {
-        similarity = 1;
-      }
-      // Enthält die Zeichenkette
-      else if (
-        entityName.includes(targetName) ||
-        targetName.includes(entityName)
-      ) {
-        similarity = 0.8;
-      }
-      // Ähnliche Worte
-      else {
-        const words1 = entityName.split(" ");
-        const words2 = targetName.split(" ");
-
-        for (const word1 of words1) {
-          if (word1.length > 2) {
-            for (const word2 of words2) {
-              if (
-                (word2.length > 2 && word1.includes(word2)) ||
-                word2.includes(word1)
-              ) {
-                similarity = Math.max(similarity, 0.6);
-              }
-            }
-          }
-        }
-      }
+      // Ähnlichkeitsbewertung
+      let similarity = calculateStringSimilarity(entityName, targetName);
 
       return {
         id: entity.id,
@@ -219,7 +207,7 @@ function parseCSV() {
 
     csvParseStatus.value = "success";
   } catch (err) {
-    debugLog("[TransactionImportModal] CSV Parse Error", err);
+    debugLog("[TransactionImportModal] CSV Parse Error", JSON.stringify(err));
     csvParseStatus.value = "error";
     error.value = `Fehler beim Parsen der CSV-Datei: ${
       err instanceof Error ? err.message : "Unbekannter Fehler"
@@ -293,7 +281,7 @@ function identifyPossibleMappings() {
 
   debugLog(
     "[TransactionImportModal] Erkannte mögliche Mappings",
-    possibleMappings.value
+    JSON.stringify(possibleMappings.value)
   );
 }
 
@@ -380,7 +368,10 @@ function parseDate(dateString: string): string | null {
 
     return `${year}-${month}-${day}`;
   } catch (error) {
-    debugLog("[TransactionImportModal] Error parsing date", error);
+    debugLog(
+      "[TransactionImportModal] Error parsing date",
+      JSON.stringify(error)
+    );
     return null;
   }
 }
@@ -402,7 +393,10 @@ function parseAmount(amountString: string): number | null {
 
     return parseFloat(cleanedAmount);
   } catch (error) {
-    debugLog("[TransactionImportModal] Error parsing amount", error);
+    debugLog(
+      "[TransactionImportModal] Error parsing amount",
+      JSON.stringify(error)
+    );
     return null;
   }
 }
@@ -420,10 +414,14 @@ function identifyPotentialMerges() {
 
     if (!parsedDate || parsedAmount === null) return;
 
-    // Empfänger aus der Zeile extrahieren (falls gemappt)
+    // Empfänger und Notizen aus der Zeile extrahieren (falls gemappt)
     let recipientName = "";
+    let notes = "";
     if (mappedColumns.value.recipient) {
       recipientName = row[mappedColumns.value.recipient];
+    }
+    if (mappedColumns.value.notes) {
+      notes = row[mappedColumns.value.notes];
     }
 
     // Suche nach ähnlichen Transaktionen
@@ -434,23 +432,27 @@ function identifyPotentialMerges() {
       // Ungefähr gleicher Betrag (Toleranz von 0.01)
       const sameAmount = Math.abs(tx.amount - parsedAmount) < 0.01;
 
-      // Ähnlicher Empfänger, falls verfügbar
-      let similarRecipient = true;
-      if (recipientName && tx.recipientId) {
+      // Ähnlicher Empfänger oder Notiz, falls verfügbar
+      let similarRecipientOrNote = true;
+      if ((recipientName || notes) && tx.recipientId) {
         const txRecipient = recipientStore.getRecipientById(tx.recipientId);
         if (txRecipient) {
-          // Einfache Ähnlichkeitsprüfung
-          similarRecipient =
-            txRecipient.name
-              .toLowerCase()
-              .includes(recipientName.toLowerCase()) ||
-            recipientName
-              .toLowerCase()
-              .includes(txRecipient.name.toLowerCase());
+          // Prüfen ob Empfängername ähnlich ist
+          const recipientSimilarity = recipientName
+            ? calculateStringSimilarity(txRecipient.name, recipientName)
+            : 0;
+
+          // Oder wenn Notiz ähnlich ist mit dem Empfängernamen
+          const noteSimilarity = notes
+            ? calculateStringSimilarity(txRecipient.name, notes)
+            : 0;
+
+          similarRecipientOrNote =
+            recipientSimilarity > 0.3 || noteSimilarity > 0.3;
         }
       }
 
-      return sameDate && sameAmount && similarRecipient;
+      return sameDate && sameAmount && similarRecipientOrNote;
     });
 
     if (potentialMatches.length > 0) {
@@ -523,6 +525,57 @@ function prepareDataForImport() {
   }
 
   return preparedData;
+}
+
+// Automatische Zuordnung von Empfängern über mehrere Zeilen
+function applyRecipientToSimilarRows(
+  recipientId: string,
+  recipientName: string
+) {
+  if (!mappedColumns.value.recipient) return;
+
+  // Suche ähnliche Einträge in allen Zeilen und weise den gleichen Empfänger zu
+  csvPreviewData.value.forEach((row) => {
+    const rowRecipient = row[mappedColumns.value.recipient];
+    if (rowRecipient && rowRecipient === recipientName && !row.recipientId) {
+      row.recipientId = recipientId;
+    }
+  });
+}
+
+// Event-Handler für Checkbox-Auswahl mit Shift
+function handleRowSelection(row: any, index: number, event: MouseEvent) {
+  const target = event.target as HTMLInputElement;
+  const isChecked = target.checked;
+
+  if (event.shiftKey && lastSelectedIndex.value !== null) {
+    // Range-Auswahl mit Shift-Taste
+    const start = Math.min(lastSelectedIndex.value, index);
+    const end = Math.max(lastSelectedIndex.value, index);
+
+    for (let i = start; i <= end; i++) {
+      if (i < csvPreviewData.value.length) {
+        csvPreviewData.value[i]._selected = isChecked;
+      }
+    }
+  } else {
+    // Einzelauswahl
+    row._selected = isChecked;
+  }
+
+  lastSelectedIndex.value = index;
+}
+
+// Alle Zeilen auswählen oder abwählen
+function toggleAllRows(event: Event) {
+  const target = event.target as HTMLInputElement;
+  const isChecked = target.checked;
+
+  csvPreviewData.value.forEach((row) => {
+    row._selected = isChecked;
+  });
+
+  lastSelectedIndex.value = null;
 }
 
 // Startet den Import-Prozess
@@ -607,7 +660,7 @@ async function startImport() {
     importStatus.value = "success";
     emit("imported", importedTransactions.value.length);
   } catch (err) {
-    debugLog("[TransactionImportModal] Import Error", err);
+    debugLog("[TransactionImportModal] Import Error", JSON.stringify(err));
     importStatus.value = "error";
     error.value = `Fehler beim Import: ${
       err instanceof Error ? err.message : "Unbekannter Fehler"
@@ -632,6 +685,23 @@ watch(mergeExisting, (newValue) => {
       row._potentialMerge = null;
     });
   }
+});
+
+// Empfänger-Änderung überwachen und bei Änderungen auf ähnliche Zeilen anwenden
+watch(csvPreviewData, {
+  deep: true,
+  handler(newData) {
+    newData.forEach((row) => {
+      // Wenn ein Empfänger neu zugewiesen wurde und der Mappping-Name bekannt ist
+      if (row.recipientId && mappedColumns.value.recipient) {
+        const recipientName = row[mappedColumns.value.recipient];
+        const recipientId = row.recipientId;
+        if (recipientName && recipientId) {
+          applyRecipientToSimilarRows(recipientId, recipientName);
+        }
+      }
+    });
+  },
 });
 </script>
 
@@ -720,7 +790,7 @@ watch(mergeExisting, (newValue) => {
               <label class="label cursor-pointer">
                 <input
                   type="checkbox"
-                  class="checkbox"
+                  class="checkbox checkbox-sm"
                   v-model="hasTitleRow"
                   :disabled="isProcessing"
                 />
@@ -733,7 +803,7 @@ watch(mergeExisting, (newValue) => {
               <label class="label cursor-pointer">
                 <input
                   type="checkbox"
-                  class="checkbox"
+                  class="checkbox checkbox-sm"
                   v-model="mergeExisting"
                   :disabled="isProcessing"
                 />
@@ -758,7 +828,7 @@ watch(mergeExisting, (newValue) => {
         <h4 class="font-bold text-lg pt-4">Daten-Mapping</h4>
 
         <!-- Mapping-Formular -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <!-- Spalte Datum -->
           <fieldset class="fieldset">
             <legend class="fieldset-legend">
@@ -871,9 +941,9 @@ watch(mergeExisting, (newValue) => {
                   <th>
                     <input
                       type="checkbox"
-                      class="checkbox"
+                      class="checkbox checkbox-sm"
                       :checked="csvPreviewData.every((row) => row._selected)"
-                      @change="event => csvPreviewData.forEach(row => row._selected = (event.target as HTMLInputElement).checked)"
+                      @change="toggleAllRows"
                       :disabled="isProcessing"
                     />
                   </th>
@@ -886,15 +956,13 @@ watch(mergeExisting, (newValue) => {
                 </tr>
               </thead>
               <tbody>
-                <tr
-                  v-for="(row, index) in csvPreviewData.slice(0, 20)"
-                  :key="index"
-                >
+                <tr v-for="(row, index) in paginatedPreviewData" :key="index">
                   <td>
                     <input
                       type="checkbox"
-                      class="checkbox"
+                      class="checkbox checkbox-sm"
                       v-model="row._selected"
+                      @click="(event) => handleRowSelection(row, index, event)"
                       :disabled="isProcessing"
                     />
                   </td>
@@ -941,7 +1009,7 @@ watch(mergeExisting, (newValue) => {
                       Ungültiger Betrag
                     </div>
                   </td>
-                  <td class="max-w-[250px]">
+                  <td class="max-w-[200px]">
                     <div v-if="mappedColumns.recipient">
                       <div class="text-sm truncate max-w-[200px]">
                         {{ row[mappedColumns.recipient] }}
@@ -990,10 +1058,10 @@ watch(mergeExisting, (newValue) => {
                       class="tooltip tooltip-left"
                       data-tip="Ähnliche Buchung bereits vorhanden"
                     >
-                      <div class="badge badge-warning badge-md">
-                        <Icon icon="mdi:alert-circle-outline" class="mr-1" />
-                        Duplikat?
-                      </div>
+                      <Icon
+                        icon="mdi:alert-circle"
+                        class="text-warning text-xl"
+                      />
                       <div class="text-xs mt-1 font-medium">
                         {{ formatDate(row._potentialMerge.date) }}
                         <CurrencyDisplay :amount="row._potentialMerge.amount" />
@@ -1007,27 +1075,32 @@ watch(mergeExisting, (newValue) => {
                         parseDate(row[mappedColumns.date]) &&
                         parseAmount(row[mappedColumns.amount]) !== null
                       "
-                      class="badge badge-success badge-md"
                     >
-                      <Icon icon="mdi:check-circle-outline" class="mr-1" />
-                      Bereit
+                      <Icon
+                        icon="mdi:check-circle"
+                        class="text-success text-xl"
+                      />
                     </div>
                     <!-- Fehler bei der Validierung -->
-                    <div v-else class="badge badge-error badge-md">
-                      <Icon icon="mdi:alert-circle-outline" class="mr-1" />
-                      Fehler
+                    <div v-else>
+                      <Icon
+                        icon="mdi:alert-circle"
+                        class="text-error text-xl"
+                      />
                     </div>
                   </td>
                 </tr>
               </tbody>
             </table>
-            <div
-              v-if="csvPreviewData.length > 20"
-              class="py-4 text-center text-base-content/70"
-            >
-              Es werden nur die ersten 20 Zeilen angezeigt. Insgesamt werden
-              {{ csvPreviewData.length }} Zeilen importiert.
-            </div>
+
+            <!-- Paginierung für die Vorschau -->
+            <PagingComponent
+              :currentPage="currentPage"
+              :totalPages="totalPages"
+              :itemsPerPage="itemsPerPage"
+              @update:currentPage="(page) => (currentPage = page)"
+              @update:itemsPerPage="(val) => (itemsPerPage = val)"
+            />
           </div>
         </div>
       </div>
