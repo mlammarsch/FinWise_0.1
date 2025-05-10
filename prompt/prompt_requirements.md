@@ -1,5 +1,5 @@
 
-Entwickle einen CSV-Importer für die FinWise-Anwendung, der es Benutzern ermöglicht, Transaktionsdaten aus CSV-Dateien in das System zu importieren. Der Importer soll über einen neuen Menüpunkt "Import" im Dropdown-Menü der Account Card in der Account View zugänglich sein. Durch Auswahl dieses Menüpunkts soll ein Modal-Dialog geöffnet werden, der den Importprozess steuert.
+Entwickle einen CSV-Importer für die FinWise-Anwendung, der es Benutzern ermöglicht, Transaktionsdaten aus CSV-Dateien in das System zu importieren. Der Importer soll über einen neuen Menüpunkt "Import" im Dropdown-Menü der Account Card in der Account View zugänglich sein. Durch Auswahl dieses Menüpunkts soll ein Modal-Dialog geöffnet werden, der den Importprozess steuert. Wichtig, alle Begriffe in dem Dialog in deutsch übersetzen!
 
 **FUNKTIONALITÄT:**
 
@@ -36,20 +36,22 @@ Entwickle einen CSV-Importer für die FinWise-Anwendung, der es Benutzern ermög
     *   **Empfänger (FinWise) - Spalte:**
         *  Für jede Zeile wird ein Dropdown angezeigt, dessen Inhalt die bereits vorhandenen Empfänger sind.
         *  **Automatischer Vorschlag:** Direkt nach dem Laden der Daten wird *für jede Zeile* eine Ähnlichkeitssuche durchgeführt. Wenn ein ähnlicher Empfänger gefunden wird, wird dieser Empfänger *automatisch im Dropdown vorausgewählt*.
-        *  **"Neu erstellen"-Option:** Das Dropdown-Menü soll auch einen Eintrag "Neu erstellen" enthalten. Wenn KEIN ähnlicher Empfänger gefunden wird (oder die Ähnlichkeit zu gering ist), soll die Option "Neu erstellen" *automatisch vorausgewählt* sein.  Der Prozess für "Neu erstellen" soll dem in der `SelectRecipient.vue` Komponente entsprechen.
+        *  **"Neu erstellen"-Option:** Das Dropdown-Menü soll auch einen Eintrag "Neu erstellen" enthalten. Wenn KEIN ähnlicher Empfänger gefunden wird (oder die Ähnlichkeit zu gering ist), soll die Option "Neu erstellen" *automatisch vorausgewählt* sein.  Der Prozess für "Neu erstellen" soll dem in der `SelectRecipient.vue` Komponente entsprechen. Ich muss bei einer Neuanlage bestimmenkönnen in der Dropdownbox, wie der Recipient heißen soll. Andernfalls übernimmt in dieser Einstellung das System beim Import automatisch das Feld Recipient aus der CSV und legt das als neuen Empfänger an.
         *   **Manuelle Merge-Option:** Unterhalb des Dropdown-Menüs sollen die restlichen Ergebnisse der Ähnlichkeitssuche (falls vorhanden) angezeigt werden, mit der Option, den neuen Empfänger mit einem der vorgeschlagenen, ähnlichen Einträge zusammenzuführen ("Merge"). Eine Checkbox neben jedem Suchergebnis könnte die Merge-Option aktivieren.
     *   **Kategorie (FinWise) - Spalte:** (Funktioniert analog zur Empfänger (FinWise) - Spalte, nur für Kategorien)
         *  Für jede Zeile wird ein Dropdown angezeigt, dessen Inhalt die bereits vorhandenen Kategorien sind.
         *  **Automatischer Vorschlag:** Direkt nach dem Laden der Daten wird *für jede Zeile* eine Ähnlichkeitssuche durchgeführt. Wenn eine ähnliche Kategorie gefunden wird, wird diese Kategorie *automatisch im Dropdown vorausgewählt*.
-        *  **"Neu erstellen"-Option:** Das Dropdown-Menü soll auch einen Eintrag "Neu erstellen" enthalten. Wenn KEINE ähnliche Kategorie gefunden wird (oder die Ähnlichkeit zu gering ist), soll die Option "Neu erstellen" *automatisch vorausgewählt* sein. Siehe auch hier: src\components\ui\SelectCategory.vue.
+        *  **"Neu erstellen"-Option:** Das Dropdown-Menü soll auch einen Eintrag "Neu erstellen" enthalten. Wenn KEINE ähnliche Kategorie gefunden wird (oder die Ähnlichkeit zu gering ist), soll die Option "Neu erstellen" *automatisch vorausgewählt* sein. Siehe auch hier: src\components\ui\SelectCategory.vue.  Ich muss bei einer Neuanlage bestimmenkönnen in der Dropdownbox, wie die neue Kategorie heißen soll. Andernfalls übernimmt in dieser Einstellung das System beim Import automatisch das Feld Recipient aus der CSV und legt das als neuen Empfänger an.
         *   **Manuelle Merge-Option:** Unterhalb des Dropdown-Menüs sollen die restlichen Ergebnisse der Ähnlichkeitssuche (falls vorhanden) angezeigt werden, mit der Option, die neue Kategorie mit einer der vorgeschlagenen, ähnlichen Einträge zusammenzuführen ("Merge"). Eine Checkbox neben jedem Suchergebnis könnte die Merge-Option aktivieren.
 
 5.  **Import-Prozess:**
     *   Nachdem der Benutzer die zu importierenden Transaktionen ausgewählt, die Konfiguration überprüft und ggf. neue Empfänger/Kategorien erstellt oder mit bestehenden zusammengeführt hat, soll ein "Importieren"-Button den Import-Prozess starten.
     *   Während des Imports soll ein visueller Indikator (z.B. eine "Eieruhr") angezeigt werden, um den Benutzer über den Fortschritt zu informieren.
     *   Der Import soll *synchron* ablaufen.
+    *   Der Import muss die Standardfunktionen im Transactionlayer benutzen, damit bei den Kategorien entsprechende Folgekategoriebuchungen und Saldenberechnungen richtig durchgeführt werden.
     *   **Nach Abschluss des Imports:**
-        *   Soll nicht nur ein Informationsbanner angezeigt werden, sondern eine Tabelle, die alle importierten Transaktionen und ihre Zuordnungen (Konto, Empfänger, Kategorie) anzeigt. Diese Tabelle soll sich am Design der Tabelle in `src\components\rules\RuleForm.vue` orientieren, die anzeigt, welche Regeln auf welche Transaktionen angewendet wurden. Oder auch src\components\transaction\TransactionList.vue bspw.
+        *   Soll nicht nur ein Informationsbanner angezeigt werden, sondern eine Tabelle, die alle importierten Transaktionen und ihre Zuordnungen (Konto, Empfänger, Kategorie) anzeigt. Diese Tabelle soll sich am Design der Tabelle in `src\components\rules\RuleForm.vue` orientieren, die anzeigt, welche Regeln auf welche Transaktionen angewendet wurden. Oder auch src\components\transaction\TransactionList.vue bspw. . Er soll keinen 2. Export mehr ermöglichen, der doppelte Daten erzeugen würde.
+
 
 6.  **Merge-Logik:**
     *   Die Merge-Logik ist nun in Punkt 3 (Datenvorschau und Bearbeitung) beschrieben.

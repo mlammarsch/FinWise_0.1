@@ -105,13 +105,13 @@ $searchFiles = @(
 
     # ### services
     # "src\services\AccountService.ts",
-    # "src\services\BudgetService.ts",
+    "src\services\BudgetService.ts",
     # "src\services\CategoryService.ts",
     # "src\services\DataService.ts",
     # "src\services\index.ts",
     # "src\services\PlanningService.ts",
     # "src\services\ReconciliationService.ts",
-    # "src\services\TransactionService.ts",
+    "src\services\TransactionService.ts",
     # "src\services\BalanceService.ts",
     # "src\services\SessionService.ts",
     # "src\services\TenantService.ts",
