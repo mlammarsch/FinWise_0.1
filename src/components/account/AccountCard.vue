@@ -8,6 +8,7 @@ import AccountReconcileModal from "./AccountReconcileModal.vue";
 import AccountForm from "./AccountForm.vue";
 import { useAccountStore } from "../../stores/accountStore";
 import { AccountService } from "../../services/AccountService"; // neu
+import TransactionImportModal from "../transaction/TransactionImportModal.vue"; // neu für CSV-Import
 
 const emit = defineEmits(["select"]);
 
@@ -22,6 +23,7 @@ const accountStore = useAccountStore();
 // State für Modals
 const showReconcileModal = ref(false);
 const showEditModal = ref(false);
+const showImportModal = ref(false); // neu für CSV-Import
 
 // IBAN‑Formatierung
 const formattedIban = computed(() => {
@@ -64,6 +66,11 @@ const onAccountSaved = async (accountData) => {
   await accountStore.updateAccount(props.account.id, accountData);
 };
 
+// Handler für CSV-Import (neu)
+const onImportCompleted = (count) => {
+  showImportModal.value = false;
+};
+
 // Konto auswählen
 const selectAccount = () => {
   emit("select", props.account);
@@ -89,6 +96,8 @@ const selectAccount = () => {
         class="dropdown-content menu p-2 shadow bg-base-100 border border-base-300 rounded-box w-52"
       >
         <li><a @click="showReconcileModal = true">Kontoabgleich</a></li>
+        <li><a @click="showImportModal = true">Import</a></li>
+        <!-- Eintrag für CSV-Import -->
         <li><a @click="showEditModal = true">Bearbeiten</a></li>
         <li><a @click="deleteAccount" class="text-error">Löschen</a></li>
       </ul>
@@ -165,6 +174,15 @@ const selectAccount = () => {
         </div>
         <div class="modal-backdrop" @click="showEditModal = false"></div>
       </div>
+
+      <!-- Neues Import-Modal -->
+      <TransactionImportModal
+        v-if="showImportModal"
+        :is-open="showImportModal"
+        :accountId="account.id"
+        @close="showImportModal = false"
+        @imported="onImportCompleted"
+      />
     </Teleport>
   </div>
 </template>

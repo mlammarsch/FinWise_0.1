@@ -21,6 +21,97 @@ export function getMonthName(month: number): string {
 }
 
 /**
+ * Konvertiert ein Datum in verschiedenen Formaten in das ISO-Format YYYY-MM-DD
+ * Unterstützt verschiedene Trennzeichen (-, /, .) und Formatierungen
+ */
+export function convertDateToIso(dateString: string, format: string = "YYYY-MM-DD"): string | null {
+  if (!dateString) return null;
+
+  try {
+    const dateStr = dateString.trim();
+    let year: string | number, month: string | number, day: string | number;
+
+    // Extrahiere Trennzeichen (-, /, .)
+    const separator = dateStr.match(/[-/.]/)?.[0] || "-";
+
+    switch (format) {
+      case "YYYY-MM-DD":
+        [year, month, day] = dateStr.split(separator);
+        break;
+      case "YY-MM-DD":
+        [year, month, day] = dateStr.split(separator);
+        year = parseInt(year) < 50 ? `20${year}` : `19${year}`;
+        break;
+      case "MM-DD-YYYY":
+        [month, day, year] = dateStr.split(separator);
+        break;
+      case "MM-DD-YY":
+        [month, day, year] = dateStr.split(separator);
+        year = parseInt(year) < 50 ? `20${year}` : `19${year}`;
+        break;
+      case "DD-MM-YYYY":
+        [day, month, year] = dateStr.split(separator);
+        break;
+      case "DD-MM-YY":
+        [day, month, year] = dateStr.split(separator);
+        year = parseInt(year) < 50 ? `20${year}` : `19${year}`;
+        break;
+      default:
+        return null;
+    }
+
+    // Formatiere das Datum im ISO-Format (YYYY-MM-DD)
+    month = month.padStart(2, "0");
+    day = day.padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
+
+  } catch (error) {
+    console.error("Error converting date:", error);
+    return null;
+  }
+}
+
+/**
+ * Versucht das Datumsformat automatisch zu erkennen
+ * Gibt null zurück, wenn das Format nicht erkannt werden kann
+ */
+export function detectDateFormat(dateString: string): string | null {
+  if (!dateString) return null;
+
+  const dateRegexes = [
+    { format: "YYYY-MM-DD", regex: /^\d{4}[-/.]\d{1,2}[-/.]\d{1,2}$/ },
+    { format: "YY-MM-DD", regex: /^\d{2}[-/.]\d{1,2}[-/.]\d{1,2}$/ },
+    { format: "DD-MM-YYYY", regex: /^\d{1,2}[-/.]\d{1,2}[-/.]\d{4}$/ },
+    { format: "DD-MM-YY", regex: /^\d{1,2}[-/.]\d{1,2}[-/.]\d{2}$/ },
+    { format: "MM-DD-YYYY", regex: /^\d{1,2}[-/.]\d{1,2}[-/.]\d{4}$/ },
+    { format: "MM-DD-YY", regex: /^\d{1,2}[-/.]\d{1,2}[-/.]\d{2}$/ },
+  ];
+
+  for (const { format, regex } of dateRegexes) {
+    if (regex.test(dateString)) {
+      // Zusätzliche Prüfung für MM-DD vs DD-MM Formatie
+      if (format === "DD-MM-YYYY" || format === "DD-MM-YY") {
+        // Hier könnten wir versuchen zu prüfen, ob die erste Zahl > 12 ist,
+        // dann ist es sicherlich ein DD-MM Format
+        const parts = dateString.split(/[-/.]/);
+        if (parseInt(parts[0]) > 12) {
+          return format;
+        } else if (parseInt(parts[1]) > 12) {
+          // Wenn der zweite Teil > 12 ist, ist es wahrscheinlicher MM-DD
+          return format === "DD-MM-YYYY" ? "MM-DD-YYYY" : "MM-DD-YY";
+        }
+        // Ansonsten ist es nicht eindeutig, aber wir nehmen DD-MM an (in Europa üblicher)
+        return format;
+      }
+      return format;
+    }
+  }
+
+  return null;
+}
+
+/**
  * Erzeugt eine menschenlesbare Beschreibung eines Wiederholungsmusters
  */
 export function createRecurrenceDescription(params: {
