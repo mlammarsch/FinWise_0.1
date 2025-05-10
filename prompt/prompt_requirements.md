@@ -14,15 +14,16 @@ Entwickle einen CSV-Importer für die FinWise-Anwendung, der es Benutzern ermög
         *   **Merge mit bestehenden Transaktionen:** Eine Checkbox, um anzugeben, ob Transaktionen, die bereits im System vorhanden sind und mit den importierten Daten übereinstimmen (gleiches Datum, Betrag und ähnlicher Empfänger), gemerged werden sollen (siehe Punkt 6).
 
 3.  **Datenvorschau und Bearbeitung:**
-    *   Nach dem Hochladen und Konfigurieren der CSV-Datei soll eine Tabelle angezeigt werden, die die erkannten Daten aus der CSV-Datei darstellt.
+    *   Nach dem Hochladen und Konfigurieren der CSV-Datei soll eine Tabelle angezeigt werden, die die erkannten Daten aus der CSV-Datei darstellt. Falls noch Parsingprobleme existieren, muss ein Aktualisiereungsbutton rein, damit ich immer wieder erneut parsen kann, wenn ich eine Einstellung im Dialog anpasse. Oder bei jeder Anpassung wird automatisch neu geparsed. Bis die Einstellungen mit der Datei kompatibel sind.
+    *   Es soll nur versucht werden das Buchungsdatum und den Betrag automatisch zu mappen. Empfänger, Notizen und Kategorien muss manuell gemapped werden. Ein entmappen muss auch möglich sein.
     *   Die Tabelle soll folgende Spalten enthalten:
-        *   **Buchungsdatum:** (entspricht Wertstellungsdatum)
+        *   **Buchungsdatum:** (entspricht Wertstellungsdatum), schau im Screenshot anbei, welche Datumsformate konvertiert werden müssen. Achte dabei drauf, dass die Datumsdelimiter ., / oder - sein könnten. Zur Auswahl in der Dropdownbox reicht die Angabe mit -. Versuche automatisiert das richtige Format schon aus der CSV zu erkennen.
         *   **Betrag:** (positiv für Einnahmen, negativ für Ausgaben)
         *   **Notizen:**
         *   **Empfänger (CSV):** (Zeigt den Empfänger, wie er in der CSV-Datei steht)
-        *   **Empfänger (FinWise):** (Dropdown-Menü für die Zuordnung, siehe Punkt 4)
+        *   **Empfänger (FinWise):** Erst anzeigen, wenn das Mapping aktiviert wurde in  der Dropbox. (Dropdown-Menü für die Zuordnung, siehe Punkt 4)
         *   **Kategorie (CSV):** (Zeigt die Kategorie, wie sie in der CSV-Datei steht)
-        *   **Kategorie (FinWise):** (Dropdown-Menü für die Zuordnung, siehe Punkt 4)
+        *   **Kategorie (FinWise):**  Erst anzeigen, wenn das Mapping aktiviert wurde in  der Dropbox. (Dropdown-Menü für die Zuordnung, siehe Punkt 4)
         *   **Importieren/Merge:** Eine Checkbox für jede Zeile. Standardmäßig sollen alle Checkboxen aktiviert sein (Import). Bei potenziellen Merges ändert sich die Bedeutung je nach Fall.
             *   Wenn die Option "Merge mit bestehenden Transaktionen" aktiv ist *und* eine passende Transaktion gefunden wurde, verwandelt sich die Checkbox in:
                 *   **Tooltip/Erklärung bei Hover:** Eine Beschreibung, dass eine ähnliche Transaktion gefunden wurde und durch Aktivieren der Checkbox die neue Transaktion mit der bereits vorhandenen Transaktion gemerged wird. Hier ist es wichtig, deutlich zu machen, dass durch das Mergen eine neue Transaktion angelegt wird, die die Daten der CSV Datei übernimmt, aber die "alte" Transaktion weiterhin existiert.
