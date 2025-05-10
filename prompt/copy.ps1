@@ -31,45 +31,45 @@ $excludeFiles = @(
 $searchFiles = @(
 
     # ### prompt
-     "prompt\sytemprompt.md",
+    #  "prompt\sytemprompt.md",
 
     # ### components\account
-    # "src\components\account\AccountCard.vue",
-    # "src\components\account\AccountForm.vue",
-    # "src\components\account\AccountGroupCard.vue",
-    # "src\components\account\AccountGroupForm.vue",
-    # "src\components\account\AccountReconcileModal.vue",
+    "src\components\account\AccountCard.vue",
+    "src\components\account\AccountForm.vue",
+    "src\components\account\AccountGroupCard.vue",
+    "src\components\account\AccountGroupForm.vue",
+    "src\components\account\AccountReconcileModal.vue",
 
     # ### components\budget
     # "src\components\budget\BudgetCard.vue",
     "src\components\budget\BudgetCategoryColumn.vue",
     "src\components\budget\BudgetMonthCard.vue",
     "src\components\budget\BudgetMonthHeaderCard.vue",
-    # "src\components\budget\CategoryForm.vue",
-    # "src\components\budget\CategoryTransferModal.vue",
+    "src\components\budget\CategoryForm.vue",
+    "src\components\budget\CategoryTransferModal.vue",
 
     # ### components\planning
-    # "src\components\planning\AccountForecastChart.vue",
-    # "src\components\planning\CategoryForecastChart.vue",
-    # "src\components\planning\PlanningTransactionForm.vue",
+    "src\components\planning\AccountForecastChart.vue",
+    "src\components\planning\CategoryForecastChart.vue",
+    "src\components\planning\PlanningTransactionForm.vue",
 
     # ### components\rules
     # "src\components\rules\RuleForm.vue",
 
     # ### components\transaction
-    # "src\components\transaction\CategoryTransactionList.vue",
-    # "src\components\transaction\TransactionCard.vue",
-    # "src\components\transaction\TransactionDetailModal.vue",
-    # "src\components\transaction\TransactionForm.vue",
-    # "src\components\transaction\TransactionList.vue",
+    "src\components\transaction\CategoryTransactionList.vue",
+    "src\components\transaction\TransactionCard.vue",
+    "src\components\transaction\TransactionDetailModal.vue",
+    "src\components\transaction\TransactionForm.vue",
+    "src\components\transaction\TransactionList.vue",
 
     # ### components\ui
     # "src\components\ui\BadgeSoft.vue",
     # "src\components\ui\ButtonGroup.vue",
     # "src\components\ui\ColorPicker.vue",
     # "src\components\ui\ConfirmationModal.vue",
-    # "src\components\ui\CurrencyDisplay.vue",
-    # "src\components\ui\CurrencyInput.vue",
+    "src\components\ui\CurrencyDisplay.vue",
+    "src\components\ui\CurrencyInput.vue",
     # "src\components\ui\DatePicker.vue",
     # "src\components\ui\DateRangePicker.vue",
     "src\components\ui\MainNavigation.vue",
@@ -78,11 +78,11 @@ $searchFiles = @(
     # "src\components\ui\PagingYearComponent.vue",
     # "src\components\ui\SearchableSelect.vue",
     # "src\components\ui\SearchableSelectLite.vue",
-    # "src\components\ui\SearchGroup.vue",
-    # "src\components\ui\SelectAccount.vue",
-    # "src\components\ui\SelectCategory.vue",
-    # "src\components\ui\SelectRecipient.vue",
-    # "src\components\ui\TagSearchableDropdown.vue",
+    "src\components\ui\SearchGroup.vue",
+    "src\components\ui\SelectAccount.vue",
+    "src\components\ui\SelectCategory.vue",
+    "src\components\ui\SelectRecipient.vue",
+    "src\components\ui\TagSearchableDropdown.vue",
     # "src\components\ui\ThemeToggle.vue",
     # "src\components\ui\TenantSwitch.vue",
 
@@ -101,7 +101,7 @@ $searchFiles = @(
     # "src\mock\seed-bck2025-04-28.ts",
 
     # ### router
-    # "src\router\index.ts",
+    "src\router\index.ts",
 
     # ### services
     "src\services\AccountService.ts",
@@ -140,35 +140,35 @@ $searchFiles = @(
     "src\types\index.ts",
 
     # ### utils
-    # "src\utils\formatters.ts",
-    # "src\utils\dateUtils.ts",
-    # "src\utils\planningTransactionUtils.ts",
-    # "src\utils\logger.ts",
-    # "src\utils\readMe.md",
+    "src\utils\formatters.ts",
+    "src\utils\dateUtils.ts",
+    "src\utils\planningTransactionUtils.ts",
+    "src\utils\logger.ts",
+    "src\utils\readMe.md",
     "src\utils\storageKey.ts",
 
     # ### views
-    # "src\views\AccountsView.vue",
-    # "src\views\BudgetsView.vue",
-    # "src\views\BudgetsView2.vue",
-    # "src\views\DashboardView.vue",
-    # "src\views\PlanningView.vue",
-    # "src\views\SettingsView.vue",
-    # "src\views\StatisticsView.vue",
-    # "src\views\TransactionsView.vue",
+    "src\views\AccountsView.vue",
+    "src\views\BudgetsView.vue",
+    "src\views\BudgetsView2.vue",
+    "src\views\DashboardView.vue",
+    "src\views\PlanningView.vue",
+    "src\views\SettingsView.vue",
+    "src\views\StatisticsView.vue",
+    "src\views\TransactionsView.vue",
 
     # ### views\admin
-    # "src\views\admin\AdminAccountsView.vue",
-    # "src\views\admin\AdminCategoriesView.vue",
-    # "src\views\admin\AdminPlanningView.vue",
-    # "src\views\admin\AdminRecipientsView.vue",
-    # "src\views\admin\AdminRulesView.vue",
-    # "src\views\admin\AdminTagsView.vue",
+    "src\views\admin\AdminAccountsView.vue",
+    "src\views\admin\AdminCategoriesView.vue",
+    "src\views\admin\AdminPlanningView.vue",
+    "src\views\admin\AdminRecipientsView.vue",
+    "src\views\admin\AdminRulesView.vue",
+    "src\views\admin\AdminTagsView.vue",
 
     # ### views\auth
-    # "src\views\auth\LoginView.vue",
-    # "src\views\auth\RegisterView.vue",
-    # "src\views\auth\TenantSelectView.vue",
+    "src\views\auth\LoginView.vue",
+    "src\views\auth\RegisterView.vue",
+    "src\views\auth\TenantSelectView.vue",
 
     "*.ts"
 )
