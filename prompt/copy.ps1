@@ -42,11 +42,11 @@ $searchFiles = @(
 
     # ### components\budget
     # "src\components\budget\BudgetCard.vue",
-    # "src\components\budget\BudgetCategoryColumn.vue",
-    # "src\components\budget\BudgetMonthCard.vue",
-    # "src\components\budget\BudgetMonthHeaderCard.vue",
-    # "src\components\budget\CategoryForm.vue",
-    # "src\components\budget\CategoryTransferModal.vue",
+    "src\components\budget\BudgetCategoryColumn.vue",
+    "src\components\budget\BudgetMonthCard.vue",
+    "src\components\budget\BudgetMonthHeaderCard.vue",
+    "src\components\budget\CategoryForm.vue",
+    "src\components\budget\CategoryTransferModal.vue",
 
     # ### components\planning
     # "src\components\planning\AccountForecastChart.vue",
@@ -80,7 +80,7 @@ $searchFiles = @(
     # "src\components\ui\SearchableSelectLite.vue",
     # "src\components\ui\SearchGroup.vue",
     # "src\components\ui\SelectAccount.vue",
-    # "src\components\ui\SelectCategory.vue",
+    "src\components\ui\SelectCategory.vue",
     # "src\components\ui\SelectRecipient.vue",
     # "src\components\ui\TagSearchableDropdown.vue",
     # "src\components\ui\ThemeToggle.vue",
@@ -98,28 +98,28 @@ $searchFiles = @(
     # ### mock
     # "src\mock\seed-copy.ts",
     # "src\mock\seed.ts",
-    # "src\mock\seed-bck2025-04-28.ts",
+    "src\mock\seed-bck2025-04-28.ts",
 
     # ### router
     # "src\router\index.ts",
 
     # ### services
-    "src\services\AccountService.ts",
-    # "src\services\BudgetService.ts",
-    # "src\services\CategoryService.ts",
-    "src\services\DataService.ts",
+    # "src\services\AccountService.ts",
+    "src\services\BudgetService.ts",
+    "src\services\CategoryService.ts",
+    # "src\services\DataService.ts",
     # "src\services\index.ts",
     # "src\services\PlanningService.ts",
     # "src\services\ReconciliationService.ts",
     # "src\services\TransactionService.ts",
     # "src\services\BalanceService.ts",
-    "src\services\SessionService.ts",
-    "src\services\TenantService.ts",
-    "src\services\UserService.ts",
+    # "src\services\SessionService.ts",
+    # "src\services\TenantService.ts",
+    # "src\services\UserService.ts",
 
     # ### stores
-    "src\stores\accountStore.ts",
-    # "src\stores\categoryStore.ts",
+    # "src\stores\accountStore.ts",
+    "src\stores\categoryStore.ts",
     # "src\stores\monthlyBalanceStore.ts",
     # "src\stores\planningStore.ts",
     # "src\stores\recipientStore.ts",
@@ -132,9 +132,9 @@ $searchFiles = @(
     # "src\stores\themeStore.ts",
     # "src\stores\transactionFilterStore.ts",
     # "src\stores\transactionStore.ts",
-    "src\stores\sessionStore.ts",
-    "src\stores\tenantStore.ts",
-    "src\stores\userStore.ts",
+    # "src\stores\sessionStore.ts",
+    # "src\stores\tenantStore.ts",
+    # "src\stores\userStore.ts",
 
     # ### types
     # "src\types\index.ts",
@@ -145,11 +145,11 @@ $searchFiles = @(
     # "src\utils\planningTransactionUtils.ts",
     # "src\utils\logger.ts",
     # "src\utils\readMe.md",
-    "src\utils\storageKey.ts",
+    # "src\utils\storageKey.ts",
 
     # ### views
-    "src\views\AccountsView.vue",
-    # "src\views\BudgetsView.vue",
+    # "src\views\AccountsView.vue",
+    "src\views\BudgetsView.vue",
     # "src\views\BudgetsView2.vue",
     # "src\views\DashboardView.vue",
     # "src\views\PlanningView.vue",
@@ -158,8 +158,8 @@ $searchFiles = @(
     # "src\views\TransactionsView.vue",
 
     # ### views\admin
-    "src\views\admin\AdminAccountsView.vue",
-    # "src\views\admin\AdminCategoriesView.vue",
+    # "src\views\admin\AdminAccountsView.vue",
+    "src\views\admin\AdminCategoriesView.vue",
     # "src\views\admin\AdminPlanningView.vue",
     # "src\views\admin\AdminRecipientsView.vue",
     # "src\views\admin\AdminRulesView.vue",

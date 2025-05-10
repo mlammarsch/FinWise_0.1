@@ -70,6 +70,10 @@ export const useCategoryStore = defineStore('category', () => {
   }
 
   function addCategory(category: Omit<Category, 'id' | 'balance' | 'startBalance' | 'transactionCount' | 'averageTransactionValue'>) {
+    // Ableitung des Typs aus der Gruppe
+    const group = categoryGroups.value.find(g => g.id === category.categoryGroupId);
+    const isIncome = group?.isIncomeGroup ?? false;
+
     const c: Category = {
       ...category,
       id: uuidv4(),
@@ -77,6 +81,7 @@ export const useCategoryStore = defineStore('category', () => {
       startBalance: 0,
       transactionCount: 0,
       averageTransactionValue: 0,
+      isIncomeCategory: isIncome,
     };
     categories.value.push(c);
     saveCategories();
@@ -87,6 +92,13 @@ export const useCategoryStore = defineStore('category', () => {
   function updateCategory(id: string, updates: Partial<Category>) {
     const idx = categories.value.findIndex(c => c.id === id);
     if (idx === -1) return false;
+
+    // Wenn Gruppe geändert wird, Typ entsprechend ableiten
+    if (updates.categoryGroupId) {
+      const group = categoryGroups.value.find(g => g.id === updates.categoryGroupId);
+      updates.isIncomeCategory = group?.isIncomeGroup ?? false;
+    }
+
     categories.value[idx] = { ...categories.value[idx], ...updates };
     saveCategories();
     debugLog('[categoryStore] updateCategory', { id, updates });
@@ -193,25 +205,40 @@ export const useCategoryStore = defineStore('category', () => {
 
   /* ----------------------------------------------- Persistence */
   function loadCategories() {
-    const raw = localStorage.getItem(storageKey('categories'));
-    categories.value = raw ? JSON.parse(raw) : [];
+    // 1. Lese gespeicherte Kategorien
+    const rawCats = localStorage.getItem(storageKey('categories'));
+    categories.value = rawCats ? JSON.parse(rawCats) : [];
 
+    // 2. Lese gespeicherte Kategoriegruppen
     const rawGrp = localStorage.getItem(storageKey('categoryGroups'));
     categoryGroups.value = rawGrp ? JSON.parse(rawGrp) : [];
 
+    // 3. Stelle sicher, dass 'Verfügbare Mittel' existiert
     if (!categories.value.find(c => c.name === 'Verfügbare Mittel')) {
       addCategory({
         name: 'Verfügbare Mittel',
         parentCategoryId: null,
         sortOrder: 9999,
         isActive: true,
-        isIncomeCategory: true,
         isSavingsGoal: false,
         categoryGroupId: null,
       });
       debugLog('[categoryStore] loadCategories - created AvailableFundsCategory');
     }
 
+    // 4. **Migration**: isIncomeCategory aus Kategoriegruppe ableiten
+    let migrated = false;
+    categories.value.forEach(c => {
+      const grp = categoryGroups.value.find(g => g.id === c.categoryGroupId);
+      const derived = grp?.isIncomeGroup ?? false;
+      if (c.isIncomeCategory !== derived) {
+        c.isIncomeCategory = derived;
+        migrated = true;
+      }
+    });
+    if (migrated) saveCategories();
+
+    // 5. Lade ausgeklappte Kategorien
     loadExpandedCategories();
 
     debugLog('[categoryStore] loadCategories', {
@@ -240,18 +267,33 @@ export const useCategoryStore = defineStore('category', () => {
     loadCategories();
   }
 
+  // Initialisierung
   loadCategories();
 
   /* ----------------------------------------------- Exports */
   return {
-    categories, categoryGroups, expandedCategories,
-    getCategoryById, findCategoryById,
-    getCategoriesByParentId, getChildCategories,
-    rootCategories, savingsGoals, categoriesByGroup,
-    addCategory, updateCategory, deleteCategory, updateCategoryBalance,
-    addCategoryGroup, deleteCategoryGroup,
-    setMonthlySnapshot, getAvailableFundsCategory,
-    toggleCategoryExpanded, expandAllCategories, collapseAllCategories,
-    loadCategories, reset,
+    categories,
+    categoryGroups,
+    expandedCategories,
+    getCategoryById,
+    findCategoryById,
+    getCategoriesByParentId,
+    getChildCategories,
+    rootCategories,
+    savingsGoals,
+    categoriesByGroup,
+    addCategory,
+    updateCategory,
+    deleteCategory,
+    updateCategoryBalance,
+    addCategoryGroup,
+    deleteCategoryGroup,
+    setMonthlySnapshot,
+    getAvailableFundsCategory,
+    toggleCategoryExpanded,
+    expandAllCategories,
+    collapseAllCategories,
+    loadCategories,
+    reset,
   };
 });
