@@ -105,39 +105,39 @@ $searchFiles = @(
 
     # ### services
     "src\services\AccountService.ts",
-    "src\services\BudgetService.ts",
-    "src\services\CategoryService.ts",
-    # "src\services\DataService.ts",
+    # "src\services\BudgetService.ts",
+    # "src\services\CategoryService.ts",
+    "src\services\DataService.ts",
     # "src\services\index.ts",
-    "src\services\PlanningService.ts",
-    "src\services\ReconciliationService.ts",
-    "src\services\TransactionService.ts",
-    "src\services\BalanceService.ts",
+    # "src\services\PlanningService.ts",
+    # "src\services\ReconciliationService.ts",
+    # "src\services\TransactionService.ts",
+    # "src\services\BalanceService.ts",
     "src\services\SessionService.ts",
     "src\services\TenantService.ts",
     "src\services\UserService.ts",
 
     # ### stores
     "src\stores\accountStore.ts",
-    "src\stores\categoryStore.ts",
-    "src\stores\monthlyBalanceStore.ts",
-    "src\stores\planningStore.ts",
-    "src\stores\recipientStore.ts",
-    "src\stores\reconciliationStore.ts",
-    "src\stores\ruleStore.ts",
-    "src\stores\searchStore.ts",
-    "src\stores\settingsStore.ts",
-    "src\stores\statisticsStore.ts",
-    "src\stores\tagStore.ts",
-    "src\stores\themeStore.ts",
-    "src\stores\transactionFilterStore.ts",
-    "src\stores\transactionStore.ts",
+    # "src\stores\categoryStore.ts",
+    # "src\stores\monthlyBalanceStore.ts",
+    # "src\stores\planningStore.ts",
+    # "src\stores\recipientStore.ts",
+    # "src\stores\reconciliationStore.ts",
+    # "src\stores\ruleStore.ts",
+    # "src\stores\searchStore.ts",
+    # "src\stores\settingsStore.ts",
+    # "src\stores\statisticsStore.ts",
+    # "src\stores\tagStore.ts",
+    # "src\stores\themeStore.ts",
+    # "src\stores\transactionFilterStore.ts",
+    # "src\stores\transactionStore.ts",
     "src\stores\sessionStore.ts",
     "src\stores\tenantStore.ts",
     "src\stores\userStore.ts",
 
     # ### types
-    "src\types\index.ts",
+    # "src\types\index.ts",
 
     # ### utils
     # "src\utils\formatters.ts",
@@ -148,7 +148,7 @@ $searchFiles = @(
     "src\utils\storageKey.ts",
 
     # ### views
-    # "src\views\AccountsView.vue",
+    "src\views\AccountsView.vue",
     # "src\views\BudgetsView.vue",
     # "src\views\BudgetsView2.vue",
     # "src\views\DashboardView.vue",
@@ -158,7 +158,7 @@ $searchFiles = @(
     # "src\views\TransactionsView.vue",
 
     # ### views\admin
-    # "src\views\admin\AdminAccountsView.vue",
+    "src\views\admin\AdminAccountsView.vue",
     # "src\views\admin\AdminCategoriesView.vue",
     # "src\views\admin\AdminPlanningView.vue",
     # "src\views\admin\AdminRecipientsView.vue",
@@ -168,7 +168,7 @@ $searchFiles = @(
     # ### views\auth
     # "src\views\auth\LoginView.vue",
     # "src\views\auth\RegisterView.vue",
-    "src\views\auth\TenantSelectView.vue",
+    # "src\views\auth\TenantSelectView.vue",
 
     "*.ts"
 )

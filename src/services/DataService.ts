@@ -14,6 +14,7 @@ import {
   Recipient,
 } from '@/types';
 import { debugLog } from '@/utils/logger';
+import { storageKey } from '@/utils/storageKey';
 
 // ---------- NEW – Store-Imports für reload ----------
 import { useAccountStore } from '@/stores/accountStore';
@@ -29,32 +30,32 @@ import { useTransactionFilterStore } from '@/stores/transactionFilterStore';
 import { BalanceService } from './BalanceService';
 // ----------------------------------------------------
 
-/**
- * Adapter für den Local Storage
- */
 export const LocalStorageAdapter = {
   save(key: string, data: any): void {
-    localStorage.setItem(`finwise_${key}`, JSON.stringify(data));
+    const sk = storageKey(key);
+    localStorage.setItem(sk, JSON.stringify(data));
     debugLog('[LocalStorageAdapter] save', {
-      key: `finwise_${key}`,
+      key: sk,
       dataSize: JSON.stringify(data).length,
     });
   },
 
   load<T>(key: string): T | null {
-    const data = localStorage.getItem(`finwise_${key}`);
-    const result = data ? JSON.parse(data) : null;
+    const sk = storageKey(key);
+    const json = localStorage.getItem(sk);
+    const result = json ? JSON.parse(json) : null;
     debugLog('[LocalStorageAdapter] load', {
-      key: `finwise_${key}`,
-      found: !!data,
+      key: sk,
+      found: !!json,
       itemCount: Array.isArray(result) ? result.length : 0,
     });
     return result;
   },
 
   remove(key: string): void {
-    localStorage.removeItem(`finwise_${key}`);
-    debugLog('[LocalStorageAdapter] remove', { key: `finwise_${key}` });
+    const sk = storageKey(key);
+    localStorage.removeItem(sk);
+    debugLog('[LocalStorageAdapter] remove', { key: sk });
   },
 };
 
@@ -140,9 +141,7 @@ export class DataService {
     this.adapter.save('planning_transactions', plannings);
   }
   loadPlanningTransactions(): PlanningTransaction[] | null {
-    return this.adapter.load<PlanningTransaction[]>(
-      'planning_transactions',
-    );
+    return this.adapter.load<PlanningTransaction[]>('planning_transactions');
   }
 
   // Empfänger-bezogene Methoden
