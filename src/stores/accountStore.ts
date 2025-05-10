@@ -1,4 +1,3 @@
-// src/stores/accountStore.ts
 /**
  * Pfad: src/stores/accountStore.ts
  * Speichert Konten & Gruppen – jetzt tenant-spezifisch.
@@ -17,7 +16,9 @@ export const useAccountStore = defineStore('account', () => {
   const accountGroups = ref<AccountGroup[]>([]);
 
   /* ---------------------------------------------------- Getters */
-  const activeAccounts = computed(() => accounts.value.filter(a => a.isActive));
+  const activeAccounts = computed(() =>
+    accounts.value.filter(a => a.isActive)
+  );
 
   function getAccountById(id: string) {
     return accounts.value.find(a => a.id === id);
@@ -73,18 +74,13 @@ export const useAccountStore = defineStore('account', () => {
 
   /* ------------------------------------------------- Persistence */
   function loadAccounts() {
+    // Konten laden
     const raw = localStorage.getItem(storageKey('accounts'));
     accounts.value = raw ? JSON.parse(raw) : [];
 
+    // **Gruppen nur laden, aber keine Default-Gruppen mehr hier anlegen**
     const rawGroups = localStorage.getItem(storageKey('account_groups'));
-    accountGroups.value = rawGroups
-      ? JSON.parse(rawGroups)
-      : [
-          { id: uuidv4(), name: 'Girokonten', sortOrder: 0 },
-          { id: uuidv4(), name: 'Sparkonten', sortOrder: 1 },
-          { id: uuidv4(), name: 'Kreditkarten', sortOrder: 2 },
-          { id: uuidv4(), name: 'Bargeld', sortOrder: 3 },
-        ];
+    accountGroups.value = rawGroups ? JSON.parse(rawGroups) : [];
 
     debugLog('[accountStore] loadAccounts', {
       cnt: accounts.value.length,
@@ -98,6 +94,7 @@ export const useAccountStore = defineStore('account', () => {
       JSON.stringify(accounts.value),
     );
   }
+
   function saveAccountGroups() {
     localStorage.setItem(
       storageKey('account_groups'),
@@ -111,6 +108,7 @@ export const useAccountStore = defineStore('account', () => {
     loadAccounts();
   }
 
+  // Initial load
   loadAccounts();
 
   return {

@@ -9,8 +9,8 @@
  * Emits:
  * - Keine Emits
  */
+import { computed } from "vue";
 import { useCategoryStore } from "../../stores/categoryStore";
-import { debugLog } from "@/utils/logger";
 import { Icon } from "@iconify/vue";
 
 const categoryStore = useCategoryStore();
@@ -18,8 +18,11 @@ const categoryStore = useCategoryStore();
 const isVerfuegbareMittel = (cat: { name: string }) =>
   cat.name.trim().toLowerCase() === "verfügbare mittel";
 
-const rootCategories = categoryStore.categories.filter(
-  (c) => c.isActive && !c.parentCategoryId && !isVerfuegbareMittel(c)
+/** Reaktiv – ändert sich bei Mandanten- oder Store-Reload sofort */
+const rootCategories = computed(() =>
+  categoryStore.categories.filter(
+    (c) => c.isActive && !c.parentCategoryId && !isVerfuegbareMittel(c)
+  )
 );
 
 const toggleExpand = (id: string) => {

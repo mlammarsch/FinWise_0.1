@@ -1,19 +1,4 @@
-<!-- Datei: src/components/budget/BudgetMonthCard.vue -->
 <script setup lang="ts">
-/**
- * Pfad zur Komponente: src/components/budget/BudgetMonthCard.vue
- * Zeigt pro Monat die Budget-, Prognose-, Transaktions- und Saldo-Werte an.
- *
- * Props:
- * - month: { start: Date; end: Date; label: string }
- * - categories: Category[]
- *
- * Rechtsklick öffnet ein Context-Dropdown.
- * Das Dropdown schließt bei Blur, ESC oder Klick außerhalb.
- * Über das Dropdown kann man entweder
- *  – „Transferiere zu …" (Mode: transfer)
- *  – „Fülle auf von …" (Mode: fill) aufrufen.
- */
 import { computed, ref, nextTick } from "vue";
 import { useCategoryStore } from "../../stores/categoryStore";
 import { Category } from "../../types";
@@ -25,16 +10,19 @@ import { debugLog } from "@/utils/logger";
 
 const props = defineProps<{
   month: { start: Date; end: Date; label: string };
-  categories: Category[];
 }>();
 
 const categoryStore = useCategoryStore();
 const budgetService = BudgetService;
 
-// Kategorie für verfügbare Mittel und Filter-Funktion
-const availableFundsCategory = categoryStore.getAvailableFundsCategory();
+// Reaktive Kategorie „Verfügbare Mittel“
+const availableFundsCategory = computed(() =>
+  categoryStore.categories.find(
+    (c) => c.name.trim().toLowerCase() === "verfügbare mittel"
+  )
+);
 function isVerfuegbareMittel(cat: Category) {
-  return availableFundsCategory?.id === cat.id;
+  return availableFundsCategory.value?.id === cat.id;
 }
 
 // Normalisierte Zeitgrenzen
@@ -86,6 +74,18 @@ const sumIncomesSummary = computed(() =>
   )
 );
 
+// **NEU**: Reaktive Kategorie-Listen
+const expenseCategories = computed(() =>
+  categoryStore.categories.filter(
+    (c) => c.isActive && !c.isIncomeCategory && !isVerfuegbareMittel(c)
+  )
+);
+const incomeCategories = computed(() =>
+  categoryStore.categories.filter(
+    (c) => c.isActive && c.isIncomeCategory && !isVerfuegbareMittel(c)
+  )
+);
+
 // Context-Dropdown
 const showDropdown = ref(false);
 const dropdownX = ref(0);
@@ -101,9 +101,6 @@ const modalData = ref<{
   amount: number;
 } | null>(null);
 
-/**
- * Rechtsklick → Dropdown öffnen
- */
 function openDropdown(event: MouseEvent, cat: Category) {
   event.preventDefault();
   if (containerRef.value) {
@@ -121,16 +118,10 @@ function openDropdown(event: MouseEvent, cat: Category) {
   debugLog("[BudgetMonthCard] openDropdown", { category: cat });
 }
 
-/**
- * Dropdown schließen
- */
 function closeDropdown() {
   showDropdown.value = false;
 }
 
-/**
- * Blur-Handler: schließt nur, wenn Fokus NICHT ins Dropdown springt
- */
 function onDropdownBlur(e: FocusEvent) {
   const next = e.relatedTarget as HTMLElement | null;
   if (!dropdownRef.value?.contains(next)) {
@@ -138,9 +129,6 @@ function onDropdownBlur(e: FocusEvent) {
   }
 }
 
-/**
- * Menüpunkt „Transferiere zu …"
- */
 function optionTransfer() {
   if (!modalData.value?.clickedCategory) return;
   const cat = modalData.value.clickedCategory;
@@ -150,9 +138,6 @@ function optionTransfer() {
   showTransferModal.value = true;
 }
 
-/**
- * Menüpunkt „Fülle auf von …"
- */
 function optionFill() {
   if (!modalData.value?.clickedCategory) return;
   const cat = modalData.value.clickedCategory;
@@ -164,9 +149,6 @@ function optionFill() {
   showTransferModal.value = true;
 }
 
-/**
- * Ausführung des Transfers (wird vom Modal emittet)
- */
 function executeTransfer(payload: {
   transactionId?: string;
   gegentransactionId?: string;
@@ -280,13 +262,7 @@ function executeTransfer(payload: {
 
         <!-- Ausgabenkategorien -->
         <div class="grid grid-rows-auto">
-          <template
-            v-for="cat in props.categories.filter(
-              (c) =>
-                c.isActive && !c.isIncomeCategory && !isVerfuegbareMittel(c)
-            )"
-            :key="cat.id"
-          >
+          <template v-for="cat in expenseCategories" :key="cat.id">
             <div
               class="grid grid-cols-4 p-2 border-b border-base-200 cursor-context-menu hover:bg-base-200"
               @contextmenu="openDropdown($event, cat)"
@@ -429,12 +405,7 @@ function executeTransfer(payload: {
 
         <!-- Einnahmen-Kategorien -->
         <div class="grid grid-rows-auto">
-          <template
-            v-for="cat in props.categories.filter(
-              (c) => c.isActive && c.isIncomeCategory && !isVerfuegbareMittel(c)
-            )"
-            :key="cat.id"
-          >
+          <template v-for="cat in incomeCategories" :key="cat.id">
             <div class="grid grid-cols-4 p-2 border-b border-base-200 text-sm">
               <div class="text-right">
                 <CurrencyDisplay

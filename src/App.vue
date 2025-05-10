@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { ref, watch, onMounted } from "vue";
-import { useRouter } from "vue-router";
+import { useRouter, useRoute } from "vue-router";
 import AppLayout from "./layouts/AppLayout.vue";
 import { useThemeStore } from "./stores/themeStore";
+import { useSessionStore } from "./stores/sessionStore";
 import AccountCard from "./components/account/AccountCard.vue";
 
 const themeStore = useThemeStore();
 const router = useRouter();
+const route = useRoute();
+const session = useSessionStore();
 
 // Initialize the application and load saved data
 onMounted(() => {
@@ -20,7 +23,11 @@ onMounted(() => {
     <Suspense>
       <template #default>
         <router-view v-slot="{ Component }">
-          <component v-if="Component" :is="Component" />
+          <component
+            v-if="Component"
+            :is="Component"
+            :key="`${route.name}-${session.currentTenantId}`"
+          />
         </router-view>
       </template>
       <template #fallback>

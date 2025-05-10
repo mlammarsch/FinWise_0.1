@@ -9,6 +9,16 @@ import { Icon } from "@iconify/vue";
 // Stores
 const categoryStore = useCategoryStore();
 
+// Helper
+const isVerfuegbareMittel = (cat: Category) =>
+  cat.name.trim().toLowerCase() === "verfügbare mittel";
+
+// Gefilterte Daten (ohne ‚Verfügbare Mittel‘)
+const categories = computed(() =>
+  categoryStore.categories.filter((c) => !isVerfuegbareMittel(c))
+);
+const categoryGroups = computed(() => categoryStore.categoryGroups);
+
 // Kategorie State
 const showCategoryModal = ref(false);
 const selectedCategory = ref<Category | null>(null);
@@ -20,10 +30,6 @@ const groupName = ref("");
 const groupSort = ref(0);
 const groupIsIncome = ref(false);
 const editingGroupId = ref<string | null>(null);
-
-// Alle Daten
-const categories = computed(() => categoryStore.categories);
-const categoryGroups = computed(() => categoryStore.categoryGroups);
 
 // Kategorie-Aktionen
 const editCategory = (category: Category) => {

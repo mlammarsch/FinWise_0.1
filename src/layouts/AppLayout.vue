@@ -1,6 +1,5 @@
-<!-- Datei: src/layouts/AppLayout.vue -->
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, computed } from "vue";
 import { useRouter } from "vue-router";
 import { useThemeStore } from "../stores/themeStore";
 import MainNavigation from "../components/ui/MainNavigation.vue";
@@ -12,18 +11,8 @@ const router = useRouter();
 const themeStore = useThemeStore();
 const isMobileMenuOpen = ref(false);
 
-/**
- * Pfad zur Komponente: src/layouts/AppLayout.vue
- *
- * Diese Layout-Komponente stellt die Grundstruktur der Anwendung dar,
- * inklusive Header mit Navigation, Hauptinhalt und Footer.
- *
- * Komponenten-Props:
- * - Keine Props vorhanden.
- *
- * Emits:
- * - Keine Emits vorhanden.
- */
+/* Sichtbarkeit Navigation – ausgeblendet bei hideNav-Routen */
+const showNavigation = computed(() => !router.currentRoute.value.meta?.hideNav);
 
 const toggleMobileMenu = () => {
   isMobileMenuOpen.value = !isMobileMenuOpen.value;
@@ -38,17 +27,19 @@ const toggleMobileMenu = () => {
     <header class="bg-base-100 sticky top-0 z-40 border-b border-base-300">
       <div class="navbar container mx-auto">
         <div class="navbar-start">
-          <div class="dropdown">
-            <button class="btn btn-ghost lg:hidden" @click="toggleMobileMenu">
-              <Icon icon="mdi:menu" class="h-5 w-5" />
-            </button>
-            <ul
-              v-if="isMobileMenuOpen"
-              class="menu menu-sm dropdown-content mt-3 p-2 shadow bg-base-100 rounded-box w-52"
-            >
-              <MainNavigation @close-menu="isMobileMenuOpen = false" />
-            </ul>
-          </div>
+          <template v-if="showNavigation">
+            <div class="dropdown">
+              <button class="btn btn-ghost lg:hidden" @click="toggleMobileMenu">
+                <Icon icon="mdi:menu" class="h-5 w-5" />
+              </button>
+              <ul
+                v-if="isMobileMenuOpen"
+                class="menu menu-sm dropdown-content mt-3 p-2 shadow bg-base-100 rounded-box w-52"
+              >
+                <MainNavigation @close-menu="isMobileMenuOpen = false" />
+              </ul>
+            </div>
+          </template>
           <div class="flex normal-case text-2xl p-3">
             <div
               class="text-primary font-normal"
@@ -65,14 +56,14 @@ const toggleMobileMenu = () => {
           </div>
         </div>
 
-        <div class="navbar-center hidden lg:flex p-2">
+        <div v-if="showNavigation" class="navbar-center hidden lg:flex p-2">
           <ul class="menu menu-md menu-horizontal">
             <MainNavigation />
           </ul>
         </div>
 
         <div class="navbar-end p-3">
-          <TenantSwitch />
+          <TenantSwitch v-if="showNavigation" />
           <ThemeToggle />
         </div>
       </div>
@@ -98,5 +89,3 @@ const toggleMobileMenu = () => {
     </footer>
   </div>
 </template>
-
-<style scoped></style>
