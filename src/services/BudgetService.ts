@@ -3,6 +3,7 @@ import { useCategoryStore } from "@/stores/categoryStore";
 import { useTransactionStore } from "@/stores/transactionStore";
 import { useMonthlyBalanceStore } from "@/stores/monthlyBalanceStore";
 import { usePlanningStore } from "@/stores/planningStore";
+import { PlanningService } from "./PlanningService"; // <‑‑ neu
 import { Category, TransactionType } from "@/types";
 import { toDateOnlyString } from "@/utils/formatters";
 import { debugLog } from "@/utils/logger";
@@ -37,7 +38,7 @@ function getPlannedAmountForCategory(
 
   planningStore.planningTransactions.forEach((planTx) => {
     if (planTx.isActive && planTx.categoryId === categoryId) {
-      const occurrences = planningStore.calculateNextOccurrences(
+      const occurrences = PlanningService.calculateNextOccurrences(           // geändert
         planTx,
         startStr,
         endStr
@@ -80,15 +81,16 @@ function computeExpenseCategoryData(
   const prevDate = new Date(monthStart);
   prevDate.setMonth(prevDate.getMonth() - 1);
   let previousSaldo =
-    monthlyBalanceStore.getProjectedCategoryBalanceForDate(categoryId, prevDate) || 0;
+    monthlyBalanceStore.getProjectedCategoryBalanceForDate(
+      categoryId,
+      prevDate
+    ) || 0;
 
   // Alle Transaktionen des aktuellen Monats
   const txs = transactionStore.transactions.filter((tx) => {
     const txDate = new Date(toDateOnlyString(tx.date));
     return (
-      tx.categoryId === categoryId &&
-      txDate >= monthStart &&
-      txDate <= monthEnd
+      tx.categoryId === categoryId && txDate >= monthStart && txDate <= monthEnd
     );
   });
 
@@ -105,7 +107,11 @@ function computeExpenseCategoryData(
     .reduce((sum, tx) => sum + tx.amount, 0);
 
   // Planbuchungen in diesem Zeitraum
-  const plannedAmount = getPlannedAmountForCategory(categoryId, monthStart, monthEnd);
+  const plannedAmount = getPlannedAmountForCategory(
+    categoryId,
+    monthStart,
+    monthEnd
+  );
 
   // spent = Summe realer Ausgaben plus Plan-Ausgaben
   const spent = expenseAmount + plannedAmount;
@@ -121,7 +127,11 @@ function computeExpenseCategoryData(
   let totalSaldo = saldo;
 
   children.forEach((child) => {
-    const childData = computeExpenseCategoryData(child.id, monthStart, monthEnd);
+    const childData = computeExpenseCategoryData(
+      child.id,
+      monthStart,
+      monthEnd
+    );
     totalBudget += childData.budgeted;
     totalSpent += childData.spent;
     totalSaldo += childData.saldo - previousSaldo;

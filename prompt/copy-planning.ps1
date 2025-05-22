@@ -59,16 +59,16 @@ $searchFiles = @(
     # "src\stores\recipientStore.ts",
 
     # ### Category - Budget
-    "src\components\budget\BudgetMonthCard.vue",
-    "src\components\budget\BudgetCategoryColumn.vue",
-    "src\components\budget\BudgetMonthHeaderCard.vue",
-    "src\components\budget\CategoryForm.vue",
-    "src\components\budget\CategoryTransferModal.vue",
-    "src\services\BudgetService.ts",
-    "src\services\CategoryService.ts",
-    "src\stores\categoryStore.ts",
-    "src\views\BudgetsView.vue",
-    "src\views\BudgetsView2.vue",
+    #"src\components\budget\BudgetMonthCard.vue",
+    # "src\components\budget\BudgetCategoryColumn.vue",
+    # "src\components\budget\BudgetMonthHeaderCard.vue",
+    # "src\components\budget\CategoryForm.vue",
+    # "src\components\budget\CategoryTransferModal.vue",
+    #"src\services\BudgetService.ts",
+    #"src\services\CategoryService.ts",
+    #"src\stores\categoryStore.ts",
+    # "src\views\BudgetsView.vue",
+    # "src\views\BudgetsView2.vue",
 
     # ### Tags
     # "src\stores\tagStore.ts",
