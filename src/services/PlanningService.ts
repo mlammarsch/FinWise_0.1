@@ -134,8 +134,10 @@ export const PlanningService = {
   },
 
   /**
-   * Führt eine geplante Transaktion aus.
-   * Bei Forecast Only wird nur das Startdatum aktualisiert.
+   * Führt eine geplante Transaktion aus (nur wenn forecastOnly = false).
+   * - EXPENSE / INCOME  → eine Buchung mit Kategorie
+   * - ACCOUNTTRANSFER   → zwei Buchungen (Quell‑/Zielkonto)
+   * Verknüpft jede erzeugte Buchung über planningTransactionId.
    */
   executePlanningTransaction(planningId: string, executionDate: string) {
     const planningStore = usePlanningStore();
@@ -145,38 +147,58 @@ export const PlanningService = {
       debugLog('[PlanningService] executePlanningTransaction - Planning not found', { planningId });
       return false;
     }
+
+    /* 1. Forecast only? ⇒ nur Startdatum updaten */
     if (planning.forecastOnly) {
       planningStore.updatePlanningTransaction(planning.id, { startDate: executionDate });
       monthlyBalanceStore.calculateMonthlyBalances();
-      debugLog('[PlanningService] executePlanningTransaction - Forecast Only activated', {
-        planningId: planning.id,
-        newStartDate: executionDate
-      });
+      debugLog('[PlanningService] executePlanningTransaction - Forecast Only activated', { planningId: planning.id });
       return true;
     }
-    const transaction = {
-      date: executionDate,
-      valueDate: planning.valueDate || executionDate,
-      amount: planning.amount,
-      type: planning.transactionType || (planning.amount < 0 ? TransactionType.EXPENSE : TransactionType.INCOME),
-      description: planning.description || '',
-      note: planning.note || '',
-      accountId: planning.accountId,
-      transferToAccountId: planning.transferToAccountId || '',
-      categoryId: planning.categoryId || '',
-      tagIds: planning.tagIds || [],
-      recipientId: planning.recipientId || '',
-      planningId: planning.id
-    };
-    const newTx = TransactionService.addTransaction(transaction);
-    debugLog('[PlanningService] executePlanningTransaction', {
-      planningId: planning.id,
-      name: planning.name,
-      executionDate,
-      transactionId: newTx.id
-    });
+
+    /* 2. Basis‑Validierung */
+    if (planning.amount === 0) throw new Error("Betrag 0 ist nicht zulässig.");
+    if (!planning.accountId)     throw new Error("Quellkonto fehlt.");
+    if (planning.transactionType !== TransactionType.ACCOUNTTRANSFER && !planning.categoryId)
+      throw new Error("Kategorie muss gesetzt sein.");
+
+    /* 3. Transfer‑Pfad */
+    if (planning.transactionType === TransactionType.ACCOUNTTRANSFER || planning.transferToAccountId) {
+      const res = TransactionService.addAccountTransfer(
+        planning.accountId,
+        planning.transferToAccountId!,
+        Math.abs(planning.amount),
+        executionDate,
+        planning.note || '',
+        planning.id
+      );
+      if (!res) return false;
+      debugLog('[PlanningService] executePlanningTransaction - Transfer executed', { planningId: planning.id });
+    }
+    /* 4. Expense/Income‑Pfad */
+    else {
+      const txType = planning.amount < 0 ? TransactionType.EXPENSE : TransactionType.INCOME;
+      const txData = {
+        date: executionDate,
+        valueDate: planning.valueDate || executionDate,
+        amount: planning.amount,
+        type: txType,
+        description: planning.name || '',
+        note: planning.note || '',
+        accountId: planning.accountId,
+        categoryId: planning.categoryId!,
+        tagIds: planning.tagIds || [],
+        recipientId: planning.recipientId || '',
+        planningTransactionId: planning.id
+      };
+      TransactionService.addTransaction(txData);
+      debugLog('[PlanningService] executePlanningTransaction - Simple tx executed', { planningId: planning.id });
+    }
+
+    /* 5. Regeln anwenden & Salden neu berechnen */
     const ruleStore = useRuleStore();
-    ruleStore.applyRulesToTransaction(newTx);
+    const latestTx = TransactionService.getAllTransactions().slice(-1)[0];
+    if (latestTx) ruleStore.applyRulesToTransaction(latestTx);
     monthlyBalanceStore.calculateMonthlyBalances();
     return true;
   },

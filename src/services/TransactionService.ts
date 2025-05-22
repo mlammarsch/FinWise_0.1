@@ -80,61 +80,81 @@ export const TransactionService = {
     },
 
     /**
-     * Fügt einen Kontentransfer hinzu (zwei Transaktionen).
+     * Erstellt einen Kontotransfer (zwei spiegelnde Buchungen).
+     * @param planningTransactionId   Optionale Verknüpfung zu einer Planbuchung
      */
     addAccountTransfer(
         fromAccountId: string,
         toAccountId: string,
         amount: number,
         date: string,
-        note: string = ''
+        note: string = '',
+        planningTransactionId: string | null = null
     ): { fromTransaction: Transaction; toTransaction: Transaction } | null {
         const accountStore = useAccountStore();
         const monthlyBalanceStore = useMonthlyBalanceStore();
+
+        if (fromAccountId === toAccountId) {
+            throw new Error("Quell- und Zielkonto dürfen nicht identisch sein.");
+        }
+        if (amount === 0) {
+            throw new Error("Betrag darf nicht 0 sein.");
+        }
 
         const fromAccountName = accountStore.getAccountById(fromAccountId)?.name ?? 'Unbekannt';
         const toAccountName = accountStore.getAccountById(toAccountId)?.name ?? 'Unbekannt';
         const normalizedDate = toDateOnlyString(date);
         const absAmount = Math.abs(amount);
 
-        const fromTxData: Omit<Transaction, 'id' | 'runningBalance'> = {
+        const baseTx: Omit<Transaction, 'id' | 'runningBalance'> = {
             type: TransactionType.ACCOUNTTRANSFER,
             date: normalizedDate,
             valueDate: normalizedDate,
-            accountId: fromAccountId,
             categoryId: null,
-            amount: -absAmount,
+            amount: 0,                   // wird weiter unten überschrieben
             tagIds: [],
-            payee: `Transfer zu ${toAccountName}`,
+            payee: '',
             note,
             counterTransactionId: null,
-            planningTransactionId: null,
+            planningTransactionId,       // << Verknüpfung
             isReconciliation: false,
             isCategoryTransfer: false,
-            toAccountId: toAccountId,
+            toAccountId: '',
             reconciled: false,
+            accountId: ''                // Placeholder
         };
 
-        const toTxData: Omit<Transaction, 'id' | 'runningBalance'> = {
-            ...fromTxData,
+        const fromTxData = {
+            ...baseTx,
+            accountId: fromAccountId,
+            amount: -absAmount,
+            payee: `Transfer zu ${toAccountName}`,
+            toAccountId: toAccountId
+        };
+
+        const toTxData = {
+            ...baseTx,
             accountId: toAccountId,
             amount: absAmount,
             payee: `Transfer von ${fromAccountName}`,
-            toAccountId: fromAccountId,
+            toAccountId: fromAccountId
         };
 
-         try {
+        try {
             const newFromTx = this.addTransaction(fromTxData);
-            const newToTx = this.addTransaction(toTxData);
+            const newToTx   = this.addTransaction(toTxData);
+
+            // Gegenseitig verlinken
             this.updateTransaction(newFromTx.id, { counterTransactionId: newToTx.id });
-            this.updateTransaction(newToTx.id, { counterTransactionId: newFromTx.id });
+            this.updateTransaction(newToTx.id,   { counterTransactionId: newFromTx.id });
+
             debugLog('[TransactionService] addAccountTransfer', { fromTransaction: newFromTx, toTransaction: newToTx });
             monthlyBalanceStore.calculateMonthlyBalances();
             return { fromTransaction: newFromTx, toTransaction: newToTx };
-         } catch (error) {
-              debugLog('[TransactionService] addAccountTransfer - Error:', error);
-              return null;
-         }
+        } catch (error) {
+            debugLog('[TransactionService] addAccountTransfer - Error:', error);
+            return null;
+        }
     },
 
     /**
