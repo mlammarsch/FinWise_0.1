@@ -49,12 +49,12 @@ const tagStore = useTagStore();
 const recipientStore = useRecipientStore();
 
 // Filterung: CATEGORYTRANSFER-Transaktionen ausschließen
-let list = props.transactions.filter(
-  (tx) => tx.type !== TransactionType.CATEGORYTRANSFER
-);
-
 const displayTransactions = computed(() => {
-  let filtered = list;
+  // immer reaktiv aus props starten
+  let filtered = props.transactions.filter(
+    (tx) => tx.type !== TransactionType.CATEGORYTRANSFER
+  );
+
   if (props.searchTerm && props.searchTerm.trim() !== "") {
     const term = props.searchTerm.toLowerCase().trim();
     filtered = filtered.filter((tx) => {

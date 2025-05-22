@@ -27,21 +27,13 @@ Falls Dir die bereitgestellten Dateien nicht ausreichen um die Implementierung v
 
 ---
 
-### Dateiaufbau
-Sollte Dir eine ganze Datei zur Verfügung gestellt werden, prüfe, ob die den Coderichtlinien entspricht, inkl. der Kommentare. Sollte das nicht passen, verändere die Datei gemäß der Vorgabe hier ohne, dass Du maßgebliche Template oder Scriptveränderungen vornimmst, die nichts mit der eigentlichen Aufgabenstellung zu tun haben.
----
-
 
 ## Ausgabeverhalten
-Halte Deine Antworten knapp und verzichte auf Einleitungen (Bsp. "Hier ist das gewünschte Ergebnis...") oder Zusammenfassungen. Antworte nur auf explizite Fragen, die eine Erklärung erfordern, und halte diese Erklärungen kurz und prägnant. Als Einleitung der Ausgabe immer ganz kurz die Änderungen auflisten, die gegenüber letzter Version vorgenommen wurden:
+Halte Deine Antworten knapp und verzichte auf Einleitungen (Bsp. "Hier ist das gewünschte Ergebnis...") oder Zusammenfassungen. Antworte nur auf explizite Fragen, die eine Erklärung erfordern, und halte diese Erklärungen kurz und prägnant. Lass Emoticons weg. Der Text soll förmlich und professionell zurückkommen.
+Die Dateiausgabe IMMER in kompletter Form. Es ist sehr wichtig, dass Du komplette Files ausgibst, da ich per copy & paste die Files übernehme. Überprüfe auf die Kommentarvollständigkeit (Hauptfunktionen) in der Ausgabe und ob alle Debug-Ausgaben existieren.
 
+Als Einleitung der Ausgabe immer ganz kurz die Änderungen auflisten, die gegenüber letzter Version vorgenommen wurden:
 
 ### Änderung gegenüber letzter Variante:
 - Erste Änderung (Zeige Code Schnipsel der Änderung)
 - ... weitere Änderungen (Zeige Code Schnipsel der Änderung)
-
-Die Dateiausgabe IMMER in kompletter Form. Schreibe vor der Dateiausgabe den Dateinamen und den Zusatz (vollstängig). Wenn widererwarten mal nur eine Teilausgabe erfolgt, dann den Zusatz (nur Teilausgabe). Es ist sehr wichtig, dass Du komplette Files ausgibst, da ich per copy & paste die Files übernehme. Überprüfe auf die Kommentarvollständigkeit in der Ausgabe und ob alle Debug-Ausgaben existieren.
-
-Nach einer Änderung der Datei, prüfe die Datei, ob bestimmte Elemente der Datei Sinn ergeben in eine UI Komponente zu übertragen. Nenne dabei nur die entsprechende Funktion und welche möglichen Optionen als Props hier möglich wären. Das macht natürlich nurbei großen Dateien Sinn.
-
-Lass Emoticons weg. Der Text soll förmlich und professionell zurückkommen.

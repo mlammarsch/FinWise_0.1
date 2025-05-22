@@ -33,42 +33,42 @@ $searchFiles = @(
     "prompt\sytemprompt.md",
 
     # ### Account
-    # "src\components\account\*.vue",
-    # "src\services\AccountService.ts",
-    # "src\stores\accountStore.ts",
-    # "src\views\AccountsView.vue",
+    "src\components\account\*.vue",
+    "src\services\AccountService.ts",
+    "src\stores\accountStore.ts",
+    "src\views\AccountsView.vue",
 
     # ### Planning
-    "src\components\planning\PlanningTransactionForm.vue",
+    #"src\components\planning\PlanningTransactionForm.vue",
     # "src\components\rules\RuleForm.vue",
-    "src\stores\planningStore.ts",
-    "src\services\PlanningService.ts",
+    #"src\stores\planningStore.ts",
+    #"src\services\PlanningService.ts",
     # "src\stores\ruleStore.ts",
-    "src\views\PlanningView.vue",
+    #"src\views\PlanningView.vue",
 
     # ### Transaction
-    # "./src/components/transaction/TransactionCard.vue",
-    #"src\components\transaction\CategoryTransactionList.vue",
-    # "src\components\transaction\TransactionForm.vue",
-    #"src\components\transaction\TransactionList.vue",
+    "./src/components/transaction/TransactionCard.vue",
+    "src\components\transaction\CategoryTransactionList.vue",
+    "src\components\transaction\TransactionForm.vue",
+    "src\components\transaction\TransactionList.vue",
     "src\services\TransactionService.ts",
     "src\stores\transactionStore.ts",
-    #"src\views\TransactionsView.vue",
+    "src\views\TransactionsView.vue",
 
     # ### Recipients
     # "src\stores\recipientStore.ts",
 
     # ### Category - Budget
-    "src\components\budget\BudgetMonthCard.vue",
-    "src\components\budget\BudgetCategoryColumn.vue",
-    "src\components\budget\BudgetMonthHeaderCard.vue",
-    "src\components\budget\CategoryForm.vue",
-    "src\components\budget\CategoryTransferModal.vue",
-    "src\services\BudgetService.ts",
-    "src\services\CategoryService.ts",
-    "src\stores\categoryStore.ts",
-    "src\views\BudgetsView.vue",
-    "src\views\BudgetsView2.vue",
+    #"src\components\budget\BudgetMonthCard.vue",
+    #"src\components\budget\BudgetCategoryColumn.vue",
+    #"src\components\budget\BudgetMonthHeaderCard.vue",
+    #"src\components\budget\CategoryForm.vue",
+    #"src\components\budget\CategoryTransferModal.vue",
+    #"src\services\BudgetService.ts",
+    #"src\services\CategoryService.ts",
+    #"src\stores\categoryStore.ts",
+    #"src\views\BudgetsView.vue",
+    #"src\views\BudgetsView2.vue",
 
     # ### Tags
     # "src\stores\tagStore.ts",
@@ -76,9 +76,9 @@ $searchFiles = @(
     # ### Admin
     # "src\layouts\AppLayout.vue",
     #  "src\views\SettingsView.vue",
-    # "src\views\admin\AdminAccountsView.vue",
-    # "src\views\admin\AdminCategoriesView.vue",
-    "src\views\admin\AdminPlanningView.vue",
+    "src\views\admin\AdminAccountsView.vue",
+    "src\views\admin\AdminCategoriesView.vue",
+    #"src\views\admin\AdminPlanningView.vue",
     # "src\views\admin\AdminRecipientsView.vue",
     # "src\views\admin\AdminRulesView.vue",
 
@@ -97,17 +97,18 @@ $searchFiles = @(
     # "src\components\ui\MainNavigation.vue",
 
     # ### Services & Stores (Allgemein)
-    # "src\services\*.ts",
-    "src\services\PlanningService.ts",
-    # "src\stores\*.ts",
+    #"src\services\*.ts",
+    #"src\stores\*.ts",
 
     # ### Sonstiges
     # "src\mock\seed.ts",
     "src\stores\monthlyBalanceStore.ts",
+    "src\stores\reconciliationStore.ts",
+    "src\services\ReconciliationService.ts",
     "src\types\index.ts",
-    # "src\utils\*.ts",
-    # "src\utils\accountTransfers.ts",
-    # "src\utils\categoryTransfer.ts",
+    #"src\utils\*.ts",
+    "src\utils\accountTransfers.ts",
+    "src\utils\categoryTransfer.ts",
     # "src\utils\formatters.ts",
     # "src\utils\logger.ts",
     "src\utils\runningBalances.ts",

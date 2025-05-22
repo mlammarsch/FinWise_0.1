@@ -19,13 +19,12 @@ import SearchGroup from "../components/ui/SearchGroup.vue";
 import SearchableSelectLite from "../components/ui/SearchableSelectLite.vue";
 import { Transaction, TransactionType } from "../types";
 import { formatCurrency } from "../utils/formatters";
-import { addAccountTransfer } from "@/utils/accountTransfers";
 import { debugLog } from "@/utils/logger";
-import { TransactionService } from "@/services/TransactionService";
+import { TransactionService } from "@/services/TransactionService"; // Service already present
 
 const refreshKey = ref(0);
 
-// Stores
+// Stores ------------------------------------------------------------------
 const transactionStore = useTransactionStore();
 const transactionFilterStore = useTransactionFilterStore();
 const reconciliationStore = useReconciliationStore();
@@ -35,93 +34,79 @@ const tagStore = useTagStore();
 const recipientStore = useRecipientStore();
 const searchStore = useSearchStore();
 
-// Modals
+// Modals ------------------------------------------------------------------
 const showTransactionFormModal = ref(false);
 const showTransactionDetailModal = ref(false);
 const transactionListRef = ref<InstanceType<typeof TransactionList> | null>(
   null
 );
 
-// Umschaltmodus aus dem FilterStore
+// Ansicht / Filter --------------------------------------------------------
 const currentViewMode = computed({
   get: () => transactionFilterStore.currentViewMode,
-  set: (value) => (transactionFilterStore.currentViewMode = value),
+  set: (v) => (transactionFilterStore.currentViewMode = v),
 });
 
-// Gemeinsame Filter und UI-Status
 const selectedTransaction = ref<Transaction | null>(null);
 const currentPage = ref(1);
 const itemsPerPage = ref(25);
 const itemsPerPageOptions = [10, 20, 25, 50, 100, "all"];
 
-// Globaler Suchbegriff über den SearchStore
 const searchQuery = computed({
   get: () => searchStore.globalSearchQuery,
-  set: (value) => searchStore.search(value),
+  set: (v) => searchStore.search(v),
 });
 
-// DateRange über den FilterStore
 const dateRange = computed({
   get: () => transactionFilterStore.dateRange,
-  set: (value) =>
-    transactionFilterStore.updateDateRange(value.start, value.end),
+  set: (v) => transactionFilterStore.updateDateRange(v.start, v.end),
 });
-
-function handleDateRangeUpdate(payload: { start: string; end: string }) {
-  transactionFilterStore.updateDateRange(payload.start, payload.end);
+function handleDateRangeUpdate(p: { start: string; end: string }) {
+  transactionFilterStore.updateDateRange(p.start, p.end);
   refreshKey.value++;
 }
 
-// Filterung für Konto-Ansicht
+// Einzel‑Filter
 const selectedAccountId = computed({
   get: () => transactionFilterStore.selectedAccountId,
-  set: (value) => (transactionFilterStore.selectedAccountId = value),
+  set: (v) => (transactionFilterStore.selectedAccountId = v),
 });
-
 const selectedTransactionType = computed({
   get: () => transactionFilterStore.selectedTransactionType,
-  set: (value) => (transactionFilterStore.selectedTransactionType = value),
+  set: (v) => (transactionFilterStore.selectedTransactionType = v),
 });
-
 const selectedReconciledFilter = computed({
   get: () => transactionFilterStore.selectedReconciledFilter,
-  set: (value) => (transactionFilterStore.selectedReconciledFilter = value),
+  set: (v) => (transactionFilterStore.selectedReconciledFilter = v),
 });
-
 const selectedTagId = computed({
   get: () => transactionFilterStore.selectedTagId,
-  set: (value) => (transactionFilterStore.selectedTagId = value),
+  set: (v) => (transactionFilterStore.selectedTagId = v),
 });
-
 const selectedCategoryId = computed({
   get: () => transactionFilterStore.selectedCategoryId,
-  set: (value) => (transactionFilterStore.selectedCategoryId = value),
+  set: (v) => (transactionFilterStore.selectedCategoryId = v),
 });
 
-// Verwende die vorgefilterten Transaktionen aus dem FilterStore
+// Gefilterte Daten --------------------------------------------------------
 const filteredTransactions = computed(() => {
   refreshKey.value;
   return transactionFilterStore.filteredTransactions;
 });
-
-// Verwende die vorgefilterten Kategorietransaktionen
 const filteredCategoryTransactions = computed(() => {
   refreshKey.value;
   return transactionFilterStore.filteredCategoryTransactions;
 });
 
-// Sortierung
+// Sortierung --------------------------------------------------------------
 const sortKey = computed({
   get: () => transactionFilterStore.sortKey as keyof Transaction,
-  set: (value) => (transactionFilterStore.sortKey = value),
+  set: (v) => (transactionFilterStore.sortKey = v),
 });
-
 const sortOrder = computed({
   get: () => transactionFilterStore.sortOrder,
-  set: (value) => (transactionFilterStore.sortOrder = value),
+  set: (v) => (transactionFilterStore.sortOrder = v),
 });
-
-// Sortierte Transaktionen aus dem FilterStore
 const sortedTransactions = computed(
   () => transactionFilterStore.sortedTransactions
 );
@@ -133,11 +118,11 @@ function sortBy(key: keyof Transaction) {
   transactionFilterStore.setSortKey(key);
   currentPage.value = 1;
 }
-
 function handleSortChange(key: keyof Transaction) {
   sortBy(key);
 }
 
+// Pagination helpers
 const paginatedTransactions = computed(() => {
   if (itemsPerPage.value === "all") return sortedTransactions.value;
   const start = (currentPage.value - 1) * Number(itemsPerPage.value);
@@ -146,7 +131,6 @@ const paginatedTransactions = computed(() => {
     start + Number(itemsPerPage.value)
   );
 });
-
 const paginatedCategoryTransactions = computed(() => {
   if (itemsPerPage.value === "all") return sortedCategoryTransactions.value;
   const start = (currentPage.value - 1) * Number(itemsPerPage.value);
@@ -156,7 +140,7 @@ const paginatedCategoryTransactions = computed(() => {
   );
 });
 
-// Aktionen
+// Aktionen ---------------------------------------------------------------
 const viewTransaction = (tx: Transaction) => {
   selectedTransaction.value = tx;
   showTransactionDetailModal.value = true;
@@ -175,22 +159,12 @@ const createTransaction = () => {
 
 const handleSave = (payload: any) => {
   if (payload.type === TransactionType.ACCOUNTTRANSFER) {
-    const getAccountName = (accountId: string) => {
-      const account = accountStore.activeAccounts.find(
-        (a) => a.id === accountId
-      );
-      return account ? account.name : "";
-    };
-    addAccountTransfer(
+    TransactionService.addAccountTransfer(
       payload.fromAccountId,
       payload.toAccountId,
       payload.amount,
       payload.date,
-      payload.valueDate,
-      payload.note,
-      TransactionService.addTransaction,
-      TransactionService.updateTransaction,
-      getAccountName
+      payload.note
     );
   } else {
     const tx = {
@@ -212,37 +186,23 @@ const deleteTransaction = (tx: Transaction) => {
   if (confirm("Möchten Sie diese Transaktion wirklich löschen?")) {
     TransactionService.deleteTransaction(tx.id);
     showTransactionDetailModal.value = false;
-    debugLog("[TransactionsView] deleteTransaction", { id: tx.id });
   }
 };
 
 function clearFilters() {
   transactionFilterStore.clearFilters();
-  debugLog("[TransactionsView] clearFilters");
 }
 
-// Toggle Reconciled Status
+// Toggle reconciled
 function toggleTransactionReconciled(transactionId: string) {
   reconciliationStore.toggleTransactionReconciled(transactionId);
 }
 
-// Filter-Persistenz
-onMounted(() => {
-  transactionFilterStore.loadFilters();
-  debugLog("[TransactionsView] onMounted - Loaded filters from store");
-});
-
-watch(selectedTagId, () => {
-  transactionFilterStore.saveFilters();
-});
-
-watch(selectedCategoryId, () => {
-  transactionFilterStore.saveFilters();
-});
-
-watch(currentViewMode, () => {
-  transactionFilterStore.saveFilters();
-});
+// Filter‑Persistenz
+onMounted(() => transactionFilterStore.loadFilters());
+watch([selectedTagId, selectedCategoryId, currentViewMode], () =>
+  transactionFilterStore.saveFilters()
+);
 </script>
 
 <template>

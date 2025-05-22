@@ -1,7 +1,8 @@
+// src/stores/accountStore.ts
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { v4 as uuidv4 } from 'uuid'
-import { Account, AccountGroup, AccountType } from '../types'
+import { Account, AccountGroup } from '../types'
 import { useTransactionStore } from './transactionStore'
 
 export const useAccountStore = defineStore('account', () => {
@@ -9,43 +10,25 @@ export const useAccountStore = defineStore('account', () => {
   const accounts = ref<Account[]>([])
   const accountGroups = ref<AccountGroup[]>([])
 
-  // Getters
+  // Getter: rein UI‑nahe Filterung ist weiter zulässig
   const activeAccounts = computed(() => {
     return accounts.value.filter(account => account.isActive)
   })
 
-  const totalBalance = computed(() => {
-    return activeAccounts.value
-      .filter(account => !account.isOfflineBudget)
-      .reduce((sum, account) => sum + account.balance, 0)
-  })
-
+  /** Einzelnes Konto nach ID */
   function getAccountById(id: string) {
     return accounts.value.find(account => account.id === id)
   }
 
+  /** Einzelne Gruppe nach ID */
   const getAccountGroupById = computed(() => {
     return (id: string) => accountGroups.value.find(group => group.id === id)
   })
 
-  const accountsByGroup = computed(() => {
-    const result: Record<string, Account[]> = {}
+  // --- CRUD‑Aktionen --------------------------------------------------------
 
-    accountGroups.value.forEach(group => {
-      result[group.id] = accounts.value
-        .filter(account => account.accountGroupId === group.id)
-        .sort((a, b) => a.sortOrder - b.sortOrder)
-    })
-
-    return result
-  })
-
-  // Actions
   function addAccount(account: Omit<Account, 'id'>) {
-    const newAccount: Account = {
-      ...account,
-      id: uuidv4()
-    }
+    const newAccount: Account = { ...account, id: uuidv4() }
     accounts.value.push(newAccount)
     saveAccounts()
     return newAccount
@@ -67,10 +50,7 @@ export const useAccountStore = defineStore('account', () => {
   }
 
   function addAccountGroup(group: Omit<AccountGroup, 'id'>) {
-    const newGroup: AccountGroup = {
-      ...group,
-      id: uuidv4()
-    }
+    const newGroup: AccountGroup = { ...group, id: uuidv4() }
     accountGroups.value.push(newGroup)
     saveAccountGroups()
     return newGroup
@@ -88,10 +68,7 @@ export const useAccountStore = defineStore('account', () => {
 
   function deleteAccountGroup(id: string) {
     const hasAccounts = accounts.value.some(account => account.accountGroupId === id)
-    if (hasAccounts) {
-      return false
-    }
-
+    if (hasAccounts) return false
     accountGroups.value = accountGroups.value.filter(group => group.id !== id)
     saveAccountGroups()
     return true
@@ -99,29 +76,27 @@ export const useAccountStore = defineStore('account', () => {
 
   function updateAccountBalance(id: string, newBalance: number) {
     const account = accounts.value.find(account => account.id === id)
-    if (account) {
-      account.balance = newBalance
-      saveAccounts()
-      return true
-    }
-    return false
+    if (!account) return false
+    account.balance = newBalance
+    saveAccounts()
+    return true
   }
+
+  // --- Persistence ---------------------------------------------------------
 
   function loadAccounts() {
     const savedAccounts = localStorage.getItem('finwise_accounts')
-    if (savedAccounts) {
-      accounts.value = JSON.parse(savedAccounts)
-    }
+    if (savedAccounts) accounts.value = JSON.parse(savedAccounts)
 
     const savedGroups = localStorage.getItem('finwise_account_groups')
     if (savedGroups) {
       accountGroups.value = JSON.parse(savedGroups)
     } else {
       accountGroups.value = [
-        { id: uuidv4(), name: 'Girokonten', sortOrder: 0 },
-        { id: uuidv4(), name: 'Sparkonten', sortOrder: 1 },
-        { id: uuidv4(), name: 'Kreditkarten', sortOrder: 2 },
-        { id: uuidv4(), name: 'Bargeld', sortOrder: 3 }
+        { id: uuidv4(), name: 'Girokonten',  sortOrder: 0 },
+        { id: uuidv4(), name: 'Sparkonten',  sortOrder: 1 },
+        { id: uuidv4(), name: 'Kreditkarten',sortOrder: 2 },
+        { id: uuidv4(), name: 'Bargeld',     sortOrder: 3 }
       ]
       saveAccountGroups()
     }
@@ -135,9 +110,10 @@ export const useAccountStore = defineStore('account', () => {
     localStorage.setItem('finwise_account_groups', JSON.stringify(accountGroups.value))
   }
 
+  /** Liefert alle Transaktionen eines Kontos (reiner Pass‑Through) */
   function getTransactionByAccountId(accountId: string) {
-    const transactionStore = useTransactionStore();
-    return transactionStore.transactions.filter(transaction => transaction.accountId === accountId);
+    const transactionStore = useTransactionStore()
+    return transactionStore.transactions.filter(tx => tx.accountId === accountId)
   }
 
   function reset() {
@@ -149,13 +125,16 @@ export const useAccountStore = defineStore('account', () => {
   loadAccounts()
 
   return {
+    // state
     accounts,
     accountGroups,
+
+    // getter
     activeAccounts,
-    totalBalance,
     getAccountById,
     getAccountGroupById,
-    accountsByGroup,
+
+    // crud
     addAccount,
     updateAccount,
     deleteAccount,
@@ -163,6 +142,8 @@ export const useAccountStore = defineStore('account', () => {
     updateAccountGroup,
     deleteAccountGroup,
     updateAccountBalance,
+
+    // persistence & helpers
     loadAccounts,
     getTransactionByAccountId,
     reset

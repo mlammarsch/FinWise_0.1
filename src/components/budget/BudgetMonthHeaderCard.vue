@@ -1,9 +1,14 @@
+<!-- src/components/budget/BudgetMonthHeaderCard.vue -->
 <script setup lang="ts">
+/**
+ * Kopf‑Karte eines Budget‑Monats.
+ * Utils‑Abhängigkeit (addCategoryTransfer) entfällt – es wird nun CategoryService genutzt.
+ */
 import CurrencyDisplay from "../ui/CurrencyDisplay.vue";
 import { ref, computed, nextTick } from "vue";
 import { useCategoryStore } from "../../stores/categoryStore";
 import CategoryTransferModal from "../budget/CategoryTransferModal.vue";
-import { addCategoryTransfer } from "@/utils/categoryTransfer";
+import { CategoryService } from "@/services/CategoryService"; /* ✨ neu */
 import { debugLog } from "@/utils/logger";
 import { toDateOnlyString } from "@/utils/formatters";
 
@@ -19,7 +24,9 @@ const props = defineProps<{
 
 const categoryStore = useCategoryStore();
 
-// Neu: Prüfe den aktuellen Monat ausschließlich anhand des Datums
+/* ----------------------------------------------------------- */
+/* ------------------- Monats‑Hilfslogik --------------------- */
+/* ----------------------------------------------------------- */
 const isCurrentMonth = computed(() => {
   if (!props.month) return false;
   const now = new Date(toDateOnlyString(new Date()));
@@ -30,7 +37,9 @@ const isCurrentMonth = computed(() => {
   );
 });
 
-// Container für relative Positionierung
+/* ----------------------------------------------------------- */
+/* ---------------- Dropdown / Kontextmenü ------------------- */
+/* ----------------------------------------------------------- */
 const containerRef = ref<HTMLElement | null>(null);
 const showHeaderDropdown = ref(false);
 const headerDropdownX = ref(0);
@@ -49,9 +58,7 @@ function openHeaderDropdown(event: MouseEvent) {
     y: headerDropdownY.value,
   });
   showHeaderDropdown.value = true;
-  nextTick(() => {
-    headerDropdownRef.value?.focus();
-  });
+  nextTick(() => headerDropdownRef.value?.focus());
 }
 
 function closeHeaderDropdown() {
@@ -59,12 +66,12 @@ function closeHeaderDropdown() {
 }
 
 function handleEscHeaderDropdown(event: KeyboardEvent) {
-  if (event.key === "Escape") {
-    closeHeaderDropdown();
-  }
+  if (event.key === "Escape") closeHeaderDropdown();
 }
 
-// Transfer-Modal im Header
+/* ----------------------------------------------------------- */
+/* --------------------- Transfer‑Modal ---------------------- */
+/* ----------------------------------------------------------- */
 const showTransferModal = ref(false);
 const modalData = ref<{ mode: "header" } | null>({ mode: "header" });
 
@@ -84,8 +91,15 @@ function closeModal() {
   showTransferModal.value = false;
 }
 
-function handleTransfer(data: any) {
-  addCategoryTransfer(
+function handleTransfer(data: {
+  fromCategoryId: string;
+  toCategoryId: string;
+  amount: number;
+  date: string;
+  note: string;
+}) {
+  CategoryService.addCategoryTransfer(
+    /* ⬅️ Utils‑Call ersetzt */
     data.fromCategoryId,
     data.toCategoryId,
     data.amount,
@@ -97,6 +111,7 @@ function handleTransfer(data: any) {
 </script>
 
 <template>
+  <!-- (Template unverändert) -->
   <div
     ref="containerRef"
     :class="[
@@ -126,6 +141,8 @@ function handleTransfer(data: any) {
       <div>-{{ props.nextMonth ?? 0 }} For next month</div>
     </div>
   </div>
+
+  <!-- Kontext‑Dropdown -->
   <div
     v-if="showHeaderDropdown"
     ref="headerDropdownRef"
@@ -143,6 +160,8 @@ function handleTransfer(data: any) {
       </li>
     </ul>
   </div>
+
+  <!-- Transfer‑Modal -->
   <CategoryTransferModal
     v-if="showTransferModal"
     :is-open="showTransferModal"

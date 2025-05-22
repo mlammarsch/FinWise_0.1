@@ -1,3 +1,4 @@
+<!-- Datei: src/components/account/AccountCard.vue -->
 <script setup lang="ts">
 import { defineProps, computed, ref } from "vue";
 import { Account } from "../../types";
@@ -6,6 +7,7 @@ import { useRouter } from "vue-router";
 import AccountReconcileModal from "./AccountReconcileModal.vue";
 import AccountForm from "./AccountForm.vue";
 import { useAccountStore } from "../../stores/accountStore";
+import { AccountService } from "../../services/AccountService"; // neu
 
 const emit = defineEmits(["select"]);
 
@@ -21,15 +23,22 @@ const accountStore = useAccountStore();
 const showReconcileModal = ref(false);
 const showEditModal = ref(false);
 
+// IBAN‑Formatierung
 const formattedIban = computed(() => {
   if (!props.account.iban) return "";
   const iban = props.account.iban.replace(/\s/g, "");
   return iban.match(/.{1,4}/g)?.join(" ") || iban;
 });
 
+// Logo
 const accountImage = computed(() => {
   return props.account.image || "https://placehold.co/400x400?text=Logo";
 });
+
+// Aktueller Saldo (Service)
+const currentBalance = computed(() =>
+  AccountService.getCurrentBalance(props.account.id)
+);
 
 // Aktionen
 const showTransactions = () => {
@@ -44,7 +53,7 @@ const deleteAccount = async () => {
   }
 };
 
-// Modal Handlers
+// Modal Handler
 const onReconciled = async () => {
   showReconcileModal.value = false;
   await accountStore.loadAccounts();
@@ -70,7 +79,7 @@ const selectAccount = () => {
     style="width: 100%"
     @click="selectAccount"
   >
-    <!-- Dropdown-Menü für Aktionen -->
+    <!-- Dropdown-Menü -->
     <div class="dropdown dropdown-end absolute top-1 right-1" @click.stop>
       <button tabindex="0" class="btn btn-ghost border-none btn-sm btn-circle">
         <Icon icon="mdi:dots-vertical" />
@@ -79,15 +88,9 @@ const selectAccount = () => {
         tabindex="0"
         class="dropdown-content menu p-2 shadow bg-base-100 border border-base-300 rounded-box w-52"
       >
-        <li>
-          <a @click="showReconcileModal = true">Kontoabgleich</a>
-        </li>
-        <li>
-          <a @click="showEditModal = true">Bearbeiten</a>
-        </li>
-        <li>
-          <a @click="deleteAccount" class="text-error">Löschen</a>
-        </li>
+        <li><a @click="showReconcileModal = true">Kontoabgleich</a></li>
+        <li><a @click="showEditModal = true">Bearbeiten</a></li>
+        <li><a @click="deleteAccount" class="text-error">Löschen</a></li>
       </ul>
     </div>
 
@@ -125,11 +128,11 @@ const selectAccount = () => {
         </div>
       </div>
 
-      <!-- Saldo-Anzeige -->
+      <!-- Saldo -->
       <div class="justify-self-end flex items-center flex-shrink-0 ml-2 mr-3">
         <CurrencyDisplay
           class="text-right text-base whitespace-nowrap"
-          :amount="account.balance"
+          :amount="currentBalance"
           :show-zero="true"
           :asInteger="true"
         />

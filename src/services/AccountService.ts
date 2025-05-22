@@ -1,218 +1,130 @@
 // src/services/AccountService.ts
 import { useAccountStore } from '@/stores/accountStore';
-import { useTransactionStore } from '@/stores/transactionStore'; // Needed for getAccountInfo
-import { Account, AccountGroup, Transaction } from '@/types';
+import { useTransactionStore } from '@/stores/transactionStore';
+import { useMonthlyBalanceStore } from '@/stores/monthlyBalanceStore'; // neu
+import { Account, AccountGroup } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 import { debugLog } from '@/utils/logger';
 
 interface AccountInfo {
-    id: string;
-    name: string;
-    balance: number;
-    // Add other quickly accessible info if needed
+  id: string;
+  name: string;
+  balance: number;
 }
 
 export const AccountService = {
-    // --- Account CRUD ---
+  // ------------------------------------------------------------------ CRUD
 
-    /**
-     * Holt alle Konten.
-     */
-    getAllAccounts(): Account[] {
-        const accountStore = useAccountStore();
-        return accountStore.accounts; // Directly return from store state
-    },
+  getAllAccounts(): Account[] {
+    return useAccountStore().accounts;
+  },
 
-    /**
-     * Holt ein Konto anhand seiner ID.
-     */
-    getAccountById(id: string): Account | null {
-        const accountStore = useAccountStore();
-        const account = accountStore.getAccountById(id);
-        if (!account) {
-            debugLog("[AccountService] getAccountById - Account not found:", id);
-        }
-        return account;
-    },
+  getAccountById(id: string): Account | null {
+    const acc = useAccountStore().getAccountById(id);
+    if (!acc) debugLog('[AccountService] Account not found', id);
+    return acc;
+  },
 
-     /**
-     * Fügt ein neues Konto hinzu.
-     */
-    addAccount(accountData: Omit<Account, 'id' | 'balance' | 'reconcilliationDate' | 'reconcilliationBalance' | 'isClosed'>): Account | null {
-        const accountStore = useAccountStore();
-        const newAccount: Account = {
-            ...accountData,
-            id: uuidv4(),
-            balance: accountData.startBalance || 0,
-            reconcilliationDate: null,
-            reconcilliationBalance: null,
-            isClosed: false,
-            // Default image or handle missing image
-            image: accountData.image || undefined,
-        };
-        const added = accountStore.addAccount(newAccount); // Use store action
-        if (added) {
-            debugLog("[AccountService] addAccount - Added:", added);
-             return added;
-        } else {
-             debugLog("[AccountService] addAccount - Failed to add account");
-             return null;
-        }
-    },
+  addAccount(accountData: Omit<Account, 'id' | 'balance'>): Account | null {
+    const accountStore = useAccountStore();
+    const newAccount: Account = {
+      ...accountData,
+      id: uuidv4(),
+      balance: 0,
+    };
+    return accountStore.addAccount(newAccount);
+  },
 
-    /**
-     * Aktualisiert ein Konto.
-     */
-    updateAccount(id: string, updates: Partial<Omit<Account, 'id' | 'balance'>>): boolean {
-        const accountStore = useAccountStore();
-        const success = accountStore.updateAccount(id, updates); // Use store action
-        if (success) {
-            debugLog("[AccountService] updateAccount - Updated:", id);
-        } else {
-            debugLog("[AccountService] updateAccount - Failed to update:", id);
-        }
-        return success;
-    },
+  updateAccount(id: string, updates: Partial<Omit<Account, 'id'>>): boolean {
+    return useAccountStore().updateAccount(id, updates);
+  },
 
-    /**
-     * Löscht ein Konto (nur wenn keine Transaktionen vorhanden sind).
-     */
-    deleteAccount(id: string): boolean {
-        const accountStore = useAccountStore();
-        const transactionStore = useTransactionStore();
+  deleteAccount(id: string): boolean {
+    const txStore = useTransactionStore();
+    if (txStore.transactions.some(tx => tx.accountId === id)) return false;
+    return useAccountStore().deleteAccount(id);
+  },
 
-        // Check if account has transactions
-        const hasTransactions = transactionStore.transactions.some(tx => tx.accountId === id);
-        if (hasTransactions) {
-            debugLog("[AccountService] deleteAccount - Failed: Account has transactions:", id);
-            // Optional: throw an error or return a specific code
-            return false;
-        }
+  // -------------------------------------------------------- Zentrale Salden
 
-        const success = accountStore.deleteAccount(id); // Use store action
-         if (success) {
-             debugLog("[AccountService] deleteAccount - Deleted:", id);
-         } else {
-              debugLog("[AccountService] deleteAccount - Failed to delete:", id);
-         }
-        return success;
-    },
+  /**
+   * Liefert den Saldo eines Kontos zum Stichtag (default = heute).
+   * Quelle: MonthlyBalanceStore.projectedAccountBalances
+   */
+  getCurrentBalance(accountId: string, asOf: Date = new Date()): number {
+    const mbStore = useMonthlyBalanceStore();
+    const bal = mbStore.getProjectedAccountBalanceForDate(accountId, asOf);
+    return bal ?? 0;
+  },
 
-     /**
-     * Holt grundlegende Kontoinformationen (z.B. für Kartenanzeige).
-     * Berechnet den aktuellen Saldo aus dem Startsaldo und den Transaktionen.
-     * Deprecated or needs rework: Balance calculation should happen in store or fetch logic.
-     * Keeping it simple for now, assuming AccountStore keeps balance updated.
-     */
-    getAccountInfo(accountId: string): AccountInfo | null {
-        const account = this.getAccountById(accountId);
-        if (!account) return null;
+  /**
+   * Gesamtsaldo aller aktiven Konten zum Stichtag.
+   */
+  getTotalBalance(asOf: Date = new Date()): number {
+    const accStore = useAccountStore();
+    return accStore.activeAccounts
+      .filter(a => !a.isOfflineBudget)
+      .reduce((sum, a) => sum + this.getCurrentBalance(a.id, asOf), 0);
+  },
 
-        // Direct return, assuming balance in store is up-to-date
-        return {
-            id: account.id,
-            name: account.name,
-            balance: account.balance,
-        };
+  /**
+   * Salden je Kontogruppe; liefert Objekt { groupId: balance }.
+   */
+  getGroupBalances(asOf: Date = new Date()): Record<string, number> {
+    const accStore = useAccountStore();
+    const result: Record<string, number> = {};
+    accStore.accountGroups.forEach(g => {
+      const groupAccounts = accStore.accounts.filter(
+        a => a.accountGroupId === g.id && a.isActive && !a.isOfflineBudget
+      );
+      const bal = groupAccounts.reduce(
+        (s, a) => s + this.getCurrentBalance(a.id, asOf),
+        0
+      );
+      result[g.id] = bal;
+    });
+    return result;
+  },
 
-        /* // --- Alternative: Recalculate Balance ---
-        const transactionStore = useTransactionStore();
-        const transactions = transactionStore.getTransactionsByAccount(accountId);
-        const currentBalance = transactions.reduce(
-            (sum, tx) => sum + tx.amount,
-            account.startBalance || 0 // Start from startBalance if available
-        );
-        // This requires updating the account object in the store if we want consistency
-        // It's better if the store handles balance updates reactively.
-        return { id: account.id, name: account.name, balance: currentBalance };
-        // --- End Alternative --- */
-    },
+  // --------------------------------------------------------- Convenience —
 
-     /**
-     * Holt den Namen eines Kontos anhand seiner ID.
-     */
-    getAccountName(id: string | null): string {
-        if (!id) return 'Kein Konto';
-        const accountStore = useAccountStore();
-        return accountStore.getAccountById(id)?.name || 'Unbekanntes Konto';
-    },
+  getAccountInfo(accountId: string): AccountInfo | null {
+    const acc = this.getAccountById(accountId);
+    if (!acc) return null;
+    return {
+      id: acc.id,
+      name: acc.name,
+      balance: this.getCurrentBalance(acc.id),
+    };
+  },
 
+  getAccountName(id: string | null): string {
+    if (!id) return 'Kein Konto';
+    return this.getAccountById(id)?.name || 'Unbekanntes Konto';
+  },
 
-    // --- Account Group CRUD ---
+  // ---------------------------------------------------- Account‑Groups CRUD
 
-    /**
-     * Holt alle Kontogruppen.
-     */
-     getAllAccountGroups(): AccountGroup[] {
-        const accountStore = useAccountStore();
-        return accountStore.accountGroups;
-    },
+  getAllAccountGroups(): AccountGroup[] {
+    return useAccountStore().accountGroups;
+  },
 
+  getAccountGroupById(id: string): AccountGroup | null {
+    return useAccountStore().getAccountGroupById(id);
+  },
 
-    /**
-     * Holt eine Kontogruppe anhand ihrer ID.
-     */
-    getAccountGroupById(id: string): AccountGroup | null {
-        const accountStore = useAccountStore();
-        const group = accountStore.getAccountGroupById(id);
-         if (!group) {
-             debugLog("[AccountService] getAccountGroupById - Group not found:", id);
-         }
-        return group;
-    },
+  addAccountGroup(groupData: Omit<AccountGroup, 'id'>): AccountGroup | null {
+    const newGroup: AccountGroup = { ...groupData, id: uuidv4() };
+    return useAccountStore().addAccountGroup(newGroup);
+  },
 
-    /**
-     * Fügt eine neue Kontogruppe hinzu.
-     */
-    addAccountGroup(groupData: Omit<AccountGroup, 'id'>): AccountGroup | null {
-        const accountStore = useAccountStore();
-        const newGroup: AccountGroup = {
-            ...groupData,
-            id: uuidv4(),
-        };
-        const added = accountStore.addAccountGroup(newGroup);
-        if (added) {
-             debugLog("[AccountService] addAccountGroup - Added:", added);
-             return added;
-        } else {
-             debugLog("[AccountService] addAccountGroup - Failed to add group");
-             return null;
-        }
-    },
+  updateAccountGroup(id: string, updates: Partial<Omit<AccountGroup, 'id'>>): boolean {
+    return useAccountStore().updateAccountGroup(id, updates);
+  },
 
-    /**
-     * Aktualisiert eine Kontogruppe.
-     */
-    updateAccountGroup(id: string, updates: Partial<Omit<AccountGroup, 'id'>>): boolean {
-        const accountStore = useAccountStore();
-        const success = accountStore.updateAccountGroup(id, updates);
-        if (success) {
-            debugLog("[AccountService] updateAccountGroup - Updated:", id);
-        } else {
-            debugLog("[AccountService] updateAccountGroup - Failed to update:", id);
-        }
-        return success;
-    },
-
-    /**
-     * Löscht eine Kontogruppe (nur wenn keine Konten zugeordnet sind).
-     */
-    deleteAccountGroup(id: string): boolean {
-        const accountStore = useAccountStore();
-
-        // Check if group has accounts
-        const hasAccounts = accountStore.accounts.some(acc => acc.accountGroupId === id);
-        if (hasAccounts) {
-            debugLog("[AccountService] deleteAccountGroup - Failed: Group has accounts:", id);
-            return false;
-        }
-
-        const success = accountStore.deleteAccountGroup(id);
-        if (success) {
-            debugLog("[AccountService] deleteAccountGroup - Deleted:", id);
-        } else {
-             debugLog("[AccountService] deleteAccountGroup - Failed to delete:", id);
-        }
-        return success;
-    },
+  deleteAccountGroup(id: string): boolean {
+    const accStore = useAccountStore();
+    if (accStore.accounts.some(acc => acc.accountGroupId === id)) return false;
+    return accStore.deleteAccountGroup(id);
+  },
 };
