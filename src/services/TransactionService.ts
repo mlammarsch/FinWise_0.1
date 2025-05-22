@@ -1,6 +1,5 @@
-// src/services/TransactionService.ts
+// Datei: src/services/TransactionService.ts
 // Zentrale Drehscheibe für alle Transaktionen, Transfers & Reconcile‑Buchungen.
-// Utils‑Wrapper wurden gestrichen – alle Aufrufe landen direkt hier.
 
 import { useTransactionStore } from '@/stores/transactionStore';
 import { useAccountStore }     from '@/stores/accountStore';
@@ -11,6 +10,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { debugLog } from '@/utils/logger';
 import { toDateOnlyString } from '@/utils/formatters';
 import { CategoryService } from './CategoryService';
+import { useRuleStore } from '@/stores/ruleStore';    // neu
 
 export const TransactionService = {
 /* ------------------------------------------------------------------ */
@@ -34,6 +34,7 @@ export const TransactionService = {
     const txStore = useTransactionStore();
     const mbStore = useMonthlyBalanceStore();
     const catStore = useCategoryStore();
+    const ruleStore = useRuleStore();                // neu
 
     // Basiskontrolle
     if (!txData.accountId && txData.type !== TransactionType.CATEGORYTRANSFER) {
@@ -52,6 +53,10 @@ export const TransactionService = {
     };
 
     const added = txStore.addTransaction(newTx);
+
+    // → Regeln anwenden & speichern
+    ruleStore.applyRulesToTransaction(added);
+
     mbStore.calculateMonthlyBalances();
     debugLog('[TransactionService] addTransaction', added);
 
@@ -178,7 +183,7 @@ export const TransactionService = {
 
 /* ------------------------- Update / Delete ----------------------- */
 
-  updateTransaction(
+updateTransaction(
     id: string,
     updates: Partial<Omit<Transaction, 'id' | 'runningBalance'>>
   ): boolean {
@@ -190,10 +195,45 @@ export const TransactionService = {
     if (updates.valueDate) updates.valueDate = toDateOnlyString(updates.valueDate);
 
     const original = txStore.getTransactionById(id);
+
+    // Datums­wechsel bei Einnahmen → Category‑Transfer umbuchen
+    const originalMonthKey = original?.date?.substring(0, 7);
+    const newDateAfterUpdate = updates.date ?? original?.date ?? '';
+    const newMonthKey = newDateAfterUpdate.substring(0, 7);
+
+    if (
+      original &&
+      original.type === TransactionType.INCOME &&
+      original.amount > 0 &&
+      original.categoryId &&
+      originalMonthKey !== newMonthKey
+    ) {
+      const available = catStore.getAvailableFundsCategory();
+      if (!available) throw new Error("Kategorie 'Verfügbare Mittel' fehlt");
+
+      // Rücktransfer (alte Buchung rückgängig machen)
+      CategoryService.addCategoryTransfer(
+        available.id,
+        original.categoryId,
+        original.amount,
+        original.date,
+        'Automatischer Rücktransfer wegen Datumsänderung'
+      );
+
+      // Neuer Transfer am neuen Datum
+      CategoryService.addCategoryTransfer(
+        original.categoryId,
+        available.id,
+        original.amount,
+        newDateAfterUpdate,
+        'Automatischer Transfer wegen Datumsänderung'
+      );
+    }
+
     const ok = txStore.updateTransaction(id, updates);
     if (!ok) return false;
 
-    /* Auto‑Transfer bei INCOME‑Diff */
+    /* Auto‑Transfer bei INCOME‑Diff (bestehend) --------------------------- */
     if (
       original &&
       original.type === TransactionType.INCOME &&

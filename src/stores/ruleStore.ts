@@ -1,199 +1,175 @@
-// src/stores/ruleStore.ts
-import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
-import { v4 as uuidv4 } from 'uuid'
-import { AutomationRule, RuleConditionType, RuleActionType, Transaction } from '../types'
-import { debugLog } from '@/utils/logger'
+// Datei: src/stores/ruleStore.ts
+import { defineStore } from 'pinia';
+import { ref, computed } from 'vue';
+import { v4 as uuidv4 } from 'uuid';
+import {
+  AutomationRule,
+  RuleConditionType,
+  RuleActionType,
+  Transaction,
+} from '../types';
+import { debugLog } from '@/utils/logger';
+import { TransactionService } from '@/services/TransactionService'; // neu
 
 export const useRuleStore = defineStore('rule', () => {
-  const rules = ref<AutomationRule[]>([])
+  /** Alle Regeln */
+  const rules = ref<AutomationRule[]>([]);
 
-  /**
-   * Fügt eine neue Automatisierungsregel hinzu
-   */
+  // ------------------------------------------------------------------ CRUD
   function addRule(rule: Omit<AutomationRule, 'id'>) {
-    const newRule: AutomationRule = {
-      ...rule,
-      id: uuidv4()
-    }
-    rules.value.push(newRule)
-    saveRules()
-    debugLog('[ruleStore] addRule', newRule)
-    return newRule
+    const newRule: AutomationRule = { ...rule, id: uuidv4() };
+    rules.value.push(newRule);
+    saveRules();
+    debugLog('[ruleStore] addRule', newRule);
+    return newRule;
   }
 
-  /**
-   * Gibt eine Regel anhand ihrer ID zurück
-   */
   const getRuleById = computed(() => {
-    return (id: string) => rules.value.find(rule => rule.id === id)
-  })
+    return (id: string) => rules.value.find((r) => r.id === id);
+  });
 
-  /**
-   * Aktualisiert eine vorhandene Regel
-   */
   function updateRule(id: string, updates: Partial<AutomationRule>) {
-    const index = rules.value.findIndex(rule => rule.id === id)
-    if (index !== -1) {
-      rules.value[index] = { ...rules.value[index], ...updates }
-      saveRules()
-      debugLog('[ruleStore] updateRule', { id, updates })
-      return true
-    }
-    return false
+    const idx = rules.value.findIndex((r) => r.id === id);
+    if (idx === -1) return false;
+    rules.value[idx] = { ...rules.value[idx], ...updates };
+    saveRules();
+    debugLog('[ruleStore] updateRule', { id, updates });
+    return true;
   }
 
-  /**
-   * Löscht eine Regel
-   */
   function deleteRule(id: string) {
-    rules.value = rules.value.filter(rule => rule.id !== id)
-    saveRules()
-    debugLog('[ruleStore] deleteRule', id)
-    return true
+    rules.value = rules.value.filter((r) => r.id !== id);
+    saveRules();
+    debugLog('[ruleStore] deleteRule', id);
+    return true;
   }
 
-  /**
-   * Wendet alle passenden Regeln auf eine Transaktion an
-   */
-  function applyRulesToTransaction(transaction: Transaction, stage: 'PRE' | 'DEFAULT' | 'POST' = 'DEFAULT') {
-    // Sortiere Regeln nach Priorität
-    const sortedRules = [...rules.value]
-      .filter(rule => rule.isActive && rule.stage === stage)
-      .sort((a, b) => a.priority - b.priority)
+  // ------------------------------------------------ Regel‑Engine ---------
+  function applyRulesToTransaction(
+    transaction: Transaction,
+    stage: 'PRE' | 'DEFAULT' | 'POST' = 'DEFAULT'
+  ) {
+    const sorted = [...rules.value]
+      .filter((r) => r.isActive && r.stage === stage)
+      .sort((a, b) => a.priority - b.priority);
 
-    let modifiedTransaction = { ...transaction }
-    let rulesApplied = 0
+    let modified: Transaction = { ...transaction };
+    let applied = 0;
 
-    for (const rule of sortedRules) {
-      if (checkConditions(rule, modifiedTransaction)) {
-        modifiedTransaction = applyActions(rule, modifiedTransaction)
-        rulesApplied++
+    for (const rule of sorted) {
+      if (checkConditions(rule, modified)) {
+        modified = applyActions(rule, modified);
+        applied++;
+      }
+    }
+
+    // Änderungen sichern
+    if (applied) {
+      const updates: Partial<Transaction> = {};
+      Object.keys(modified).forEach((k) => {
+        // @ts-ignore
+        if (k !== 'id' && k !== 'runningBalance' && modified[k] !== transaction[k]) {
+          // @ts-ignore
+          updates[k] = modified[k];
+        }
+      });
+      if (Object.keys(updates).length) {
+        TransactionService.updateTransaction(transaction.id, updates);
       }
     }
 
     debugLog('[ruleStore] applyRulesToTransaction', {
       transactionId: transaction.id,
       stage,
-      rulesApplied
-    })
+      rulesApplied: applied,
+    });
 
-    return modifiedTransaction
+    return modified;
   }
 
-  /**
-   * Prüft, ob alle Bedingungen einer Regel auf eine Transaktion zutreffen
-   */
-  function checkConditions(rule: AutomationRule, transaction: Transaction): boolean {
-    // Wenn keine Bedingungen definiert sind, trifft die Regel immer zu
-    if (!rule.conditions || rule.conditions.length === 0) return true
-
-    return rule.conditions.every(condition => {
-      switch (condition.type) {
+  function checkConditions(rule: AutomationRule, tx: Transaction): boolean {
+    if (!rule.conditions?.length) return true;
+    return rule.conditions.every((c) => {
+      switch (c.type) {
         case RuleConditionType.ACCOUNT_IS:
-          return transaction.accountId === condition.value
-
+          return tx.accountId === c.value;
         case RuleConditionType.PAYEE_EQUALS:
-          return transaction.payee === condition.value
-
+          return tx.payee === c.value;
         case RuleConditionType.PAYEE_CONTAINS:
-          return transaction.payee?.toLowerCase().includes(String(condition.value).toLowerCase())
-
+          return tx.payee?.toLowerCase().includes(String(c.value).toLowerCase());
         case RuleConditionType.AMOUNT_EQUALS:
-          return transaction.amount === Number(condition.value)
-
+          return tx.amount === Number(c.value);
         case RuleConditionType.AMOUNT_GREATER:
-          return transaction.amount > Number(condition.value)
-
+          return tx.amount > Number(c.value);
         case RuleConditionType.AMOUNT_LESS:
-          return transaction.amount < Number(condition.value)
-
+          return tx.amount < Number(c.value);
         case RuleConditionType.DATE_IS:
-          return transaction.date === condition.value
-
+          return tx.date === c.value;
         case RuleConditionType.DESCRIPTION_CONTAINS:
-          return transaction.note?.toLowerCase().includes(String(condition.value).toLowerCase())
-
+          return tx.note?.toLowerCase().includes(String(c.value).toLowerCase());
         default:
-          return false
+          return false;
       }
-    })
+    });
   }
 
-  /**
-   * Wendet die Aktionen einer Regel auf eine Transaktion an
-   */
-  function applyActions(rule: AutomationRule, transaction: Transaction): Transaction {
-    let updatedTransaction = { ...transaction }
-
-    rule.actions.forEach(action => {
-      switch (action.type) {
+  function applyActions(rule: AutomationRule, tx: Transaction): Transaction {
+    const out = { ...tx };
+    rule.actions.forEach((a) => {
+      switch (a.type) {
         case RuleActionType.SET_CATEGORY:
-          updatedTransaction.categoryId = String(action.value)
-          break
-
+          out.categoryId = String(a.value);
+          break;
         case RuleActionType.ADD_TAG:
-          if (!updatedTransaction.tagIds) updatedTransaction.tagIds = []
-          if (Array.isArray(action.value)) {
-            updatedTransaction.tagIds = [...new Set([...updatedTransaction.tagIds, ...action.value])]
-          } else {
-            if (!updatedTransaction.tagIds.includes(String(action.value))) {
-              updatedTransaction.tagIds.push(String(action.value))
-            }
-          }
-          break
-
+          if (!out.tagIds) out.tagIds = [];
+          if (Array.isArray(a.value))
+            out.tagIds = [...new Set([...out.tagIds, ...a.value])];
+          else if (!out.tagIds.includes(String(a.value)))
+            out.tagIds.push(String(a.value));
+          break;
         case RuleActionType.SET_NOTE:
-          updatedTransaction.note = String(action.value)
-          break
+          out.note = String(a.value);
+          break;
       }
-    })
-
-    return updatedTransaction
+    });
+    return out;
   }
 
-  /**
-   * Speichert die Regeln im LocalStorage
-   */
+  // -------------------------------------------------- Persistence ---------
   function saveRules() {
-    localStorage.setItem('finwise_rules', JSON.stringify(rules.value))
+    localStorage.setItem('finwise_rules', JSON.stringify(rules.value));
   }
-
-  /**
-   * Lädt die Regeln aus dem LocalStorage
-   */
   function loadRules() {
-    const saved = localStorage.getItem('finwise_rules')
+    const saved = localStorage.getItem('finwise_rules');
     if (saved) {
       try {
-        rules.value = JSON.parse(saved)
-        debugLog('[ruleStore] loadRules - Loaded', rules.value.length, 'rules')
-      } catch (error) {
-        debugLog('[ruleStore] loadRules - Error parsing data', error)
-        rules.value = []
+        rules.value = JSON.parse(saved);
+        debugLog('[ruleStore] loadRules', rules.value.length);
+      } catch (e) {
+        debugLog('[ruleStore] loadRules error', e);
+        rules.value = [];
       }
     }
   }
 
-  /**
-   * Setzt den Regelstore zurück
-   */
   function reset() {
-    rules.value = []
-    loadRules()
-    debugLog('[ruleStore] reset')
+    rules.value = [];
+    loadRules();
   }
 
-  // Initialisierung
-  loadRules()
+  loadRules();
 
   return {
+    /* state */
     rules,
+    /* CRUD */
     addRule,
     getRuleById,
     updateRule,
     deleteRule,
+    /* engine */
     applyRulesToTransaction,
-    reset
-  }
-})
+    /* util */
+    reset,
+  };
+});

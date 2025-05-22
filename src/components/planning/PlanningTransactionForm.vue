@@ -2,15 +2,6 @@
 <script setup lang="ts">
 /**
  * Pfad zur Komponente: src/components/planning/PlanningTransactionForm.vue
- * Komponente für das Erfassen und Bearbeiten von Planungstransaktionen.
- *
- * Komponenten-Props:
- * - transaction?: PlanningTransaction - Bestehende Transaktion, falls Edit
- * - isEdit?: boolean - Gibt an, ob die Transaktion bearbeitet wird
- *
- * Emits:
- * - save: Gibt die erstellte/aktualisierte Transaktion zurück
- * - cancel: Bricht die Transaktionserfassung ab
  */
 import { ref, computed, onMounted, watch } from "vue";
 import {
@@ -51,7 +42,6 @@ const tagStore = useTagStore();
 const recipientStore = useRecipientStore();
 const ruleStore = useRuleStore();
 
-// Formularfelder
 const name = ref("");
 const note = ref("");
 const amount = ref(0);
@@ -61,6 +51,7 @@ const minAmount = ref(0);
 const maxAmount = ref(0);
 const startDate = ref(dayjs().format("YYYY-MM-DD"));
 const valueDate = ref(startDate.value);
+const valueDateManuallyChanged = ref(false);
 const accountId = ref("");
 const categoryId = ref<string | null>(null);
 const tagIds = ref<string[]>([]);
@@ -68,7 +59,6 @@ const recipientId = ref("");
 const isTransfer = ref(false);
 const toAccountId = ref("");
 
-// Wiederholungsfelder
 const repeatsEnabled = ref(false);
 const recurrencePattern = ref<RecurrencePattern>(RecurrencePattern.MONTHLY);
 const recurrenceEndType = ref<RecurrenceEndType>(RecurrenceEndType.NEVER);
@@ -79,16 +69,12 @@ const weekendHandling = ref<WeekendHandlingType>(WeekendHandlingType.NONE);
 const moveScheduleEnabled = ref(false);
 const weekendHandlingDirection = ref<"before" | "after">("after");
 
-// Forecast Only Modus
 const forecastOnly = ref(false);
 const isActive = ref(true);
 
-// Regel-Erstellung Modal
 const showRuleCreationModal = ref(false);
 
-// Zeitpunktbeschreibung
 const dateDescription = ref("Jährlich am 14. April");
-// Kommende Ausführungstermine
 const upcomingDates = ref<Array<{ date: string; day: string }>>([]);
 
 onMounted(() => {
@@ -103,6 +89,7 @@ onMounted(() => {
     startDate.value = props.transaction.startDate;
     valueDate.value =
       props.transaction.valueDate || props.transaction.startDate;
+    valueDateManuallyChanged.value = valueDate.value !== startDate.value;
     accountId.value = props.transaction.accountId;
     categoryId.value = props.transaction.categoryId;
     tagIds.value = props.transaction.tagIds || [];
@@ -139,9 +126,21 @@ onMounted(() => {
     if (accountStore.activeAccounts.length > 0) {
       accountId.value = accountStore.activeAccounts[0].id;
     }
+    valueDate.value = startDate.value;
+    valueDateManuallyChanged.value = false;
   }
   updateDateDescription();
   calculateUpcomingDates();
+});
+
+watch(startDate, (newDate) => {
+  if (!valueDateManuallyChanged.value) {
+    valueDate.value = newDate;
+  }
+});
+
+watch(valueDate, (val) => {
+  valueDateManuallyChanged.value = val !== startDate.value;
 });
 
 watch(
@@ -158,12 +157,6 @@ watch(
     calculateUpcomingDates();
   }
 );
-
-watch(startDate, (newDate) => {
-  if (valueDate.value === startDate.value) {
-    valueDate.value = newDate;
-  }
-});
 
 function updateDateDescription() {
   if (!repeatsEnabled.value) {
@@ -311,14 +304,12 @@ function formatDate(dateStr: string): string {
   return dayjs(dateStr).format("DD.MM.YYYY");
 }
 
-// Erstellung eines Empfängers über Service-Aufruf anstatt direktem Storezugriff
 function onCreateRecipient(data: { name: string }) {
   const created = recipientStore.addRecipient({ name: data.name });
   recipientId.value = created.id;
   debugLog("[PlanningTransactionForm] onCreateRecipient", created);
 }
 
-// Hauptfunktion: Erzeugt die Transaktionsdaten und gibt sie per Event aus
 function savePlanningTransaction() {
   let effectiveAmount = amount.value;
   if (isTransfer.value) {

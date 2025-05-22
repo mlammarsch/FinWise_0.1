@@ -1,4 +1,4 @@
-<!-- TransactionForm.vue (vollstängig) -->
+// src/components/transaction/TransactionForm.vue
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, nextTick } from "vue";
 import { Transaction, TransactionType } from "../../types";
@@ -15,20 +15,6 @@ import SelectCategory from "../ui/SelectCategory.vue";
 import SelectRecipient from "../ui/SelectRecipient.vue";
 import { debugLog } from "@/utils/logger";
 
-/**
- * Pfad zur Komponente: src/components/transaction/TransactionForm.vue
- * Komponente für das Erfassen von Transaktionen.
- * Komponenten-Props:
- * - transaction?: Transaction - Bestehende Transaktion, falls Edit.
- * - isEdit?: boolean - Gibt an, ob die Transaktion bearbeitet wird.
- * - defaultAccountId?: string - Das vorausgewählte Konto (wird aus der AccountsView übergeben).
- * - initialAccountId?: string - Alternativ: Erstes Konto, falls kein explizites Konto ausgewählt wurde.
- * - initialTransactionType?: TransactionType - Optionaler Transaktionstyp.
- *
- * Emits:
- * - save: Gibt die erstellte/aktualisierte Transaktion zurück.
- * - cancel: Bricht die Transaktionserfassung ab.
- */
 const props = defineProps<{
   transaction?: Transaction;
   isEdit?: boolean;
@@ -46,6 +32,7 @@ const tagStore = useTagStore();
 
 const date = ref(new Date().toISOString().split("T")[0]);
 const valueDate = ref(date.value);
+const valueDateManuallyChanged = ref(false);
 const transactionType = ref<TransactionType>(TransactionType.EXPENSE);
 const accountId = ref("");
 const toAccountId = ref("");
@@ -123,6 +110,7 @@ onMounted(() => {
     if (transactionType.value === TransactionType.ACCOUNTTRANSFER) {
       toAccountId.value = (props.transaction as any).transferToAccountId || "";
     }
+    valueDateManuallyChanged.value = valueDate.value !== date.value;
   } else {
     // Neue Transaktion → Initialwerte setzen
     accountId.value =
@@ -133,6 +121,8 @@ onMounted(() => {
     transactionType.value =
       props.initialTransactionType || TransactionType.EXPENSE;
     reconciled.value = false;
+    valueDate.value = date.value;
+    valueDateManuallyChanged.value = false;
 
     debugLog("[TransactionForm] initial accountId set", accountId.value);
   }
@@ -161,9 +151,13 @@ watch([date, valueDate, recipientId, categoryId, transactionType], () => {
 });
 
 watch(date, (newDate) => {
-  if (!props.transaction || valueDate.value === props.transaction.date) {
+  if (!valueDateManuallyChanged.value) {
     valueDate.value = newDate;
   }
+});
+
+watch(valueDate, (val) => {
+  valueDateManuallyChanged.value = val !== date.value;
 });
 
 watch(amount, (newAmount) => {

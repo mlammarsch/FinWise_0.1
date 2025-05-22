@@ -1,7 +1,13 @@
-// src/services/PlanningService.ts
+// Datei: src/services/PlanningService.ts
 import { usePlanningStore } from '@/stores/planningStore';
 import { useMonthlyBalanceStore } from '@/stores/monthlyBalanceStore';
-import { PlanningTransaction, RecurrencePattern, TransactionType, WeekendHandlingType, RecurrenceEndType } from '@/types';
+import {
+  PlanningTransaction,
+  RecurrencePattern,
+  TransactionType,
+  WeekendHandlingType,
+  RecurrenceEndType,
+} from '@/types';
 import dayjs from 'dayjs';
 import { debugLog } from '@/utils/logger';
 import { TransactionService } from '@/services/TransactionService';
@@ -134,10 +140,8 @@ export const PlanningService = {
   },
 
   /**
-   * Führt eine geplante Transaktion aus (nur wenn forecastOnly = false).
-   * - EXPENSE / INCOME  → eine Buchung mit Kategorie
-   * - ACCOUNTTRANSFER   → zwei Buchungen (Quell‑/Zielkonto)
-   * Verknüpft jede erzeugte Buchung über planningTransactionId.
+   * Führt eine geplante Transaktion aus.
+   * Löscht ONCE‑Planungen bzw. die letzte Wiederholung automatisch aus dem Store.
    */
   executePlanningTransaction(planningId: string, executionDate: string) {
     const planningStore = usePlanningStore();
@@ -148,58 +152,88 @@ export const PlanningService = {
       return false;
     }
 
-    /* 1. Forecast only? ⇒ nur Startdatum updaten */
-    if (planning.forecastOnly) {
-      planningStore.updatePlanningTransaction(planning.id, { startDate: executionDate });
-      monthlyBalanceStore.calculateMonthlyBalances();
-      debugLog('[PlanningService] executePlanningTransaction - Forecast Only activated', { planningId: planning.id });
-      return true;
+    /* 1. Forecast‑Only ⇒ nur als ausgeführt markieren */
+    let transactionsCreated = false;
+    if (!planning.forecastOnly) {
+      // --- Validierung ---
+      if (planning.amount === 0) throw new Error("Betrag 0 ist nicht zulässig.");
+      if (!planning.accountId) throw new Error("Quellkonto fehlt.");
+      if (planning.transactionType !== TransactionType.ACCOUNTTRANSFER && !planning.categoryId)
+        throw new Error("Kategorie muss gesetzt sein.");
+
+      /* 2. Transfer‑ oder Simple‑Pfad (unverändert) */
+      if (
+        planning.transactionType === TransactionType.ACCOUNTTRANSFER ||
+        planning.transferToAccountId
+      ) {
+        TransactionService.addAccountTransfer(
+          planning.accountId,
+          planning.transferToAccountId!,
+          Math.abs(planning.amount),
+          executionDate,
+          planning.note || '',
+          planning.id
+        );
+      } else {
+        const txType =
+          planning.amount < 0 ? TransactionType.EXPENSE : TransactionType.INCOME;
+        TransactionService.addTransaction({
+          date: executionDate,
+          valueDate: planning.valueDate || executionDate,
+          amount: planning.amount,
+          type: txType,
+          description: planning.name || '',
+          note: planning.note || '',
+          accountId: planning.accountId,
+          categoryId: planning.categoryId!,
+          tagIds: planning.tagIds || [],
+          recipientId: planning.recipientId || '',
+          planningTransactionId: planning.id,
+        });
+      }
+      transactionsCreated = true;
     }
 
-    /* 2. Basis‑Validierung */
-    if (planning.amount === 0) throw new Error("Betrag 0 ist nicht zulässig.");
-    if (!planning.accountId)     throw new Error("Quellkonto fehlt.");
-    if (planning.transactionType !== TransactionType.ACCOUNTTRANSFER && !planning.categoryId)
-      throw new Error("Kategorie muss gesetzt sein.");
-
-    /* 3. Transfer‑Pfad */
-    if (planning.transactionType === TransactionType.ACCOUNTTRANSFER || planning.transferToAccountId) {
-      const res = TransactionService.addAccountTransfer(
-        planning.accountId,
-        planning.transferToAccountId!,
-        Math.abs(planning.amount),
-        executionDate,
-        planning.note || '',
-        planning.id
-      );
-      if (!res) return false;
-      debugLog('[PlanningService] executePlanningTransaction - Transfer executed', { planningId: planning.id });
-    }
-    /* 4. Expense/Income‑Pfad */
-    else {
-      const txType = planning.amount < 0 ? TransactionType.EXPENSE : TransactionType.INCOME;
-      const txData = {
-        date: executionDate,
-        valueDate: planning.valueDate || executionDate,
-        amount: planning.amount,
-        type: txType,
-        description: planning.name || '',
-        note: planning.note || '',
-        accountId: planning.accountId,
-        categoryId: planning.categoryId!,
-        tagIds: planning.tagIds || [],
-        recipientId: planning.recipientId || '',
-        planningTransactionId: planning.id
-      };
-      TransactionService.addTransaction(txData);
-      debugLog('[PlanningService] executePlanningTransaction - Simple tx executed', { planningId: planning.id });
-    }
-
-    /* 5. Regeln anwenden & Salden neu berechnen */
+    /* 3. Regeln anwenden, Salden neu rechnen */
     const ruleStore = useRuleStore();
-    const latestTx = TransactionService.getAllTransactions().slice(-1)[0];
-    if (latestTx) ruleStore.applyRulesToTransaction(latestTx);
+    if (transactionsCreated) {
+      const latestTx = TransactionService.getAllTransactions().slice(-1)[0];
+      if (latestTx) ruleStore.applyRulesToTransaction(latestTx);
+    }
+
+    /* 4. Folgetermine bestimmen oder Planung löschen -------------------- */
+    const shouldDelete =
+      planning.recurrencePattern === RecurrencePattern.ONCE ||
+      (planning.recurrenceEndType === RecurrenceEndType.DATE &&
+        planning.endDate &&
+        dayjs(executionDate).isSame(dayjs(planning.endDate))) ||
+      (planning.recurrenceEndType === RecurrenceEndType.COUNT &&
+        planning.recurrenceCount !== null &&
+        PlanningService.calculateNextOccurrences(
+          planning,
+          dayjs(executionDate).add(1, 'day').format('YYYY-MM-DD'),
+          dayjs(executionDate).add(10, 'year').format('YYYY-MM-DD')
+        ).length === 0);
+
+    if (shouldDelete) {
+      planningStore.deletePlanningTransaction(planning.id);
+    } else {
+      const nextOcc = PlanningService.calculateNextOccurrences(
+        planning,
+        dayjs(executionDate).add(1, 'day').format('YYYY-MM-DD'),
+        dayjs(executionDate).add(3, 'years').format('YYYY-MM-DD')
+      );
+      if (nextOcc.length > 0) {
+        planningStore.updatePlanningTransaction(planning.id, { startDate: nextOcc[0] });
+      }
+    }
+
     monthlyBalanceStore.calculateMonthlyBalances();
+    debugLog('[PlanningService] executePlanningTransaction', {
+      planningId: planning.id,
+      executionDate,
+      deleted: shouldDelete,
+    });
     return true;
   },
 
@@ -210,29 +244,21 @@ export const PlanningService = {
     const planningStore = usePlanningStore();
     const today = dayjs().startOf('day');
     let executedCount = 0;
-    planningStore.planningTransactions.forEach(planTx => {
+
+    // Kopie, da beim Durchlauf Planungen gelöscht werden können
+    [...planningStore.planningTransactions].forEach((planTx) => {
       if (!planTx.isActive) return;
       const overdueOccurrences = PlanningService.calculateNextOccurrences(
         planTx,
         planTx.startDate,
-        today.format("YYYY-MM-DD")
+        today.format('YYYY-MM-DD')
       );
-      overdueOccurrences.forEach(dateStr => {
-        if (dayjs(dateStr).isBefore(today) || dayjs(dateStr).isSame(today)) {
+      overdueOccurrences.forEach((dateStr) => {
+        if (dayjs(dateStr).isSameOrBefore(today)) {
           const success = PlanningService.executePlanningTransaction(planTx.id, dateStr);
-          if (success) {
-            executedCount++;
-          }
+          if (success) executedCount++;
         }
       });
-      const nextOccurrences = PlanningService.calculateNextOccurrences(
-        planTx,
-        today.add(1, 'day').format("YYYY-MM-DD"),
-        today.add(365, 'day').format("YYYY-MM-DD")
-      );
-      if (nextOccurrences.length > 0) {
-        PlanningService.updatePlanningTransaction(planTx.id, { startDate: nextOccurrences[0] });
-      }
     });
     return executedCount;
   },

@@ -24,6 +24,7 @@ import { TransactionService } from "@/services/TransactionService"; // Service i
 import { Icon } from "@iconify/vue";
 import { debugLog } from "@/utils/logger";
 import MonthSelector from "../components/ui/MonthSelector.vue";
+import { AccountService } from "@/services/AccountService";
 
 // Stores
 const accountStore = useAccountStore();
@@ -47,7 +48,7 @@ const selectedTransaction = ref<any>(null);
 
 //Computed
 const accountGroups = computed(() => accountStore.accountGroups);
-const totalBalance = computed(() => accountStore.totalBalance);
+const totalBalance = computed(() => AccountService.getTotalBalance());
 
 // Suchbegriff über den SearchStore
 const searchQuery = computed({

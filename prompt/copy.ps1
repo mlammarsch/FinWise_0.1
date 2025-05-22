@@ -29,94 +29,126 @@ $excludeFiles = @(
 )
 
 $searchFiles = @(
-    # ### Prompt
-    "prompt\sytemprompt.md",
 
-    # ### Account
-    "src\components\account\*.vue",
-    "src\services\AccountService.ts",
-    "src\stores\accountStore.ts",
-    "src\views\AccountsView.vue",
+    # ### prompt
+    #"prompt\sytemprompt.md",
 
-    # ### Planning
-    #"src\components\planning\PlanningTransactionForm.vue",
-    # "src\components\rules\RuleForm.vue",
-    #"src\stores\planningStore.ts",
-    #"src\services\PlanningService.ts",
-    # "src\stores\ruleStore.ts",
-    #"src\views\PlanningView.vue",
+    # ### components\account
+    #"src\components\account\AccountCard.vue",
+    #"src\components\account\AccountForm.vue",
+    #"src\components\account\AccountGroupCard.vue",
+    #"src\components\account\AccountGroupForm.vue",
+    #"src\components\account\AccountReconcileModal.vue",
 
-    # ### Transaction
-    "./src/components/transaction/TransactionCard.vue",
-    "src\components\transaction\CategoryTransactionList.vue",
-    "src\components\transaction\TransactionForm.vue",
-    "src\components\transaction\TransactionList.vue",
-    "src\services\TransactionService.ts",
-    "src\stores\transactionStore.ts",
-    "src\views\TransactionsView.vue",
-
-    # ### Recipients
-    # "src\stores\recipientStore.ts",
-
-    # ### Category - Budget
-    #"src\components\budget\BudgetMonthCard.vue",
+    # ### components\budget
+    #"src\components\budget\BudgetCard.vue",
     #"src\components\budget\BudgetCategoryColumn.vue",
+    #"src\components\budget\BudgetMonthCard.vue",
     #"src\components\budget\BudgetMonthHeaderCard.vue",
     #"src\components\budget\CategoryForm.vue",
     #"src\components\budget\CategoryTransferModal.vue",
+
+    # ### components\planning
+    #"src\components\planning\AccountForecastChart.vue",
+    #"src\components\planning\CategoryForecastChart.vue",
+    "src\components\planning\PlanningTransactionForm.vue",
+
+    # ### components\rules
+    #"src\components\rules\RuleForm.vue",
+
+    # ### components\transaction
+    #"src\components\transaction\CategoryTransactionList.vue",
+    #"src\components\transaction\TransactionCard.vue",
+    #"src\components\transaction\TransactionDetailModal.vue",
+    "src\components\transaction\TransactionForm.vue",
+    #"src\components\transaction\TransactionList.vue",
+
+    # ### components\ui
+    #"src\components\ui\BadgeSoft.vue",
+    #"src\components\ui\ButtonGroup.vue",
+    #"src\components\ui\ColorPicker.vue",
+    #"src\components\ui\ConfirmationModal.vue",
+    #"src\components\ui\CurrencyDisplay.vue",
+    #"src\components\ui\CurrencyInput.vue",
+    #"src\components\ui\DatePicker.vue",
+    #"src\components\ui\DateRangePicker.vue",
+    #"src\components\ui\MainNavigation.vue",
+    #"src\components\ui\MonthSelector.vue",
+    #"src\components\ui\PagingComponent.vue",
+    #"src\components\ui\PagingYearComponent.vue",
+    #"src\components\ui\SearchableSelect.vue",
+    #"src\components\ui\SearchableSelectLite.vue",
+    #"src\components\ui\SearchGroup.vue",
+    #"src\components\ui\SelectAccount.vue",
+    #"src\components\ui\SelectCategory.vue",
+    #"src\components\ui\SelectRecipient.vue",
+    #"src\components\ui\TagSearchableDropdown.vue",
+    #"src\components\ui\ThemeToggle.vue",
+
+    # ### layouts
+    #"src\layouts\AppLayout-prod.vue",
+    #"src\layouts\AppLayout.vue",
+    #"src\layouts\test_flex.vue",
+    #"src\layouts\tpl-2rows.vue",
+
+    # ### mock
+    #"src\mock\seed-copy.ts",
+    #"src\mock\seed.ts",
+
+    # ### router
+    #"src\router\index.ts",
+
+    # ### services
+    #"src\services\AccountService.ts",
     #"src\services\BudgetService.ts",
     #"src\services\CategoryService.ts",
+    #"src\services\DataService.ts",
+    #"src\services\index.ts",
+    #"src\services\PlanningService.ts",
+    #"src\services\ReconciliationService.ts",
+    #"src\services\TransactionService.ts",
+
+    # ### stores
+    #"src\stores\accountStore.ts",
     #"src\stores\categoryStore.ts",
+    #"src\stores\monthlyBalanceStore.ts",
+    #"src\stores\planningStore.ts",
+    #"src\stores\recipientStore.ts",
+    #"src\stores\reconciliationStore.ts",
+    #"src\stores\ruleStore.ts",
+    #"src\stores\searchStore.ts",
+    #"src\stores\settingsStore.ts",
+    #"src\stores\statisticsStore.ts",
+    #"src\stores\tagStore.ts",
+    #"src\stores\themeStore.ts",
+    #"src\stores\transactionFilterStore.ts",
+    #"src\stores\transactionStore.ts",
+
+    # ### types
+    #"src\types\index.ts",
+
+    # ### utils
+    #"src\utils\formatters.ts",
+    #"src\utils\logger.ts",
+    #"src\utils\runningBalances.ts",
+
+    # ### views
+    #"src\views\AccountsView.vue",
     #"src\views\BudgetsView.vue",
     #"src\views\BudgetsView2.vue",
+    #"src\views\DashboardView.vue",
+    "src\views\PlanningView.vue"
+    #"src\views\SettingsView.vue",
+    #"src\views\StatisticsView.vue",
+    #"src\views\TransactionsView.vue",
 
-    # ### Tags
-    # "src\stores\tagStore.ts",
-
-    # ### Admin
-    # "src\layouts\AppLayout.vue",
-    #  "src\views\SettingsView.vue",
-    "src\views\admin\AdminAccountsView.vue",
-    "src\views\admin\AdminCategoriesView.vue",
+    # ### views\admin
+    #"src\views\admin\AdminAccountsView.vue",
+    #"src\views\admin\AdminCategoriesView.vue",
     #"src\views\admin\AdminPlanningView.vue",
-    # "src\views\admin\AdminRecipientsView.vue",
-    # "src\views\admin\AdminRulesView.vue",
-
-    # ### Components (UI)
-    # "./src/components/ui/PagingComponent.vue",
-    # "src\components\ui\*.vue",
-    # "src\components\ui\CurrencyInput.vue",
-    # "src\components\ui\MonthSelector.vue",
-    # "src\components\ui\PagingYearComponent.vue",
-    # "src\components\ui\SearchGroup.vue",
-    # "src\components\ui\SelectAccount.vue",
-    # "src\components\ui\SelectCategory.vue",
-    # "src\components\ui\SelectRecipient.vue",
-    # "src\components\ui\TagSearchableDropdown.vue",
-    # "src\components\ui\SearchableSelect.vue",
-    # "src\components\ui\MainNavigation.vue",
-
-    # ### Services & Stores (Allgemein)
-    #"src\services\*.ts",
-    #"src\stores\*.ts",
-
-    # ### Sonstiges
-    # "src\mock\seed.ts",
-    "src\stores\monthlyBalanceStore.ts",
-    "src\stores\reconciliationStore.ts",
-    "src\services\ReconciliationService.ts",
-    "src\types\index.ts",
-    #"src\utils\*.ts",
-    "src\utils\accountTransfers.ts",
-    "src\utils\categoryTransfer.ts",
-    # "src\utils\formatters.ts",
-    # "src\utils\logger.ts",
-    "src\utils\runningBalances.ts",
-    # "*.vue",
-    # "src\main.ts",
-    # "src\stores\settingsStore.ts",
-    "*.ts"
-    # "src\views\*.vue"
+    #"src\views\admin\AdminRecipientsView.vue",
+    #"src\views\admin\AdminRulesView.vue",
+    #"src\views\admin\AdminTagsView.vue"
 )
 
 $output = @()
